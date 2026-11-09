@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0";   // version unique de l'app (badge + footer la lisent) — v4.0 : onglet SBF 120
+  var VERSION = "4.0.3";   // version unique de l'app (badge + footer la lisent) — v4.0.3 : repli TradingView + fix validateur picks
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)

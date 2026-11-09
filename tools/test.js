@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0");
+  EQ(RI.VERSION, "4.0.3");
 });
 
 // ---------- parse FR (fixture réelle) ----------
