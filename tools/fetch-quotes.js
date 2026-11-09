@@ -142,11 +142,99 @@ async function fetchQuotes(sb, opts) {
   };
 }
 
+// ---------- repli TradingView (quand Yahoo sature en 429 — rafales constatées le 09/11/2026) ----------
+// Le scanner public scanner.tradingview.com ne demande ni clé ni cookie et couvre Euronext Paris,
+// en différé ~15 min comme Yahoo. Colonnes vérifiées le 09/11/2026 : close, change,
+// price_earnings_ttm, dividends_yield_current, price_book_ratio, market_cap_basic répondent ;
+// price_earnings_forecast_fy0 reste null sur EURONEXT (→ fper null, l'UI affiche « — »).
+// Limites honnêtes : ~8/120 tickers absents du scanner (MT, SOLB, TF1…) → missing[] ;
+// le SBF 120 n'y existe pas → indice de repli = CAC 40 (EURONEXT:PX1), nommé dans idx.name
+// (affiché tel quel par l'UI — jamais d'indice CAC 40 déguisé en SBF 120).
+
+var TV_SCAN_URL = "https://scanner.tradingview.com/france/scan";
+var TV_COLUMNS = ["name", "close", "change", "price_earnings_ttm", "price_earnings_forecast_fy0",
+  "dividends_yield_current", "price_book_ratio", "market_cap_basic"];
+
+function tvTicker(y) { return "EURONEXT:" + String(y).replace(/\.PA$/i, ""); }
+function tvNum(v) { return (typeof v === "number" && isFinite(v)) ? v : null; }
+
+async function tvScan(tickers, maxAttempts) {
+  var attempts = maxAttempts || 3;
+  var lastErr = null;
+  for (var a = 1; a <= attempts; a++) {
+    try {
+      var r = await rawFetch(TV_SCAN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Referer": "https://fr.tradingview.com/", "User-Agent": UA },
+        body: JSON.stringify({ symbols: { tickers: tickers, query: { types: [] } }, columns: TV_COLUMNS })
+      });
+      if (r.status !== 200) throw new Error("scanner HTTP " + r.status);
+      var body = JSON.parse(await r.text());
+      if (!body || !Array.isArray(body.data)) throw new Error("réponse scanner inattendue");
+      return body.data;
+    } catch (e) { lastErr = e; await sleep(1500 * a); }
+  }
+  throw new Error("scanner TV en échec (" + tickers.length + " tickers) : " + (lastErr ? lastErr.message : "?"));
+}
+
+async function fetchQuotesTv(sb, opts) {
+  opts = opts || {};
+  if (!sb || !Array.isArray(sb.list) || sb.list.length < 100) throw new Error("sbf120.json invalide (" + (sb && sb.list ? sb.list.length : 0) + " valeurs)");
+  var tickers = sb.list.map(function (e) { return tvTicker(e.y); });
+  var rows = {};
+  for (var i = 0; i < tickers.length; i += 60) {
+    var part = tickers.slice(i, i + 60);
+    var data = await tvScan(part);
+    data.forEach(function (row) { rows[String(row.s).split(":")[1].toUpperCase()] = row.d; });
+    log("[quotes/TV] batch " + (Math.floor(i / 60) + 1) + "/" + Math.ceil(tickers.length / 60) + " : " + data.length + "/" + part.length + " réponses");
+  }
+  var list = [], missing = [];
+  sb.list.forEach(function (e) {
+    var key = String(e.y).replace(/\.PA$/i, "").toUpperCase();
+    var d = rows[key];
+    if (!d || tvNum(d[1]) == null) { missing.push(e.y); return; }
+    list.push({
+      y: e.y, n: e.n, mn: e.mn, g: e.g, isin: e.isin || "",
+      px: d[1], chg: tvNum(d[2]), per: tvNum(d[3]), fper: tvNum(d[4]),
+      dY: tvNum(d[5]), pb: tvNum(d[6]), cap: tvNum(d[7]), t: null
+    });
+  });
+  if (list.length / sb.list.length < (opts.minRatio || 0.9)) {
+    throw new Error("trop peu de réponses TradingView : " + list.length + "/" + sb.list.length + " — quotes.json précédent conservé");
+  }
+  // indice : SBF 120 absent du scanner → repli CAC 40, explicitement nommé (idx.name affiché par l'UI)
+  var idx = null;
+  try {
+    var idxData = await tvScan(["EURONEXT:PX1"]);
+    if (idxData[0] && tvNum(idxData[0].d[1]) != null) {
+      idx = { px: idxData[0].d[1], chg: tvNum(idxData[0].d[2]), t: null,
+        name: "CAC 40 (repli — SBF 120 absent de TradingView)" };
+    }
+  } catch (eIdx) { log("[quotes/TV] indice indisponible : " + eIdx.message); }
+  return {
+    updated: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+    source: "TradingView (repli — Yahoo indisponible), Euronext en différé ~15 min",
+    ok: true,
+    n: list.length,
+    missing: missing,
+    idx: idx,
+    list: list
+  };
+}
+
 async function main() {
   var dest = path.join(__dirname, "..", "quotes.json");
   try {
     var sb = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "sbf120.json"), "utf8"));
-    var out = await fetchQuotes(sb, {});
+    var out;
+    try {
+      out = await fetchQuotes(sb, {});
+    } catch (eYahoo) {
+      // Yahoo sature par rafales (429) : repli TradingView plutôt qu'un relevé vide.
+      log("[quotes] Yahoo en échec (" + eYahoo.message + ") — repli TradingView");
+      out = await fetchQuotesTv(sb, {});
+      log("[quotes] relevé TradingView OK : " + out.n + " valeurs");
+    }
     fs.writeFileSync(dest, JSON.stringify(out));
     log("[quotes] écrit : " + out.n + " valeurs" + (out.missing.length ? " (manquantes : " + out.missing.join(", ") + ")" : "") + " -> " + dest);
   } catch (e) {
@@ -156,4 +244,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests };
+module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker };
