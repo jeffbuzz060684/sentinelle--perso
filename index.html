@@ -168,6 +168,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       <div class="stat"><div class="v" id="sbN">—</div><div class="l">valeurs cotées</div></div>
       <div class="stat"><div class="v" id="sbRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
       <div class="stat"><div class="v" id="sbSrc">—</div><div class="l">source des cotes</div></div>
+      <div class="stat"><div class="v" id="sbComp">—</div><div class="l">composition (univers)</div></div>
     </div>
     <div class="card hidden" id="sbBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
     <div class="card filters">
@@ -178,7 +179,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         </div>
         <input type="search" id="sq" placeholder="🔎 valeur du SBF 120…" aria-label="Rechercher">
       </div>
-      <p class="mut">Percentiles internes à l’indice : PER 50 % · rendement 30 % · P/B 20 %. Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. La vue 🔀 ajoute le bonus initiés FR (clusters 30 j : +15/10/4 selon le niveau). Outil de tri, pas un conseil.</p>
+      <p class="mut">Percentiles internes : <b>par secteur</b> quand ≥ 8 pairs du même secteur sont cotés (données TradingView), sinon sur tout l’indice. Pondération PER 50 % · rendement 30 % · P/B 20 % — le score affiche sa base (k/3 métriques) et son référentiel (vs secteur ou vs indice). Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. La vue 🔀 ajoute le bonus initiés FR (clusters 30 j : +15/10/4 selon le niveau). Outil de tri, pas un conseil.</p>
     </div>
     <div id="sbList"></div>
   </div><!-- /viewSbf -->
@@ -668,7 +669,15 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     $("sbRel").textContent = q.updated ? String(q.updated).slice(11, 16) + " UTC" : "—";
     // v4.0.4 : transparence totale — le fournisseur réel des cotes est affiché (Yahoo, ou repli TradingView)
     $("sbSrc").textContent = (q.source ? (String(q.source).indexOf("TradingView") > -1 ? "TradingView" : "Yahoo") : "—");
+    // v4.0.5 : âge de la COMPOSITION (l'univers peut être périmé alors que les cours sont frais)
     var msgs = [];
+    if (q.sbUpdated && !isNaN(new Date(q.sbUpdated).getTime())) {
+      var sbAge = Math.floor((Date.now() - new Date(q.sbUpdated).getTime()) / 86400000);
+      $("sbComp").textContent = RI.isoToDmY(String(q.sbUpdated).slice(0, 10)) + " (" + sbAge + " j)";
+      if (sbAge > 90) msgs.push("⚠️ <b>composition ancienne</b> — univers du " + esc(RI.isoToDmY(String(q.sbUpdated).slice(0, 10))) + " (" + sbAge + " j) : vérifier les mouvements d'indice.");
+    } else {
+      $("sbComp").textContent = "—";
+    }
     if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
     if (q.missing && q.missing.length) msgs.push("⚠️ " + q.missing.length + " valeur" + (q.missing.length > 1 ? "s" : "") + " sans cote (" + esc(q.missing.slice(0, 6).join(", ")) + (q.missing.length > 6 ? "…" : "") + ").");
     var sb = $("sbBanner");
@@ -699,6 +708,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         '<div class="t">' +
         '<div class="soc"><span style="color:var(--mut);font-size:11px;font-weight:500">' + (i + 1) + '</span> ' + esc(e.n) +
         ' <span class="tk">' + esc(e.mn) + '</span> <span class="gb">' + sbGroupLabel(e.g) + '</span>' +
+        (e.approx ? ' <span class="gb" title="Ticker résolu approximativement (correspondance de nom incertaine) — cours à vérifier avant toute décision">≈ à vérifier</span>' : "") +
         (e.ins > 0 ? ' <span class="lvl l' + e.insLvl + '" title="Initiés FR en accumulation sur 30 j (vue 🔰)">' + (e.insLvl >= 2 ? "🔥" : "×2") + " +" + e.ins + "</span>" : "") +
         "</div>" +
         '<div class="meta"><span>cours <b>' + esc(RI.fmtNum(e.px)) + ' €</b> <span class="' + (up ? "up" : (dn ? "dn" : "")) + '">' + esc(RI.fmtPct(e.chg)) + "</span></span>" +
@@ -707,12 +717,13 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         " · projeté " + (e.fper != null ? esc(String(Math.round(e.fper * 100) / 100).replace(".", ",")) : "—") +
         " · rendement " + (e.dY != null ? esc(String(Math.round(e.dY * 100) / 100).replace(".", ",")) + " %" : "—") +
         " · P/B " + (e.pb != null ? esc(String(Math.round(e.pb * 100) / 100).replace(".", ",")) : "—") +
+        (e.sec ? " · secteur " + esc(e.sec) : "") +
         ' · <a href="' + esc(sbQuoteUrl(e)) + '" target="_blank" rel="noopener">cote ↗</a>' +
         "</div></div>" +
         '<div class="sbsc">' + (sc == null
           ? '<span title="Pas de bénéfice net sur les 4 derniers trimestres (PER indisponible) — hors classement valorisation">—</span>'
-          : "<b>" + sc + "</b>") +
-        (isX && e.ins > 0 ? "<small>+" + e.ins + " initiés</small>" : "<small>" + (isX ? "score + initiés" : "/100") + "</small>") +
+          : '<b title="Score de valorisation : PER 50 % · rendement 30 % · P/B 20 % — base ' + (e.vBase || 0) + "/3 métriques · classement " + (e.vMode === "sector" ? "vs pairs du même secteur (≥ 8 cotés)" : "vs tout l’indice") + '">' + sc + "</b>") +
+        (isX && e.ins > 0 ? "<small>+" + e.ins + " initiés</small>" : "<small>" + (isX ? "score + initiés" : ((e.vBase || 0) + "/3 · " + (e.vMode === "sector" ? "vs secteur" : "vs indice"))) + "</small>") +
         "</div>" +
         "</div></div>"
       );

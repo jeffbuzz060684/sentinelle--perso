@@ -138,7 +138,7 @@ async function resolveYahoo(name) {
     if (!/^[A-Z0-9]{1,6}\.PA$/.test(sym)) continue;
     var qn = RI.normName(q.shortname || q.longname || "");
     if (!fallback) fallback = sym;
-    if (qn && (qn.indexOf(norm) >= 0 || norm.indexOf(qn) >= 0)) return { y: sym };
+    if (qn && (qn.indexOf(norm) >= 0 || norm.indexOf(qn) >= 0)) return { y: sym, approx: false };
   }
   return fallback ? { y: fallback, approx: true } : null;
 }
@@ -181,7 +181,7 @@ async function buildSbf120() {
   async function addGroup(items, group) {
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
-      var mn = mnByNorm[RI.normName(it.label)], isin = "";
+      var mn = mnByNorm[RI.normName(it.label)], isin = "", approx = false;
       if (!mn) {
         var eur = euronextFromWikitext(wikitexts[it.page]);
         if (eur) { mn = eur.mn; isin = eur.isin; }
@@ -189,11 +189,12 @@ async function buildSbf120() {
           var r = await resolveYahoo(it.label);
           if (!r) { errors.push("« " + it.label + " » : aucun ticker trouvé (ni infobox Wikipédia, ni Yahoo)"); continue; }
           mn = r.y.replace(/\.PA$/, "");
-          log("[sbf120] ⚠ « " + it.label + " » résolu via Yahoo search : " + r.y + " — à vérifier");
+          approx = r.approx === true;
+          log("[sbf120] ⚠ « " + it.label + " » résolu via Yahoo search : " + r.y + (approx ? " (correspondance approximative)" : "") + " — à vérifier");
           await sleep(400);
         }
       }
-      entries.push({ n: it.label, mn: mn, y: mn + ".PA", g: group, disp: it.label, isin: isin });
+      entries.push({ n: it.label, mn: mn, y: mn + ".PA", g: group, disp: it.label, isin: isin, approx: approx });
     }
   }
   await addGroup(g40, "cac40");
@@ -232,7 +233,7 @@ async function buildSbf120() {
     updated: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
     source: "Wikipédia FR (navbox CAC 40/Next 20/Mid 60, révision indices 22/12/2025 ; mnémoniques table CAC 40 + infobox {{Euronext}})",
     counts: c,
-    list: entries.map(function (e) { return { n: e.n, y: e.y, mn: e.mn, g: e.g, disp: e.disp, isin: e.isin || "" }; })
+    list: entries.map(function (e) { return { n: e.n, y: e.y, mn: e.mn, g: e.g, disp: e.disp, isin: e.isin || "", approx: e.approx === true ? true : undefined }; })
   };
 }
 

@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.4");
+  EQ(RI.VERSION, "4.0.5");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -800,7 +800,11 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("sentinelle-perso-quotes-v4") > -1, "clé de cache localStorage des cotes");
     A(h.indexOf("refreshQuotes") > -1, "rafraîchissement des cotes au chargement");
     A(h.indexOf("différé ≈ 15 min") > -1, "mention honnête du différé (pas de temps réel officiel payant)");
-    A(h.indexOf("Percentiles internes à l’indice") > -1, "note méthodo dans la page");
+    A(h.indexOf("Percentiles internes") > -1 && h.indexOf("par secteur") > -1, "note méthodo dans la page (secteur + indice)");
+    A(h.indexOf("k/3 métriques") > -1, "note : base du score explicite");
+    A(h.indexOf("id=\"sbComp\"") > -1, "stat âge de la composition (univers)");
+    A(h.indexOf("≈ à vérifier") > -1, "badge approx visible sur les tickers approximatifs");
+    A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
     A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
   });
   T("rankPct : percentiles, plus bas = 100, exclusion des non positifs", function () {
@@ -1461,6 +1465,44 @@ function TA(name, fn) {
       EQ(q.n, 100, "100 cotes via TradingView");
     });
   });
+  TA("v4.0.5 valScores : percentiles PAR SECTEUR (≥ 8 pairs) ; secteur trop petit ou absent → vs indice ; vBase/vMode", function () {
+    var l = [];
+    for (var i = 0; i < 8; i++) l.push({ n: "B" + i, per: 10 + 2 * i, sec: "Banques" }); // 8 → mode secteur
+    for (var j = 0; j < 7; j++) l.push({ n: "E" + j, per: 5 + j, sec: "Énergie" });     // 7 → trop petit → index
+    l.push({ n: "X", per: 40 });                                                        // sans secteur → index
+    var s = RI.valScores(l);
+    A(s[0].vMode === "sector" && s[7].vMode === "sector", "8 banques → classées vs secteur");
+    A(s[8].vMode === "index" && s[14].vMode === "index", "secteur de 7 (< 8) → vs indice");
+    EQ(s[15].vMode, "index", "sans secteur → vs indice");
+    EQ(s[0].pPer, 100, "PER 10 = le moins cher DES BANQUES → 100 (l'Énergie à 5 n'est pas dans le pool)");
+    EQ(s[7].pPer, 0, "PER 24 = le plus cher des banques → 0");
+    EQ(s[8].pPer, 100, "Énergie PER 5 = le moins cher de TOUTE la liste → 100 en mode indice");
+    EQ(s[0].vBase, 1, "une seule métrique (per) → base 1/3");
+    EQ(s[0].score, 100, "score renormalisé sur le PER seul");
+  });
+  TA("v4.0.5 fetchQuotesTv : secteur TradingView (d[8]) + sbUpdated reportés dans le relevé", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      var body = JSON.parse(opts.body);
+      var out = body.symbols.tickers.map(function (t) {
+        return t === "EURONEXT:PX1"
+          ? { s: t, d: ["PX1", 8229.14, 1.07] }
+          : { s: t, d: [t.split(":")[1], 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9, "Consumer Non-Durables"] };
+      });
+      return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+    });
+    return FQ.fetchQuotesTv(sb, {}).then(function (q) {
+      EQ(q.sbUpdated, "2026-01-01T00:00:00Z", "sbUpdated = date de la composition propagée");
+      A(q.list.length > 0 && q.list[0].sec === "Consumer Non-Durables", "secteur TV reporté sur les lignes");
+    });
+  });
+  T("v4.0.5 build-sbf120/fetch-quotes : le marqueur approx n'est plus perdu en route", function () {
+    var b = fs.readFileSync(__dirname + "/../tools/build-sbf120.js", "utf8");
+    A(b.indexOf("approx = r.approx === true") > -1, "addGroup relit approx du resolveur");
+    A(b.indexOf("approx: e.approx === true ? true : undefined") > -1, "assemblage final garde approx (sbf120.json)");
+    var f = fs.readFileSync(__dirname + "/../tools/fetch-quotes.js", "utf8");
+    A(f.indexOf("approx: e.approx === true ? true : undefined") > -1, "relevés quotes.json gardent approx (Yahoo + TV)");
+  });
   TA("v4.0.4 ageMinutesOf : âge en minutes ; absent/invalide → null (garde anti-doublon)", function () {
     EQ(FQ.ageMinutesOf(null), null);
     EQ(FQ.ageMinutesOf("pas une date"), null);
@@ -1482,7 +1524,7 @@ function TA(name, fn) {
       ] }));
     });
     return SB2.resolveYahoo("Exosens").then(function (r) {
-      EQ(r, { y: "EXENS.PA" }, "match par nom, symbole .PA valide");
+      EQ(r, { y: "EXENS.PA", approx: false }, "match par nom, symbole .PA valide");
     });
   });
   TA("build-sbf120 : e2e fetch injecté — navbox 40/20/60 + table CAC 40 + infobox {{Euronext}} + contrôles", function () {

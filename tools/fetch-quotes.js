@@ -136,7 +136,7 @@ async function fetchQuotes(sb, opts) {
     var q = bySym[e.y];
     if (!q || q.px == null) { missing.push(e.y); return; }
     list.push({
-      y: e.y, n: q.n, mn: e.mn, g: e.g, isin: e.isin || "",
+      y: e.y, n: q.n, mn: e.mn, g: e.g, isin: e.isin || "", approx: e.approx === true ? true : undefined,
       px: q.px, chg: q.chg, per: q.per, fper: q.fper, dY: q.dY, pb: q.pb, cap: q.cap, t: q.t
     });
   });
@@ -152,6 +152,7 @@ async function fetchQuotes(sb, opts) {
     ok: true,
     n: list.length,
     missing: missing,
+    sbUpdated: sb.updated || null,
     idx: idx && idx.px != null ? { px: idx.px, chg: idx.chg, t: idx.t } : null,
     list: list
   };
@@ -168,7 +169,7 @@ async function fetchQuotes(sb, opts) {
 
 var TV_SCAN_URL = "https://scanner.tradingview.com/france/scan";
 var TV_COLUMNS = ["name", "close", "change", "price_earnings_ttm", "price_earnings_forecast_fy0",
-  "dividends_yield_current", "price_book_ratio", "market_cap_basic"];
+  "dividends_yield_current", "price_book_ratio", "market_cap_basic", "sector"];
 
 function tvTicker(y) { return "EURONEXT:" + String(y).replace(/\.PA$/i, "").toUpperCase(); } // le scanner TV exige des MAJUSCULES
 function tvNum(v) { return (typeof v === "number" && isFinite(v)) ? v : null; }
@@ -210,9 +211,10 @@ async function fetchQuotesTv(sb, opts) {
     var d = rows[key];
     if (!d || tvNum(d[1]) == null) { missing.push(e.y); return; }
     list.push({
-      y: e.y, n: e.n, mn: e.mn, g: e.g, isin: e.isin || "",
+      y: e.y, n: e.n, mn: e.mn, g: e.g, isin: e.isin || "", approx: e.approx === true ? true : undefined,
       px: d[1], chg: tvNum(d[2]), per: tvNum(d[3]), fper: tvNum(d[4]),
-      dY: tvNum(d[5]), pb: tvNum(d[6]), cap: tvNum(d[7]), t: null
+      dY: tvNum(d[5]), pb: tvNum(d[6]), cap: tvNum(d[7]), t: null,
+      sec: (typeof d[8] === "string" && d[8]) ? d[8] : null
     });
   });
   if (list.length / sb.list.length < (opts.minRatio || 0.9)) {
@@ -239,6 +241,7 @@ async function fetchQuotesTv(sb, opts) {
     ok: true,
     n: list.length,
     missing: missing,
+    sbUpdated: sb.updated || null,
     idx: idx,
     list: list
   };

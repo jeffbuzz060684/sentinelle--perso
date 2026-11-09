@@ -44,6 +44,7 @@ var q = load("quotes.json");
 if (q) {
   if (!q || typeof q !== "object") fail("quotes.json : pas un objet");
   if (!/^\d{4}-\d{2}-\d{2}T/.test(q.updated || "")) fail("quotes.json : updated absent ou non ISO");
+  if (q.sbUpdated !== undefined && q.sbUpdated !== null && !/^\d{4}-\d{2}-\d{2}T/.test(q.sbUpdated)) fail("quotes.json : sbUpdated non ISO");
   if (typeof q.ok !== "boolean") fail("quotes.json : ok absent (bool attendu)");
   if (!Array.isArray(q.list)) fail("quotes.json : list pas un tableau");
   if (!Array.isArray(q.missing)) fail("quotes.json : missing pas un tableau");

@@ -4,21 +4,19 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  # v4.0.1 : contents: write pour le secours cotations — le job deploy commit quotes.json
-  # quand le relevé du déploiement réussit (un push au GITHUB_TOKEN ne re-déclenche AUCUN
-  # workflow : pas de boucle, et le cron insiders fait un pull --rebase).
-  contents: write
-  pages: write
-  id-token: write
+  # v4.0.5 : permissions au plus juste, PAR JOB (plus rien au niveau workflow).
+  contents: read
 concurrency:
   group: "pages"
   cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # harnais : lecture du code uniquement
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Harnais de tests (bloquant)
@@ -28,12 +26,19 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      # v4.0.1 : contents: write pour le secours cotations — ce job commit quotes.json
+      # quand le relevé du déploiement réussit (un push au GITHUB_TOKEN ne re-déclenche
+      # AUCUN workflow : pas de boucle, et le cron insiders fait un pull --rebase).
+      contents: write
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Générer les icônes PNG + construire dist/
@@ -76,10 +81,10 @@ jobs:
       - name: Valider quotes.json + sbf120.json
         run: |
           cd dist && node ../tools/validate-quotes.js
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: "dist"
       - name: Déployer
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

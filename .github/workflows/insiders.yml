@@ -8,19 +8,20 @@ on:
     # (le dernier run existant s'arrête à 18:07-19:07 ET, selon la saison)
     - cron: "7 2 * * 2-6"
   workflow_dispatch:
-permissions:
-  contents: write
-  actions: write
+# v4.0.5 : permissions au niveau JOB uniquement (rien au niveau workflow)
 concurrency:
   group: "insiders"
   cancel-in-progress: false
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit des relevés data.json/state.json
+      actions: write # gh workflow run pages.yml (redéploiement après relevé)
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Contact SEC défini ? (exigé par la SEC dans le User-Agent)

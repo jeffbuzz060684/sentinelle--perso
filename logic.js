@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.4";   // version unique de l'app (badge + footer la lisent) — v4.0.4 : timeouts réseau, source des cotes affichée, tests du repli, anti-double collecte
+  var VERSION = "4.0.5";   // version unique de l'app (badge + footer la lisent) — v4.0.5 : score PAR SECTEUR (TradingView), base du score explicite (vBase/vMode), marqueur approx propagé, âge de la composition
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -641,23 +641,70 @@ var RI = (function () {
     return pcts;
   }
 
-  // ajoute pPer/pDY/pPb/score à une copie de chaque ligne ; score null sans PER exploitable.
+  // ajoute pPer/pDY/pPb/score/vMode/vBase à une copie de chaque ligne ; score null sans PER exploitable.
+  // v4.0.5 : percentiles PAR SECTEUR quand le relevé fournit le secteur (colonne TradingView)
+  // et que le secteur compte ≥ 8 valeurs cotées — comparer des pairs enfin. Les lignes sans
+  // secteur utilisable retombent en mode « index » : percentiles sur TOUTE la liste, comme
+  // historiquement. vBase (0-3) rend la base du score explicite : un score renormalisé sur
+  // une seule métrique n'a pas la même fiabilité qu'un score sur les trois.
   function valScores(list) {
-    var pPer = rankPct(list, "per", true);
-    var pDY = rankPct(list, "dY", false);
-    var pPb = rankPct(list, "pb", true);
     var W = { per: 0.5, dY: 0.3, pb: 0.2 };
+    var MIN_SEC = 8;
+    var bySec = {};
+    for (var i = 0; i < list.length; i++) {
+      var sec = (typeof list[i].sec === "string" && list[i].sec) ? list[i].sec : null;
+      if (sec) (bySec[sec] = bySec[sec] || []).push(i);
+    }
+    var res = []; // res[i] = { pPer, pDY, pPb, mode }
+    for (var r0 = 0; r0 < list.length; r0++) res[r0] = null;
+    function pctsOf(sub) {
+      return { pPer: rankPct(sub, "per", true), pDY: rankPct(sub, "dY", false), pPb: rankPct(sub, "pb", true) };
+    }
+    // secteurs assez peuplés → classement interne au secteur
+    var sectorDone = {};
+    for (var s2 in bySec) {
+      if (!Object.prototype.hasOwnProperty.call(bySec, s2)) continue;
+      if (bySec[s2].length < MIN_SEC) continue;
+      var sub = bySec[s2].map(function (j) { return list[j]; });
+      var p = pctsOf(sub);
+      bySec[s2].forEach(function (j, k) {
+        res[j] = {
+          pPer: p.pPer[k] != null ? p.pPer[k] : null,
+          pDY: p.pDY[k] != null ? p.pDY[k] : null,
+          pPb: p.pPb[k] != null ? p.pPb[k] : null,
+          mode: "sector"
+        };
+        sectorDone[j] = 1;
+      });
+    }
+    // les autres (secteur absent ou trop petit) → « vs indice » : percentiles sur toute la liste
+    var idxRows = [];
+    for (var i2 = 0; i2 < list.length; i2++) if (!sectorDone[i2]) idxRows.push(i2);
+    if (idxRows.length) {
+      var full = pctsOf(list); // clés = index dans la liste complète
+      idxRows.forEach(function (j) {
+        res[j] = {
+          pPer: full.pPer[j] != null ? full.pPer[j] : null,
+          pDY: full.pDY[j] != null ? full.pDY[j] : null,
+          pPb: full.pPb[j] != null ? full.pPb[j] : null,
+          mode: "index"
+        };
+      });
+    }
     return list.map(function (e, i) {
       var s = 0, w = 0;
-      if (pPer[i] != null) { s += W.per * pPer[i]; w += W.per; }
-      if (pDY[i] != null) { s += W.dY * pDY[i]; w += W.dY; }
-      if (pPb[i] != null) { s += W.pb * pPb[i]; w += W.pb; }
+      var p = res[i];
+      if (p.pPer != null) { s += W.per * p.pPer; w += W.per; }
+      if (p.pDY != null) { s += W.dY * p.pDY; w += W.dY; }
+      if (p.pPb != null) { s += W.pb * p.pPb; w += W.pb; }
       var o = {};
       for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
-      o.pPer = pPer[i] != null ? pPer[i] : null;
-      o.pDY = pDY[i] != null ? pDY[i] : null;
-      o.pPb = pPb[i] != null ? pPb[i] : null;
-      o.score = (pPer[i] != null && w > 0) ? Math.round(s / w) : null;
+      o.pPer = p.pPer != null ? p.pPer : null;
+      o.pDY = p.pDY != null ? p.pDY : null;
+      o.pPb = p.pPb != null ? p.pPb : null;
+      o.score = (p.pPer != null && w > 0) ? Math.round(s / w) : null;
+      o.vBase = p.pPer != null ? ((p.pPer != null ? 1 : 0) + (p.pDY != null ? 1 : 0) + (p.pPb != null ? 1 : 0)) : 0;
+      o.vMode = p.mode;
       return o;
     });
   }
