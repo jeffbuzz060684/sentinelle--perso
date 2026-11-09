@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.6";   // version unique de l'app (badge + footer la lisent) — v4.0.6 : objectifs de consensus analystes (module v10 financialData), éléments éco/financiers par ligne, vue 🎯 triée par potentiel
+  var VERSION = "4.0.7";   // version unique de l'app (badge + footer la lisent) — v4.0.7 : vue 💎 Opportunité (qualité ROE/marge/croissance/dette × valorisation × point bas 52 s.), bornes 52 s. sur les 2 sources
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -709,6 +709,88 @@ var RI = (function () {
     });
   }
 
+  // ---------- v4.0.7 : qualité + point bas 52 semaines → score 💎 Opportunité ----------
+  // La demande : « investir sur les meilleures actions, meilleur bénéfice/risque, de qualité,
+  // lorsqu'il y a eu un point bas, long terme ». Trois briques mesurables, assemblées en une
+  // HEURISTIQUE DE TRI honnête (jamais validée sur historique indépendant, pas un conseil) :
+  //   qualité 40 %  — ROE 35 % (haut mieux) + marge op. 25 % (haut mieux) + croissance CA 20 %
+  //                    (haut mieux, les négatifs PARTICIPENT) + dette/CP 20 % (bas mieux).
+  //                    Les données viennent du module Yahoo financialData (v4.0.6) : sans
+  //                    fondamentaux, pas de score qualité — on n'invente rien.
+  //   valorisation 30 % — le score 📐 v4.0.5 (percentiles PER/rendement/P/B, par secteur).
+  //   point bas 30 % — position du cours dans la fourchette 52 s. : au plus bas = 100,
+  //                    au plus haut = 0. Disponible sur les DEUX sources (Yahoo v7 et TV).
+  // Un « point bas » n'est pas un plancher : une valeur peut rester en bas de fourchette parce
+  // que le marché a raison de la déprimer (cf. Teleperformance). Le score croise justement
+  // qualité + valorisation pour écarter ce que la baisse punit à tort — sans le garantir.
+
+  // percentile générique pour la qualité : TOUTE valeur finie participe (contrairement à
+  // rankPct qui exclut les non positifs — bon pour PER/PB, faux pour une croissance à -3 %).
+  function rankPctAny(list, field, lowerIsBetter) {
+    var vals = {}, n = 0;
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i][field];
+      if (v == null || !isFinite(v)) continue;
+      vals[i] = v; n++;
+    }
+    var pcts = {};
+    for (var a in vals) {
+      if (!Object.prototype.hasOwnProperty.call(vals, a)) continue;
+      var less = 0;
+      for (var b in vals) {
+        if (!Object.prototype.hasOwnProperty.call(vals, b) || b === a) continue;
+        if (lowerIsBetter ? (vals[b] > vals[a]) : (vals[b] < vals[a])) less++;
+      }
+      pcts[a] = n > 1 ? Math.round((less / (n - 1)) * 100) : 50;
+    }
+    return pcts;
+  }
+
+  // position dans la fourchette 52 s. : 0 = au plus bas, 100 = au plus haut (bornée).
+  // gapLo = écart au plus bas en % (ce que lit l'investisseur : « à +3 % de son plus bas »),
+  // dd52 = écart au plus haut en % (le risque déjà pris).
+  function pos52Of(e) {
+    var lo = e.w52lo, hi = e.w52hi, px = e.px;
+    if (lo == null || hi == null || !(hi > lo) || !(px > 0)) return { pos: null, gapLo: null, dd: null };
+    var pos = Math.max(0, Math.min(100, ((px - lo) / (hi - lo)) * 100));
+    return { pos: Math.round(pos), gapLo: Math.round((px / lo - 1) * 1000) / 10, dd: Math.round((px / hi - 1) * 1000) / 10 };
+  }
+
+  // enrichit la sortie de valScores : qScore (qualité), pos52/gapLo/dd52, oScore (💎).
+  // qScore exigé (≥ 2 métriques) + score 📐 exigé ; pos52 absent → renormalisation 40/30.
+  function oppScores(list) {
+    var W = { roe: 0.35, mOp: 0.25, gRev: 0.2, de: 0.2 };
+    var pRoe = rankPctAny(list, "roe", false);
+    var pOp = rankPctAny(list, "mOp", false);
+    var pRev = rankPctAny(list, "gRev", false);
+    var pDe = rankPctAny(list, "de", true);
+    return list.map(function (e, i) {
+      var o = {};
+      for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
+      var s = 0, w = 0;
+      if (pRoe[i] != null) { s += W.roe * pRoe[i]; w += W.roe; }
+      if (pOp[i] != null) { s += W.mOp * pOp[i]; w += W.mOp; }
+      if (pRev[i] != null) { s += W.gRev * pRev[i]; w += W.gRev; }
+      if (pDe[i] != null) { s += W.de * pDe[i]; w += W.de; }
+      var used = (pRoe[i] != null ? 1 : 0) + (pOp[i] != null ? 1 : 0) + (pRev[i] != null ? 1 : 0) + (pDe[i] != null ? 1 : 0);
+      o.pRoe = pRoe[i] != null ? pRoe[i] : null;
+      o.pOp = pOp[i] != null ? pOp[i] : null;
+      o.pRev = pRev[i] != null ? pRev[i] : null;
+      o.pDe = pDe[i] != null ? pDe[i] : null;
+      o.qBase = used;
+      o.qScore = (used >= 2 && w > 0) ? Math.round(s / w) : null; // < 2 métriques = pas un avis
+      var p52 = pos52Of(e);
+      o.pos52 = p52.pos; o.gapLo = p52.gapLo; o.dd52 = p52.dd;
+      // composite 💎 : qualité 40 % + valorisation 30 % + (100 - pos52) 30 %
+      var os = 0, ow = 0;
+      if (o.qScore != null) { os += 0.4 * o.qScore; ow += 0.4; }
+      if (e.score != null) { os += 0.3 * e.score; ow += 0.3; }
+      if (o.pos52 != null) { os += 0.3 * (100 - o.pos52); ow += 0.3; }
+      o.oScore = (o.qScore != null && e.score != null && ow > 0) ? Math.round(os / ow) : null;
+      return o;
+    });
+  }
+
   // signaux initiés FR (fenêtre 30 j) indexés par nom normalisé + ISIN → bonus de la vue croisée.
   // « Les initiés achètent pour une raison qu'ils connaissent » : on SURFAIT la valorisation du
   // marché, on ne remplace pas — bonus plafonné (15/10/4 pts par niveau de cluster), jamais un malus.
@@ -767,7 +849,7 @@ var RI = (function () {
   // "obj" = potentiel vs objectif de consensus analystes (upside) — l'avis du marché, pas le nôtre.
   // Les scores null (perte, pas d'objectif) restent en fin de liste — jamais cachés.
   function sbfSort(list, view) {
-    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : (view === "obj" ? "upX" : "score"));
+    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : (view === "obj" ? "upX" : (view === "opp" ? "oScore" : "score")));
     return list.slice().sort(function (a, b) {
       var va = a[key], vb = b[key];
       var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);
@@ -820,7 +902,7 @@ var RI = (function () {
     pickBuyRows: pickBuyRows,
     sellStatsByKey: sellStatsByKey, insiderScoreFor: insiderScoreFor, fundScore: fundScore,
     xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom, picksFromFr: picksFromFr,
-    rankPct: rankPct, valScores: valScores, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct
+    rankPct: rankPct, valScores: valScores, oppScores: oppScores, rankPctAny: rankPctAny, pos52Of: pos52Of, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

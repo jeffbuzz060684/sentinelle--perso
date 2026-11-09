@@ -57,9 +57,11 @@ if (q) {
     if (seenQ[r.y]) fail(w + "doublon ticker " + r.y);
     seenQ[r.y] = true;
     if (!isFinite(r.px) || r.px <= 0) fail(w + "px invalide : " + r.px);
-    ["chg", "per", "fper", "dY", "pb", "cap", "tp", "tpLo", "tpHi", "tpN", "gRev", "gEps", "mOp", "roe", "de"].forEach(function (k) {
+    ["chg", "per", "fper", "dY", "pb", "cap", "tp", "tpLo", "tpHi", "tpN", "gRev", "gEps", "mOp", "roe", "de", "w52lo", "w52hi"].forEach(function (k) {
       if (r[k] !== null && r[k] !== undefined && !isFinite(r[k])) fail(w + k + " invalide : " + r[k]);
     });
+    if (r.w52lo != null && r.w52lo <= 0) fail(w + "plus bas 52 s. non positif : " + r.w52lo);
+    if (r.w52lo != null && r.w52hi != null && !(r.w52hi > r.w52lo)) fail(w + "fourchette 52 s. incohérente (lo " + r.w52lo + " >= hi " + r.w52hi + ")");
     if (r.tp != null && r.tpLo != null && r.tpHi != null && !(r.tpLo <= r.tp && r.tp <= r.tpHi)) fail(w + "objectif hors bornes (tp " + r.tp + ", " + r.tpLo + "-" + r.tpHi + ")");
     if (r.tp != null && r.tp <= 0) fail(w + "objectif non positif : " + r.tp);
     if (!r.n || !r.mn || !r.g) fail(w + "champ n/mn/g manquant");

@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.6");
+  EQ(RI.VERSION, "4.0.7");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -807,6 +807,10 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("≈ à vérifier") > -1, "badge approx visible sur les tickers approximatifs");
     A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
     A(h.indexOf('data-v="obj"') > -1 && h.indexOf("🎯 Objectifs") > -1, "segment 🎯 Objectifs");
+    A(h.indexOf('data-v="opp"') > -1 && h.indexOf("💎 Opportunité") > -1, "segment 💎 Opportunité");
+    A(h.indexOf("🟢 point bas") > -1, "badge point bas 52 s.");
+    A(h.indexOf("qualité 40 %") > -1 && h.indexOf("point bas 30 %") > -1, "note méthodo 💎 : pondérations affichées");
+    A(h.indexOf("Un point bas n’est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
     A(h.indexOf("objectif de consensus des analystes") > -1, "note méthodo : consensus ≠ score maison");
     A(h.indexOf("potentiel vs l'objectif") > -1 || h.indexOf("Potentiel vs objectif") > -1, "potentiel vs objectif expliqué");
     A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
@@ -1506,6 +1510,72 @@ function TA(name, fn) {
     A(b.indexOf("approx: e.approx === true ? true : undefined") > -1, "assemblage final garde approx (sbf120.json)");
     var f = fs.readFileSync(__dirname + "/../tools/fetch-quotes.js", "utf8");
     A(f.indexOf("approx: e.approx === true ? true : undefined") > -1, "relevés quotes.json gardent approx (Yahoo + TV)");
+  });
+  T("v4.0.7 rankPctAny : les négatifs PARTICIPENT (≠ rankPct), tout fini est classé", function () {
+    var l = [{ gRev: 0.05 }, { gRev: -0.02 }, { gRev: 0.01 }];
+    var p = RI.rankPctAny(l, "gRev", false);
+    EQ(p[0], 100, "croissance 5 % = la meilleure");
+    EQ(p[1], 0, "croissance NÉGATIVE participe et finit dernière (rankPct l'aurait exclue)");
+    EQ(p[2], 50, "croissance 1 % au milieu");
+    var d = RI.rankPctAny([{ de: 30 }, { de: 60 }], "de", true);
+    EQ(d[0], 100, "dette 30 % < 60 % → 100 (bas mieux)");
+  });
+  T("v4.0.7 pos52Of : position fourchette 52 s., bornée, écart au plus bas/plus haut", function () {
+    var r = RI.pos52Of({ px: 10, w52lo: 9.5, w52hi: 20 });
+    EQ(r.pos, 5, "(10-9,5)/(20-9,5) = 4,76 → 5");
+    EQ(r.gapLo, 5.3, "+5,3 % au-dessus du plus bas");
+    EQ(r.dd, -50, "-50 % du plus haut");
+    EQ(RI.pos52Of({ px: 25, w52lo: 9.5, w52hi: 20 }).pos, 100, "cours au-dessus du plus haut → borné à 100");
+    A(RI.pos52Of({ px: 10, w52lo: null, w52hi: 20 }).pos === null, "bornes absentes → null");
+    A(RI.pos52Of({ px: 10, w52lo: 20, w52hi: 20 }).pos === null, "fourchette vide (lo = hi) → null");
+  });
+  T("v4.0.7 oppScores : qualité × valorisation × point bas ; exigences et renormalisation", function () {
+    var l = [
+      { n: "A", mn: "A", y: "A.PA", g: "cac40", per: 10, dY: 3, pb: 1, px: 10, w52lo: 9.5, w52hi: 20, roe: 0.2, mOp: 0.15, gRev: 0.05, de: 30 },
+      { n: "B", mn: "B", y: "B.PA", g: "cac40", per: 20, dY: 1, pb: 2, px: 15, w52lo: 10, w52hi: 16, roe: 0.1, mOp: 0.1, gRev: -0.02, de: 60 },
+      { n: "C", mn: "C", y: "C.PA", g: "cac40", per: 15, dY: 2, pb: 1.5, px: 12, w52lo: 11, w52hi: 14 }, // sans fondamentaux
+      { n: "D", mn: "D", y: "D.PA", g: "cac40", px: 5, roe: 0.12 }, // 1 seule métrique qualité, pas de PER
+      { n: "E", mn: "E", y: "E.PA", g: "cac40", per: 12, dY: 2, pb: 1.5, px: 13, roe: 0.18, mOp: 0.12 } // pas de 52 s.
+    ];
+    var val = RI.oppScores(RI.valScores(l));
+    EQ(val[0].qScore, 100, "A : meilleure à tout (ROE, marge, croissance, dette) → qualité 100");
+    EQ(val[0].qBase, 4, "base 4/4");
+    EQ(val[1].qScore, 0, "B : pire à tout → qualité 0");
+    EQ(val[0].score, 100, "A : valorisation 100 (PER/rendt/P/B tous meilleurs)");
+    EQ(val[0].pos52, 5, "A : bas de fourchette 52 s.");
+    EQ(val[0].oScore, 99, "A : 0,4×100 + 0,3×100 + 0,3×(100-5) = 98,5 → 99");
+    EQ(val[1].pos52, 83, "B : (15-10)/(16-10) = 83 % de la fourchette");
+    EQ(val[1].oScore, 5, "B : 0 + 0 + 0,3×(100-83) = 5,1 → 5");
+    A(val[2].oScore === null, "C : pas de fondamentaux → pas de score 💎 (on n'invente rien)");
+    A(val[3].qScore === null, "D : 1 seule métrique qualité → qScore null (pas un avis)");
+    EQ(val[4].qScore, 60, "E : ROE 67 (2 des 3 autres en dessous) + marge 50 → (0,35×67+0,25×50)/0,6 = 59,9 → 60");
+    EQ(val[4].oScore, 56, "E sans 52 s. : (0,4×60 + 0,3×50)/0,7 = 55,7 → 56 (renormalisé)");
+    EQ(RI.sbfSort(val, "opp").map(function (e) { return e.n; }).slice(0, 3), ["A", "E", "B"], "vue 💎 : A puis E puis B, nulls en fin");
+  });
+  T("v4.0.7 quoteRow : bornes 52 s. Yahoo rapportées (fiftyTwoWeekLow/High)", function () {
+    var r = FQ.quoteRow({ symbol: "MC.PA", shortname: "LVMH", regularMarketPrice: 402.45, regularMarketChangePercent: -0.5,
+      trailingPE: 14.9, dividendYield: 6.6, priceToBook: 1.16, marketCap: 2.02e11,
+      fiftyTwoWeekLow: 375.65, fiftyTwoWeekHigh: 654.7 });
+    EQ(r.w52lo, 375.65, "plus bas 52 s.");
+    EQ(r.w52hi, 654.7, "plus haut 52 s.");
+    A(FQ.quoteRow({ symbol: "X.PA", regularMarketPrice: 5 }).w52lo === null, "absentes → null");
+  });
+  TA("v4.0.7 fetchQuotesTv : bornes 52 s. du scanner (d[9]/d[10]) reportées", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      var body = JSON.parse(opts.body);
+      var out = body.symbols.tickers.map(function (t) {
+        return t === "EURONEXT:PX1"
+          ? { s: t, d: ["PX1", 8229.14, 1.07] }
+          : { s: t, d: [t.split(":")[1], 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9, "Finance", 38.2, 61.9] };
+      });
+      return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+    });
+    return FQ.fetchQuotesTv(sb, {}).then(function (q) {
+      EQ(q.list[0].w52lo, 38.2, "plus bas 52 s. TradingView");
+      EQ(q.list[0].w52hi, 61.9, "plus haut 52 s. TradingView");
+      EQ(q.list[0].sec, "Finance", "secteur toujours là");
+    });
   });
   TA("v4.0.6 fetchTargets : URL v10 financialData + objectifs/éléments parsés ; 429 → arrêt immédiat, partiel conservé", function () {
     var calls = 0;

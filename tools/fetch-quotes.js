@@ -187,7 +187,9 @@ function quoteRow(q) {
     pb: num(q.priceToBook),
     cap: num(q.marketCap),
     t: num(q.regularMarketTime),
-    st: q.marketState || null
+    st: q.marketState || null,
+    w52lo: num(q.fiftyTwoWeekLow),
+    w52hi: num(q.fiftyTwoWeekHigh)
   };
 }
 
@@ -250,7 +252,8 @@ async function fetchQuotes(sb, opts) {
 
 var TV_SCAN_URL = "https://scanner.tradingview.com/france/scan";
 var TV_COLUMNS = ["name", "close", "change", "price_earnings_ttm", "price_earnings_forecast_fy0",
-  "dividends_yield_current", "price_book_ratio", "market_cap_basic", "sector"];
+  "dividends_yield_current", "price_book_ratio", "market_cap_basic", "sector",
+  "price_52_week_low", "price_52_week_high"];
 
 function tvTicker(y) { return "EURONEXT:" + String(y).replace(/\.PA$/i, "").toUpperCase(); } // le scanner TV exige des MAJUSCULES
 function tvNum(v) { return (typeof v === "number" && isFinite(v)) ? v : null; }
@@ -295,7 +298,8 @@ async function fetchQuotesTv(sb, opts) {
       y: e.y, n: e.n, mn: e.mn, g: e.g, isin: e.isin || "", approx: e.approx === true ? true : undefined,
       px: d[1], chg: tvNum(d[2]), per: tvNum(d[3]), fper: tvNum(d[4]),
       dY: tvNum(d[5]), pb: tvNum(d[6]), cap: tvNum(d[7]), t: null,
-      sec: (typeof d[8] === "string" && d[8]) ? d[8] : null
+      sec: (typeof d[8] === "string" && d[8]) ? d[8] : null,
+      w52lo: tvNum(d[9]), w52hi: tvNum(d[10])
     });
   });
   if (list.length / sb.list.length < (opts.minRatio || 0.9)) {
