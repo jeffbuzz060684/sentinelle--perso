@@ -14,6 +14,7 @@ PWA installable : achats **et ventes** d'initiés **🇫🇷 AMF (France)** + **
   - User-Agent SEC avec contact réel (`RI_SEC_CONTACT`, secret GitHub), backoff `Retry-After` sur 429/503, `state.json` purgé par date (40 j)
   - service worker **réellement enregistré** (cache `sentinelle-perso-v3.1`)
 - **Signaux (v2)** : détection des sociétés où les initiés **s'accumulent** (≥ 2 achats sur 90 j) — nb d'achats, **nb d'initiés distincts** (🔥🔥 cluster), total, **prix moyen payé par les initiés**, lien cote (Boursorama ISIN / Google Finance ticker), filtre 🆕 « publiés depuis ta dernière visite »
+- **💡 Pistes à étudier (v3.2)** : classement maison sur **/20** = **signal initiés /10** (clusters 🔥, initiés distincts, −2,5 par vente « dure » — ni plan 10b5-1 ni levée) + **fondamentaux /10** (croissance du CA annuel, rentabilité et marge nette des **comptes 10-K** via l'API XBRL officielle de la SEC — sans clé). US uniquement (pas d'équivalent public gratuit pour la France). **Outil de tri pour la recherche, pas un conseil d'achat.** Les pistes sont recalculées par le workflow quand les listes US bougent (sinon 1×/jour) ; si la SEC XBRL est injoignable, les pistes précédentes sont conservées.
 - **Ventes (v3)** : segment 🟢 Achats (défaut) / 🔴 Ventes / les deux, carte « 🔴 Initiés qui vendent » (vendeurs distincts, total, prix moyen vendu) — les ventes US extraites des mêmes Form 4 (zéro requête en plus). ⚠️ Une vente peut être un plan de vente programmé ou une diversification, pas forcément un mauvais signal : les lignes vendues sous plan **⚙ 10b5-1** (déclaré dans le Form 4) ou liées à une levée d'options **🪜** (code M dans le même dépôt) sont taguées comme telles. L'historique US des ventes commence à la v3 (fenêtre FTS 3 j).
 - **Fichiers** : `index.html` (UI), `logic.js` (logique pure partagée navigateur/Node), `sw.js` (PWA, réseau d'abord), `data.json` (données du relevé : `fr`/`us` achats, `frS`/`usS` ventes, `frOk`/`usOk`/`frUpdated`/`usUpdated` état des sources), `state.json` (déduplication US), `tools/` (relevé, harnais, validation, icônes)
 
@@ -26,6 +27,6 @@ node tools/sim-dom.js        # exécuté dans le harnais (chargement complet de 
 node tools/fetch-insiders.js # relevé manuel (RI_BUDGET=800 pour un premier chargement)
 ```
 
-Le harnais couvre aussi le pipeline réseau **sans réseau** : `fetch` injecté pour simuler un 429/500 SEC (accession non marquée), un succès (marquage + tags 10b5-1/levée) et un scraper cassé (canari).
+Le harnais couvre aussi le pipeline réseau **sans réseau** : `fetch` injecté pour simuler un 429/500 SEC (accession non marquée), un succès (marquage + tags 10b5-1/levée), un scraper cassé (canari) et le pipeline **XBRL/fondamentaux** (fixtures company_tickers + companyconcept, 404 en cascade sur les tags de revenus, échec = pistes conservées).
 
 ⚠️ Outil d'information, pas un conseil en investissement. Aucune donnée personnelle dans ce dépôt public.

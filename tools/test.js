@@ -247,6 +247,82 @@ T("v3.1 purgeProcessed : purge par date, entrées legacy datées du jour", funct
   A(out.indexOf("acc-legacy|2026-11-09") > -1, "entrée sans date (legacy) conservée + datée du jour");
 });
 
+// ---------- v3.2 : pistes d'étude — fondamentaux XBRL + scoring ----------
+var XBR = JSON.parse(fs.readFileSync(__dirname + "/fixtures/xbrl-rev-sample.json", "utf8"));
+var XBNI = JSON.parse(fs.readFileSync(__dirname + "/fixtures/xbrl-ni-sample.json", "utf8"));
+T("v3.2 xbrlAnnuals : 10-K uniquement, la valeur avec frame gagne, 10-Q exclus", function () {
+  var a = RI.xbrlAnnuals(XBR);
+  EQ(a.length, 3, "3 exercices annuels");
+  EQ(a[0].end, "2022-12-31");
+  EQ(a[1].end, "2023-12-31");
+  EQ(a[1].val, 100000000, "entrée avec frame CY2023 prioritaire sur le doublon 99999999");
+  EQ(a[2].end, "2024-12-31");
+  EQ(a[2].val, 150000000);
+});
+T("v3.2 fundFromXbrl : croissance, résultat net aligné sur le dernier CA, marge", function () {
+  var f = RI.fundFromXbrl(RI.xbrlAnnuals(XBR), RI.xbrlAnnuals(XBNI));
+  EQ(f.rev, 150000000);
+  EQ(f.revEnd, "2024-12-31");
+  EQ(f.growth, 50, "+50 % vs N-1");
+  EQ(f.ni, 30000000, "NI du dernier 10-K");
+  EQ(f.margin, 20, "marge nette 20 %");
+  var f2 = RI.fundFromXbrl([{ end: "2024-12-31", val: 100 }, { end: "2025-12-31", val: 80 }], []);
+  EQ(f2.growth, -20, "croissance négative -20 %");
+  A(f2.ni === null, "NI absent → null, pas de crash");
+  var f3 = RI.fundFromXbrl([{ end: "2025-12-31", val: 100 }], []);
+  A(f3.growth === null, "un seul exercice → croissance inconnue (pas de 0 % inventé)");
+  A(RI.fundFromXbrl([], []) === null, "pas de CA annuel → null");
+});
+T("v3.2 fundScore : barèmes croissance / rentabilité / marge", function () {
+  EQ(RI.fundScore({ rev: 100, growth: 50, ni: 30 }), 10, "+50 % · bénéficiaire · marge 30 % → 10/10");
+  EQ(RI.fundScore({ rev: 100, growth: 15, ni: 10 }), 8, "+15 % · bénéficiaire · marge 10 % → 8");
+  EQ(RI.fundScore({ rev: 100, growth: -5, ni: -5 }), 0, "CA en baisse + perte → 0");
+  EQ(RI.fundScore({ rev: 100, growth: null, ni: 10 }), 5.5, "croissance inconnue + bénéficiaire marge 10 % → 5.5");
+  A(RI.fundScore(null) === null, "pas de fondamentaux → null");
+  A(RI.fundScore({ rev: 0, growth: 10, ni: 5 }) === null, "CA nul → null");
+});
+T("v3.2 insiderScoreFor : clusters récompensés, ventes dures pénalisées", function () {
+  var sig3 = { level: 3, buyers: 2, buys: 3 };
+  EQ(RI.insiderScoreFor(sig3, null), 6.5, "niveau 3 + 2 initiés distincts = 6.5");
+  EQ(RI.insiderScoreFor({ level: 3, buyers: 3, buys: 6 }, null), 7, "niveau 3 + ≥5 achats = 7");
+  EQ(RI.insiderScoreFor(sig3, { sells: 2, hardSells: 1 }), 4, "une vente dure : -2.5");
+  EQ(RI.insiderScoreFor(sig3, { sells: 3, hardSells: 0 }), 6, "ventes toutes sous plan/levée : -0.5 seulement");
+  EQ(RI.insiderScoreFor({ level: 2, buyers: 1, buys: 3 }, null), 3.5, "rachats d'un seul initié : 3.5 (sous le seuil des pistes)");
+  EQ(RI.insiderScoreFor({ level: 1, buyers: 1, buys: 2 }, null), 2, "×2 même initié : 2");
+});
+T("v3.2 pickCandidates + picksFrom : US only, seuil cluster, tri /20, cap", function () {
+  var mk = function (id, source, soc, ticker, auteur) {
+    return { id: id, source: source, side: "buy", societe: soc, ticker: ticker, auteur: auteur,
+      montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" };
+  };
+  var buys = [
+    mk("k1", "US", "KLEA PHARMA", "KLEA", "Alice"), mk("k2", "US", "KLEA PHARMA", "KLEA", "Bob"), mk("k3", "US", "KLEA PHARMA", "KLEA", "Alice"),
+    mk("s1", "US", "SILVIA, INC.", "SVIA", "Noor"), mk("s2", "US", "SILVIA, INC.", "SVIA", "Zang"),
+    mk("o1", "US", "SOLO CORP", "SOLO", "Solo"), mk("o2", "US", "SOLO CORP", "SOLO", "Solo"), mk("o3", "US", "SOLO CORP", "SOLO", "Solo"),
+    mk("f1", "FR", "ROCHE BOBOIS SA", "", "Tamburi"), mk("f2", "FR", "ROCHE BOBOIS SA", "", "Txr"), mk("f3", "FR", "ROCHE BOBOIS SA", "", "Tamburi"),
+    mk("x1", "US", "XFIN CORP", "XFIN", "Xa"), mk("x2", "US", "XFIN CORP", "XFIN", "Xb")
+  ];
+  var sells = [{ id: "ks1", source: "US", side: "sell", societe: "KLEA PHARMA", ticker: "KLEA", auteur: "Carol",
+    montant: 20000, volume: 2000, prix: 10, dateOp: "2026-11-04", datePub: "2026-11-05" }];
+  var cands = RI.pickCandidates(buys, sells, 15);
+  A(cands.length === 3, "KLEA (4), SVIA (5), XFIN (5) candidates — SOLO sous le seuil, FR exclue : " + cands.length);
+  EQ(cands[0].ticker, "SVIA", "tri par score initiés");
+  var funds = {
+    KLEA: { rev: 100000000, revEnd: "2024-12-31", growth: 50, ni: 30000000, margin: 30 },
+    SVIA: { rev: 150000000, revEnd: "2024-12-31", growth: 50, ni: 30000000, margin: 20 }
+  };
+  var picks = RI.picksFrom(buys, sells, funds, { max: 6 });
+  EQ(picks.length, 2, "XFIN écartée : cluster sans fondamentaux exploitables");
+  EQ(picks[0].ticker, "SVIA", "SVIA 5+9.5 = 14.5 > KLEA 4+10 = 14");
+  EQ(picks[0].score, 14.5);
+  EQ(picks[0].fund.score, 9.5, "marge 20 % → 3 pts (pas 3.5)");
+  EQ(picks[0].sells.n, 0, "SVIA : aucune vente");
+  EQ(picks[1].ticker, "KLEA");
+  EQ(picks[1].sells.hard, 1, "KLEA : 1 vente dure comptée");
+  EQ(picks[1].insider.score, 4);
+  EQ(RI.picksFrom(buys, sells, funds, { max: 1 }).length, 1, "cap max appliqué");
+});
+
 // ---------- fusion / fenêtre / plafond ----------
 var NOW = Date.parse("2026-11-09T12:00:00Z");
 T("mergeRows : dédoublonne par id, le nouveau gagne", function () {
@@ -455,12 +531,12 @@ T("fetch-insiders.js compile", function () {
   });
   T("sw.js : cache versionné + réseau d'abord + clé sans ?v=", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf('sentinelle-perso-v3.1.1') > -1, "cache v3.1.1 (les téléphones v1/v2/v3/v3.1 re-téléchargent le shell)");
-    A(sw.indexOf('sentinelle-perso-v3.1"') === -1, "plus de v3.1 comme nom de cache");
+    A(sw.indexOf('sentinelle-perso-v3.2') > -1, "cache v3.2 (les téléphones v1→v3.1.1 re-téléchargent le shell)");
+    A(sw.indexOf('sentinelle-perso-v3.1.1') === -1, "plus de v3.1.1 comme nom de cache");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
   T("v3.1 : badge, éléments UI achats/ventes, fraîcheur par source, défaut Achats", function () {
-    A(html.indexOf('id="ver">v3.1.1<') > -1, "badge v3.1.1");
+    A(html.indexOf('id="ver">v3.2<') > -1, "badge v3.2");
     A(html.indexOf('id="segSide"') > -1, "segment Achats+ventes");
     A(html.indexOf('id="segSort"') > -1, "segment tri par id (plus par position — segSide est en dernier)");
     A(html.indexOf('id="sigCardSell"') > -1, "carte ventes");
@@ -481,6 +557,14 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf("var qTxt = String(state.prefs.q || \"\").trim();") > -1, "q trimé");
     A(html.indexOf("qTxt ? buys.concat(sells)") > -1, "recherche => achats ET ventes (une société qui n'a que des ventes ne disparaît plus)");
     A(html.indexOf("Aucune ligne pour « ") > -1, "message vide explicite quand une recherche ne trouve rien");
+  });
+  T("v3.2 : carte pistes initiés × fondamentaux", function () {
+    A(html.indexOf('id="picksCard"') > -1, "carte pistes");
+    A(html.indexOf('id="picksList"') > -1, "liste pistes");
+    A(html.indexOf("renderPicks") > -1, "rendu pistes branché sur render()");
+    A(html.indexOf('id="ver">v3.2<') > -1, "badge v3.2");
+    A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer recherche, pas conseil");
+    A(html.indexOf("data-sig=") > -1, "lien « voir les déclarations » réutilise le filtre recherche");
   });
   T("v3 : pipeline ventes — FR Acquisition+Cession, US P+A/S+D, migration state v3, data 4 listes", function () {
     var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");
@@ -615,6 +699,75 @@ function TA(name, p) {
     A(FI.UA.indexOf("contact@example.com") === -1, "UA sans exemple bidon");
     A(FI.UA.indexOf("SentinellePerso research") === 0, "UA format SEC");
     A(FI.UA.length > 30, "UA contient un contact");
+  });
+
+  TA("v3.2 fetchFundamentals : essai des tags de revenus en cascade, fondamentaux extraits", function () {
+    var TICKERS = fs.readFileSync(__dirname + "/fixtures/company_tickers-sample.json", "utf8");
+    var calls = [];
+    FI.setFetchForTests(function (url) {
+      calls.push(url);
+      if (url.indexOf("company_tickers") > -1) return Promise.resolve(okRes(TICKERS));
+      if (url.indexOf("RevenueFromContractWithCustomerExcludingAssessedTax") > -1) return Promise.resolve(errRes(404)); // tag non utilisé par SVIA
+      if (url.indexOf("/us-gaap/Revenues.json") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/xbrl-rev-sample.json", "utf8")));
+      if (url.indexOf("NetIncomeLoss") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/xbrl-ni-sample.json", "utf8")));
+      return Promise.resolve(errRes(404));
+    });
+    return FI.fetchFundamentals([{ ticker: "SVIA", societe: "SILVIA, INC." }], function () { }).then(function (funds) {
+      A(funds.SVIA != null, "SVIA documentée");
+      EQ(funds.SVIA.growth, 50, "croissance +50 %");
+      EQ(funds.SVIA.ni, 30000000, "NI 30 M$");
+      A(funds.NOTCO == null && funds.KLEA == null, "seules les candidates demandées");
+      A(calls.some(function (u) { return u.indexOf("RevenueFromContractWithCustomerExcludingAssessedTax") > -1; }),
+        "le 1er tag de revenus a bien été essayé avant repli sur Revenues");
+    });
+  });
+
+  TA("v3.2 computePicks : cluster US + XBRL → piste écrite dans data.picks", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("company_tickers") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/company_tickers-sample.json", "utf8")));
+      if (url.indexOf("RevenueFromContractWithCustomerExcludingAssessedTax") > -1) return Promise.resolve(errRes(404));
+      if (url.indexOf("/us-gaap/Revenues.json") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/xbrl-rev-sample.json", "utf8")));
+      if (url.indexOf("NetIncomeLoss") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/xbrl-ni-sample.json", "utf8")));
+      return Promise.resolve(errRes(404));
+    });
+    var mk = function (id, a) {
+      return { id: id, source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: a,
+        montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" };
+    };
+    var data = { us: [mk("s1", "Noor"), mk("s2", "Zang")], usS: [] };
+    return FI.computePicks(data, function () { }).then(function () {
+      A(data.picks && data.picks.picks.length === 1, "1 piste, got " + (data.picks && data.picks.picks.length));
+      EQ(data.picks.picks[0].ticker, "SVIA");
+      EQ(data.picks.picks[0].fund.growth, 50);
+      EQ(data.picks.picks[0].fund.ni, 30000000);
+      A(data.picks.picks[0].score === 14.5, "score 5 (initiés) + 9.5 (fondamentaux) = 14.5/20, got " + data.picks.picks[0].score);
+    });
+  });
+
+  TA("v3.2 computePicks : XBRL injoignable → échec explicite, pistes précédentes conservées", function () {
+    FI.setFetchForTests(function () { return Promise.resolve(errRes(403)); }); // même le registre tickers est bloqué
+    var data = { us: [{ id: "s1", source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: "Noor",
+      montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" },
+      { id: "s2", source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: "Zang",
+        montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" }],
+      usS: [], picks: { updated: "2026-11-09T08:00:00Z", picks: [{ ticker: "OLD", societe: "Old Corp", score: 5,
+        insider: { score: 5, buys: 2, buyers: 2, level: 2, total: 100000, avgPx: 10, first: "2026-11-05", last: "2026-11-06" },
+        sells: { n: 0, hard: 0 }, fund: { score: 0, growth: 0, ni: 0, rev: 1, revEnd: "2024-12-31", margin: 0 } }] } };
+    return FI.computePicks(data, function () { }).then(function () {
+      throw new Error("computePicks aurait dû échouer");
+    }, function (e) {
+      A(/403|XBRL|fondamental/.test(String(e.message)), "erreur explicite : " + e.message);
+      EQ(data.picks.picks[0].ticker, "OLD", "pistes précédentes conservées (pas de vidage silencieux)");
+    });
+  });
+
+  TA("v3.2 computePicks : aucun cluster → pistes vidées honnêtement", function () {
+    FI.setFetchForTests(function () { return Promise.resolve(errRes(403)); }); // ne doit même pas être appelé
+    var data = { us: [{ id: "s1", source: "US", side: "buy", societe: "SOLO CORP", ticker: "SOLO", auteur: "Solo",
+      montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" }], usS: [] };
+    return FI.computePicks(data, function () { }).then(function () {
+      A(data.picks && data.picks.picks.length === 0, "pistes vides (un achat isolé n'est pas une piste)");
+    });
   });
 })();
 

@@ -241,6 +241,7 @@ var RI = (function () {
         prix: t.price,
         montant: Math.round(montant * 100) / 100,
         code: t.code,
+        cik: hit.cik || "",                    // CIK SEC — sert aux fondamentaux XBRL (v3.2)
         p10b5: f4.plan10b5 === true,            // plan de vente programmé 10b5-1 déclaré
         opt: isSell && f4.hasM === true,        // vente accompagnant une levée d'options (code M)
         url: hit.url || ""
@@ -420,6 +421,127 @@ var RI = (function () {
     }
     return c;
   }
+
+  // ---------- pistes d'étude (v3.2) : signal initiés × fondamentaux ----------
+  // ⚠️ Heuristique maison, outillage de recherche — JAMAIS un conseil d'achat.
+  // Côté ventes : une vente « dure » (ni plan 10b5-1 ni levée d'options) est un vrai
+  // signal baissier ; une vente sous plan/levée est quasi neutre (liquidation programmée).
+  function sellStatsByKey(rows) {
+    var m = {};
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      if (!r || r.side !== "sell") continue;
+      var k = sigKey(r);
+      var g = m[k];
+      if (!g) g = m[k] = { key: k, sells: 0, hardSells: 0, softSells: 0 };
+      g.sells++;
+      if (r.p10b5 === true || r.opt === true) g.softSells++; else g.hardSells++;
+    }
+    return m;
+  }
+  // score initiés /10 : clusters (les vrais signaux) + bonus multi-initiés - malus ventes dures
+  function insiderScoreFor(sig, sells) {
+    if (!sig) return 0;
+    var s = sig.level === 3 ? 5 : (sig.level === 2 ? 3.5 : 2);
+    if (sig.buyers >= 2) s += 1.5;          // plusieurs dirigeants différents se positionnent
+    if (sig.level === 3 && sig.buys >= 5) s += 0.5;
+    if (sells && sells.sells > 0) {
+      if (sells.hardSells > 0) s -= 2.5;    // au moins une vente sans motif programmé
+      else s -= 0.5;                        // ventes uniquement sous plan 10b5-1 / levée
+    }
+    return Math.max(0, Math.min(10, Math.round(s * 10) / 10));
+  }
+  // score fondamentaux /10 — comptes annuels 10-K (XBRL SEC) : croissance, rentabilité, marge
+  function fundScore(f) {
+    if (!f || f.rev == null || !isFinite(f.rev) || f.rev <= 0) return null;
+    var s = 0;
+    var g = (f.growth == null || !isFinite(f.growth)) ? null : f.growth;
+    if (g != null) s += g >= 50 ? 3.5 : g >= 25 ? 3 : g >= 15 ? 2.5 : g >= 8 ? 2 : g >= 3 ? 1 : g >= 0 ? 0.5 : 0;
+    var margin = (f.ni != null && isFinite(f.ni)) ? f.ni / f.rev : null;
+    if (f.ni != null && isFinite(f.ni)) s += f.ni > 0 ? 3 : 0;
+    if (margin != null) s += margin >= 0.25 ? 3.5 : margin >= 0.15 ? 3 : margin >= 0.10 ? 2.5 : margin >= 0.05 ? 1.5 : margin > 0 ? 1 : 0;
+    return Math.round(s * 10) / 10;
+  }
+  // XBRL companyconcept → série annuelle [{end, val}] : form 10-K uniquement,
+  // dédoublonnée par date de clôture (la valeur avec "frame" CY gagne, c'est la consolidée)
+  function xbrlAnnuals(concept) {
+    if (!concept || !concept.units) return [];
+    var units = concept.units;
+    var list = units.USD || units[Object.keys(units)[0]] || [];
+    var by = {};
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      if (!e || e.form !== "10-K" || !e.end || !isFinite(e.val)) continue;
+      if (by[e.end] == null || e.frame) by[e.end] = e.val;
+    }
+    return Object.keys(by).sort().map(function (end) { return { end: end, val: by[end] }; });
+  }
+  // séries annuelles CA + résultat net → fondamentaux {rev, revEnd, growth, ni, margin}
+  function fundFromXbrl(revAnnuals, niAnnuals) {
+    if (!revAnnuals || revAnnuals.length === 0) return null;
+    var last = revAnnuals[revAnnuals.length - 1];
+    var prior = revAnnuals.length > 1 ? revAnnuals[revAnnuals.length - 2] : null;
+    var growth = (prior && prior.val > 0) ? Math.round(((last.val - prior.val) / prior.val) * 1000) / 10 : null;
+    var ni = null, niEnd = null;
+    for (var i = (niAnnuals || []).length - 1; i >= 0; i--) {
+      if (niAnnuals[i].end <= last.end) { ni = niAnnuals[i].val; niEnd = niAnnuals[i].end; break; }
+    }
+    return {
+      rev: last.val, revEnd: last.end, growth: growth,
+      ni: ni, niEnd: niEnd,
+      margin: (ni != null) ? Math.round((ni / last.val) * 1000) / 10 : null // % du CA
+    };
+  }
+  function pickBuyRows(rows) {
+    var out = [];
+    for (var i = 0; i < (rows || []).length; i++) {
+      if (rows[i] && rows[i].side !== "sell") out.push(rows[i]);
+    }
+    return out;
+  }
+  // sociétés US avec un vrai signal initiés, triées, capées — celles qu'on va documenter
+  function pickCandidates(buys, sells, max) {
+    var sigs = signalsFrom(pickBuyRows(buys));
+    var ss = sellStatsByKey(sells);
+    var out = [];
+    for (var i = 0; i < sigs.length; i++) {
+      var s = sigs[i];
+      if (s.source !== "US" || !s.ticker) continue;
+      var ins = insiderScoreFor(s, ss[s.key]);
+      if (ins < 4) continue; // cluster réel : plusieurs initiés ou niveau 3 — pas un achat isolé
+      out.push({ key: s.key, ticker: s.ticker, societe: s.societe, insider: ins, sig: s, sells: ss[s.key] || null });
+    }
+    out.sort(function (a, b) { return b.insider - a.insider || b.sig.total - a.sig.total; });
+    return out.slice(0, max || 15);
+  }
+  // croisement final : candidates × fondamentaux → pistes triées par score /20
+  function picksFrom(buys, sells, funds, opts) {
+    var o = opts || {};
+    var cands = pickCandidates(buys, sells, 15);
+    var out = [];
+    for (var i = 0; i < cands.length; i++) {
+      var c = cands[i];
+      var tk = String(c.ticker || "").toUpperCase();
+      var f = funds ? funds[tk] : null;
+      if (!f) continue; // fondamentaux introuvables (pas de 10-K exploitable) → pas de piste honnête
+      var fsc = fundScore(f);
+      if (fsc == null) continue;
+      out.push({
+        ticker: c.ticker, societe: c.societe, score: Math.round((c.insider + fsc) * 10) / 10,
+        insider: {
+          score: c.insider, buys: c.sig.buys, buyers: c.sig.buyers, level: c.sig.level,
+          total: c.sig.total, avgPx: c.sig.avgPx, first: c.sig.first, last: c.sig.last
+        },
+        sells: c.sells ? { n: c.sells.sells, hard: c.sells.hardSells } : { n: 0, hard: 0 },
+        fund: {
+          score: fsc, growth: f.growth, ni: f.ni, rev: f.rev, revEnd: f.revEnd, margin: f.margin
+        }
+      });
+    }
+    out.sort(function (a, b) { return b.score - a.score; });
+    return out.slice(0, o.max || 6);
+  }
+
   // lien cote en 1 tap — pas d'API marché (fragile, CORS) : on renvoie vers la recherche
   function quoteUrl(r) {
     if (r.source === "US") {
@@ -444,7 +566,9 @@ var RI = (function () {
     filterRows: filterRows, sortRows: sortRows,
     fmtEUR: fmtEUR, fmtUSD: fmtUSD, fmtNum: fmtNum, fmtMontant: fmtMontant, lagLabel: lagLabel, freshness: freshness,
     normName: normName, sigKey: sigKey, signalsFrom: signalsFrom, signalCountByKey: signalCountByKey, quoteUrl: quoteUrl, fmtPx: fmtPx,
-    rowsOfSide: rowsOfSide
+    rowsOfSide: rowsOfSide,
+    sellStatsByKey: sellStatsByKey, insiderScoreFor: insiderScoreFor, fundScore: fundScore,
+    xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

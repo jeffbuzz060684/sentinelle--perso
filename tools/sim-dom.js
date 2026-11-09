@@ -72,7 +72,16 @@ module.exports = function simDom(cb) {
       { id: "fs1", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "POUVANNEC PHILIPPE", role: "Directeur Général Adjoint", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 15000, prix: 64.9, montant: 973500, url: "https://bdif.amf-france.org/z" },
       { id: "fs2", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "SAUNIER BERTRAND", role: "Membre du Conseil d'Administration", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 2000, prix: 65, montant: 130000, url: "https://bdif.amf-france.org/w" }
     ],
-    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1000, prix: 30, montant: 30000, code: "S", p10b5: true, opt: true, url: "https://sec.gov/y" }]
+    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1000, prix: 30, montant: 30000, code: "S", p10b5: true, opt: true, url: "https://sec.gov/y" }],
+    picks: {
+      updated: "2026-11-09T08:07:00Z",
+      picks: [{
+        ticker: "ACM", societe: "ACME CORP", score: 14.5,
+        insider: { score: 6.5, buys: 3, buyers: 2, level: 3, total: 90000, avgPx: 30, first: "2026-11-03", last: "2026-11-05" },
+        sells: { n: 1, hard: 0 },
+        fund: { score: 8, growth: 50, ni: 30000000, rev: 150000000, revEnd: "2024-12-31", margin: 20 }
+      }]
+    }
   };
   var fetchCalls = 0;
   function fetchStub(url) {
@@ -162,6 +171,18 @@ module.exports = function simDom(cb) {
     });
     T("bandeau d'état des sources masqué quand tout va bien", function () {
       A(elements["srcBanner"] && elements["srcBanner"]._cls.has("hidden"), "srcBanner caché (frOk + usOk)");
+    });
+    T("carte pistes 💡 rendue : score /20, chips fondamentaux, disclaimer", function () {
+      var s = elements["picksList"] && elements["picksList"].innerHTML || "";
+      A(elements["picksCard"] && !elements["picksCard"]._cls.has("hidden"), "carte visible");
+      A(s.indexOf("ACME CORP") > -1, "société présente");
+      A(s.indexOf("#1 · 14.5/20") > -1, "rang et score /20");
+      A(s.indexOf("CA annuel +50 %") > -1, "chip croissance");
+      A(s.indexOf("marge nette 20 %") > -1, "chip marge");
+      A(s.indexOf("1 vente sous plan 10b5-1/levée") > -1, "vente douce qualifiée (pas d'alerte dure)");
+      A(s.indexOf("google.com/finance") > -1, "lien cote");
+      A(s.indexOf("voir les déclarations") > -1, "lien vers les déclarations");
+      A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer dans la page");
     });
     T("segment Achats+ventes câblé", function () {
       A(elements["segSide"] && elements["segSide"].listeners.click && elements["segSide"].listeners.click.length > 0, "handler clic segSide");

@@ -1,0 +1,14 @@
+{
+ "cik": 2117818,
+ "taxonomy": "us-gaap",
+ "tag": "NetIncomeLoss",
+ "label": "Net Income (Loss) Attributable to Parent",
+ "entityName": "SILVIA, INC.",
+ "units": {
+  "USD": [
+   {"end": "2023-12-31", "val": 12000000, "accn": "000149315224000001", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-14", "frame": "CY2023"},
+   {"end": "2024-12-31", "val": 30000000, "accn": "000149315225000001", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2025-02-12", "frame": "CY2024"},
+   {"end": "2024-06-30", "val": 15000000, "accn": "000149315224000050", "fy": 2024, "fp": "Q2", "form": "10-Q", "filed": "2024-08-01", "frame": "CY2024Q2"}
+  ]
+ }
+}

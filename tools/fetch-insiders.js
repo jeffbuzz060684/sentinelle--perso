@@ -138,6 +138,86 @@ function ftsQuery(startdt, enddt, from) {
   return fetchText(url, null, 30000).then(function (txt) { return RI.parseFts(txt); });
 }
 
+// ---------- v3.2 : pistes d'étude — fondamentaux via les comptes annuels 10-K (XBRL SEC) ----------
+// Sources officielles, sans clé : https://www.sec.gov/files/company_tickers.json (ticker → CIK)
+// et https://data.sec.gov/api/xbrl/companyconcept/CIK…/us-gaap/<tag>.json (série annuelle 10-K).
+// Les sociétés n'utilisent pas toutes le même tag de revenus → on essaie les plus courants.
+var REV_TAGS = ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
+  "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet", "SalesRevenueGoodsNet"];
+var NI_TAG = "NetIncomeLoss";
+
+function conceptUrl(cik, tag) {
+  return "https://data.sec.gov/api/xbrl/companyconcept/CIK" +
+    String(cik).replace(/\D/g, "").padStart(10, "0") + "/us-gaap/" + tag + ".json";
+}
+var sleepMs = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+function fetchTickerMap() {
+  return fetchText("https://www.sec.gov/files/company_tickers.json", null, 30000).then(function (txt) {
+    var j = JSON.parse(txt);
+    var m = {};
+    for (var k in j) {
+      if (Object.prototype.hasOwnProperty.call(j, k) && j[k] && j[k].ticker) {
+        m[String(j[k].ticker).toUpperCase()] = j[k].cik_str;
+      }
+    }
+    return m;
+  });
+}
+// une seule tentative par tag : un 404 (tag non utilisé par la société) est une réponse normale
+function tryRevTags(cik, i) {
+  if (i >= REV_TAGS.length) return Promise.resolve(null);
+  return fetchText(conceptUrl(cik, REV_TAGS[i]), null, 25000).then(function (txt) {
+    var a = RI.xbrlAnnuals(JSON.parse(txt));
+    return a.length > 0 ? a : tryRevTags(cik, i + 1);
+  }, function () { return tryRevTags(cik, i + 1); });
+}
+function fetchFundamentals(cands, log) {
+  return fetchTickerMap().then(function (map) {
+    var funds = {};
+    var chain = Promise.resolve();
+    cands.forEach(function (c) {
+      chain = chain.then(function () {
+        var tk = String(c.ticker || "").toUpperCase();
+        var cik = map[tk];
+        if (!cik) { log("PICKS : " + c.ticker + " absent du registre SEC — ignoré"); return sleepMs(60); }
+        return tryRevTags(cik, 0).then(function (revA) {
+          if (!revA) return null;
+          return fetchText(conceptUrl(cik, NI_TAG), null, 25000).then(function (txt) {
+            return RI.fundFromXbrl(revA, RI.xbrlAnnuals(JSON.parse(txt)));
+          }, function () {
+            return RI.fundFromXbrl(revA, []); // résultat net indisponible → marge inconnue, pas bloquant
+          });
+        }).then(function (f) {
+          if (f) funds[tk] = f;
+          else log("PICKS : pas de 10-K exploitable pour " + c.ticker);
+          return sleepMs(120);
+        });
+      });
+    });
+    return chain.then(function () { return funds; });
+  });
+}
+function computePicks(data, log) {
+  var cands = RI.pickCandidates(data.us, data.usS, 15);
+  if (cands.length === 0) {
+    log("PICKS : aucun cluster d'achats US sur la fenêtre — pistes vidées (honnête)");
+    data.picks = { updated: new Date(Date.now()).toISOString(), picks: [] };
+    return Promise.resolve(null);
+  }
+  log("PICKS : " + cands.length + " candidates (clusters initiés US) — consultation des comptes 10-K…");
+  return fetchFundamentals(cands, log).then(function (funds) {
+    if (Object.keys(funds).length === 0) {
+      throw new Error("aucun fondamental récupéré — XBRL indisponible ?");
+    }
+    var picks = RI.picksFrom(data.us, data.usS, funds, { max: 6 });
+    data.picks = { updated: new Date(Date.now()).toISOString(), picks: picks };
+    log("PICKS : " + picks.length + " piste(s) écrite(s)" +
+      (picks.length > 0 ? " — n°1 : " + picks[0].ticker + " " + picks[0].score + "/20" : "") +
+      " (clusters sans 10-K exploitable exclus)");
+  });
+}
+
 function fetchUs(now, state, prevBuys, prevSells) {
   var startdt = RI.isoDay(new Date(now - 3 * 86400000)); // fenêtre 3 jours, la dédup fait le reste
   var enddt = RI.isoDay(new Date(now));
@@ -228,6 +308,7 @@ function main() {
   if (!data.frS) data.frS = [];
   if (!data.usS) data.usS = [];
   var frOk = true, usOk = true;
+  var usNew = 0; // lignes US nouvelles ce run → recalcul des pistes si besoin
   // détection d'effondrement : une liste qui perd > 50 % en un run (2 h) alors qu'elle
   // était fournie = source ou parseur cassé → on garde la version précédente
   var guard = function (prev, next, what) {
@@ -277,9 +358,20 @@ function main() {
     log("US : " + usRes.hits + " Form 4 vus, " + usRes.fetched + " XML téléchargés, " +
       usRes.skipped + " déjà traités, " + usRes.errors + " erreurs (retentées), " + usRes.nBuys + " achats + " + usRes.nSells + " ventes extraits" + (usRes.capped ? " [PLAFOND]" : ""));
     log("US total consolidé : " + data.us.length + " achats + " + data.usS.length + " ventes");
+    usNew = usRes.nBuys + usRes.nSells;
   }).catch(function (e) {
     usOk = false;
     log("US : ECHEC source (" + e.message + ") — données précédentes conservées");
+  }).then(function () {
+    // pistes : recalculées si les listes US ont bougé ce run, sinon une fois par jour
+    var today = RI.isoDay(new Date(now));
+    if (data.picks && data.picks.picks && data.picks.picks.length > 0 && usNew === 0 && state.picksDay === today) {
+      log("PICKS : listes US inchangées et pistes déjà calculées aujourd'hui — pas de recalcul");
+      return null;
+    }
+    return computePicks(data, log).then(function () { state.picksDay = today; });
+  }).catch(function (e) {
+    log("PICKS : échec (" + e.message + ") — pistes précédentes conservées");
   }).then(function () {
     data.updated = new Date(Date.now()).toISOString();
     data.frOk = frOk;
@@ -302,4 +394,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { fetchFr: fetchFr, fetchUs: fetchUs, main: main, UA: UA, setFetchForTests: setFetchForTests, purgeProcessed: purgeProcessed };
+module.exports = { fetchFr: fetchFr, fetchUs: fetchUs, main: main, UA: UA, setFetchForTests: setFetchForTests, purgeProcessed: purgeProcessed, computePicks: computePicks, fetchFundamentals: fetchFundamentals };

@@ -65,6 +65,7 @@ h3{font-size:13px;margin-bottom:6px}
 .sig .lvl.l2{background:rgba(251,191,36,.16);color:var(--amber)}
 .sig .lvl.l1{background:rgba(148,163,184,.14);color:var(--mut)}
 .sig.sell .lvl.l1{background:rgba(251,113,133,.10);color:var(--red)}
+.sig .lvl.pick{background:rgba(52,211,153,.14);color:#34d399}
 .sig .sum{font-size:12px;color:var(--txt);margin-top:3px;overflow-wrap:break-word}
 .sig .sum b{font-weight:700}
 .sig .sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
@@ -82,7 +83,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 <div class="wrap">
   <header>
     <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v3.1.1</span>
+    <span class="badge" id="ver">v3.2</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
 
@@ -134,6 +135,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">FR 90 j · US depuis 09/11</span></h3>
     <div id="signalsSell"></div>
     <p class="mut">Les initiés vendent pour mille raisons (diversification, impôts, et côté US des <b>plans automatiques 10b5-1</b>) — une vente isolée ne veut rien dire. C'est la vente <b>groupée de plusieurs initiés distincts</b> (🔴🔴) qui est un signal d'alerte. Le prix moyen vendu marque le niveau que les initiés jugent suffisant.</p>
+  </div>
+
+  <div class="card hidden" id="picksCard">
+    <h3>💡 Pistes à étudier <span class="badge" style="font-weight:400">initiés × fondamentaux · US</span></h3>
+    <div id="picksList"></div>
+    <p class="mut">Classement maison sur <b>/20</b> : <b>signal initiés /10</b> (clusters d'achats 🔥, initiés distincts, moins les ventes « dures » — ni plan 10b5-1 ni levée) + <b>fondamentaux /10</b> (croissance du chiffre d'affaires, rentabilité et marge nette des comptes annuels <b>10-K</b> publics de la SEC). US uniquement — pas d'équivalent public gratuit pour les sociétés françaises. <b>Outil de tri pour ta recherche, pas un conseil d'achat</b> : vérifie la cote, le secteur, la dette et les risques avant tout acte.</p>
   </div>
 
   <div id="list"></div>
@@ -298,6 +305,43 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     $(target).innerHTML = html.join("");
   }
 
+  // pistes v3.2 : clusters d'initiés × fondamentaux 10-K (précalculées par le workflow)
+  function renderPicks(picks) {
+    var card = $("picksCard");
+    if (!picks || picks.length === 0) { card.classList.add("hidden"); return; }
+    card.classList.remove("hidden");
+    var html = [];
+    for (var i = 0; i < picks.length; i++) {
+      var p = picks[i];
+      var f = p.fund || {};
+      var chips = [];
+      if (f.growth != null) chips.push("📈 CA annuel " + (f.growth >= 0 ? "+" : "") + esc(String(f.growth)) + " %");
+      else if (f.revEnd) chips.push("📈 dernier 10-K " + esc(String(f.revEnd).slice(0, 4)));
+      if (f.ni != null) {
+        chips.push(f.ni > 0
+          ? "💰 bénéficiaire" + (f.margin != null ? " · marge nette " + esc(String(f.margin)) + " %" : "")
+          : "📉 résultat net négatif");
+      }
+      var sl = p.sells || { n: 0, hard: 0 };
+      if (sl.hard > 0) chips.push("⚠️ " + sl.hard + " vente" + (sl.hard > 1 ? "s" : "") + " dure" + (sl.hard > 1 ? "s" : "") + " sur la fenêtre");
+      else if (sl.n > 0) chips.push("⚙ " + sl.n + " vente" + (sl.n > 1 ? "s" : "") + " sous plan 10b5-1/levée");
+      html.push(
+        '<div class="sig pick">' +
+        '<div class="head"><span class="lvl pick">#' + (i + 1) + " · " + esc(String(p.score)) + '/20</span>' +
+        '<span class="soc">' + esc(p.societe) + ' <span class="tk">' + esc(p.ticker) + "</span></span></div>" +
+        '<div class="sum"><b>🔥 ' + p.insider.buys + " achat" + (p.insider.buys > 1 ? "s" : "") + " · " + p.insider.buyers + " initié" + (p.insider.buyers > 1 ? "s" : "") + " distinct" + (p.insider.buyers > 1 ? "s" : "") + "</b> · " +
+        "px moyen payé <b>" + esc(RI.fmtNum(p.insider.avgPx)) + " $</b> · total initié " + esc(RI.fmtUSD(p.insider.total)) +
+        " · signal initiés " + esc(String(p.insider.score)) + "/10" +
+        " · fondamentaux " + esc(String(f.score)) + "/10</div>" +
+        '<div class="sub"><span>' + chips.join(" · ") + "</span>" +
+        ' · <a href="' + esc(RI.quoteUrl({ source: "US", ticker: p.ticker, societe: p.societe })) + '" target="_blank" rel="noopener">cote ↗</a>' +
+        ' · <a href="#" data-sig="' + esc(p.societe) + '">voir les déclarations</a>' +
+        "</div></div>"
+      );
+    }
+    $("picksList").innerHTML = html.join("");
+  }
+
   function render() {
     var d = state.data;
     if (!d) return;
@@ -339,6 +383,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     $("nSig").textContent = String(sigs.length);
     renderSignals(sigs, false);
     renderSignals(RI.signalsFrom(RI.filterRows(sells, { source: state.prefs.src })), true);
+    renderPicks(d.picks && d.picks.picks);
 
     var cnt = RI.signalCountByKey(buys);
     var cntS = RI.signalCountByKey(sells);

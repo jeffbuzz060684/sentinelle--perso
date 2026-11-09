@@ -1,0 +1,18 @@
+{
+ "cik": 2117818,
+ "taxonomy": "us-gaap",
+ "tag": "Revenues",
+ "label": "Revenues",
+ "description": "Amount of revenue recognized from goods and services.",
+ "entityName": "SILVIA, INC.",
+ "units": {
+  "USD": [
+   {"end": "2022-12-31", "val": 80000000, "accn": "000149315223000001", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-15", "frame": "CY2022"},
+   {"end": "2023-12-31", "val": 100000000, "accn": "000149315224000001", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-14", "frame": "CY2023"},
+   {"end": "2023-12-31", "val": 99999999, "accn": "000149315224000099", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2025-02-10", "frame": null},
+   {"end": "2024-12-31", "val": 150000000, "accn": "000149315225000001", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2025-02-12", "frame": "CY2024"},
+   {"end": "2024-06-30", "val": 70000000, "accn": "000149315224000050", "fy": 2024, "fp": "Q2", "form": "10-Q", "filed": "2024-08-01", "frame": "CY2024Q2"},
+   {"end": "2025-06-30", "val": 82000000, "accn": "000149315225000050", "fy": 2025, "fp": "Q2", "form": "10-Q", "filed": "2025-08-01", "frame": "CY2025Q2"}
+  ]
+ }
+}
