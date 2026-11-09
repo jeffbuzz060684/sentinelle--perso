@@ -18,8 +18,21 @@ function setFetchForTests(f) { FETCH_IMPL = f; }
 function log() { console.log.apply(console, arguments); }
 function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
 
+// ---------- garde-fous temps (v4.0.4) ----------
+// Timeout par requête : une requête qui ne répond jamais ne doit pas immobiliser un workflow
+// (voire retarder un déploiement Pages). Budget global : délai maximal pour UNE collecte
+// complète, borné dans main() — les boucles de tentatives s'arrêtent proprement une fois épuisé.
+var REQ_TIMEOUT_MS = 12000;
+var DEADLINE = null;
+function setDeadline(ms) { DEADLINE = ms ? Date.now() + ms : null; }
+function outOfTime() { return DEADLINE !== null && Date.now() >= DEADLINE; }
+
 async function rawFetch(url, opts) {
   if (!FETCH_IMPL) throw new Error("fetch indisponible");
+  opts = opts || {};
+  if (!opts.signal && typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    opts.signal = AbortSignal.timeout(opts.timeoutMs || REQ_TIMEOUT_MS);
+  }
   return FETCH_IMPL(url, opts);
 }
 
@@ -30,6 +43,7 @@ async function yahooSession(maxAttempts) {
   var cookie = "", crumb = "";
   var lastErr = null;
   for (var a = 1; a <= attempts; a++) {
+    if (outOfTime()) throw new Error("budget temps dépassé : session Yahoo abandonnée");
     try {
       // 1) cookie : fc.yahoo.com pose A1/A3 même en renvoyant 404
       var r1 = await rawFetch("https://fc.yahoo.com", { headers: { "User-Agent": UA, "Accept": "*/*" } });
@@ -42,8 +56,7 @@ async function yahooSession(maxAttempts) {
       //    query1/query2 et on patiente (backoff ~2,5 s × n° de tentative, jusqu'à ~70 s au total —
       //    le cron a 10 min, mieux vaut patienter que publier un relevé vide).
       var host = (a % 2 === 0) ? "query2" : "query1";
-      var r2 = await rawFetch("https://" + host + ".finance.yahoo.com/v1/test/getcrumb", {
-        headers: { "User-Agent": UA, "Accept": "*/*", "Cookie": cookie }
+      var r2 = await rawFetch("https://" + host + ".finance.yahoo.com/v1/test/getcrumb", {        headers: { "User-Agent": UA, "Accept": "*/*", "Cookie": cookie }
       });
       if (r2.status !== 200) throw new Error("getcrumb HTTP " + r2.status);
       crumb = (await r2.text()).trim();
@@ -61,6 +74,7 @@ async function quotesBatch(symbols, sess, maxAttempts) {
   var attempts = maxAttempts || 6;
   var lastErr = null;
   for (var a = 1; a <= attempts; a++) {
+    if (outOfTime()) throw new Error("budget temps dépassé : batch v7/quote abandonné (" + symbols.length + " symboles)");
     try {
       var host = (a % 2 === 0) ? "query2" : "query1"; // alternance : les 429 de Yahoo vont par rafales
       var url = "https://" + host + ".finance.yahoo.com/v7/finance/quote?symbols=" + encodeURIComponent(symbols.join(",")) +
@@ -106,6 +120,7 @@ async function fetchQuotes(sb, opts) {
   var batch = 40;
   var symbols = sb.list.map(function (e) { return e.y; });
   for (var i = 0; i < symbols.length; i += batch) {
+    if (outOfTime()) throw new Error("budget temps dépassé : relevé Yahoo interrompu après " + i + " valeurs");
     var part = symbols.slice(i, i + batch);
     var res = await quotesBatch(part, sess);
     res.forEach(function (q) { bySym[q.symbol] = quoteRow(q); });
@@ -155,7 +170,7 @@ var TV_SCAN_URL = "https://scanner.tradingview.com/france/scan";
 var TV_COLUMNS = ["name", "close", "change", "price_earnings_ttm", "price_earnings_forecast_fy0",
   "dividends_yield_current", "price_book_ratio", "market_cap_basic"];
 
-function tvTicker(y) { return "EURONEXT:" + String(y).replace(/\.PA$/i, ""); }
+function tvTicker(y) { return "EURONEXT:" + String(y).replace(/\.PA$/i, "").toUpperCase(); } // le scanner TV exige des MAJUSCULES
 function tvNum(v) { return (typeof v === "number" && isFinite(v)) ? v : null; }
 
 async function tvScan(tickers, maxAttempts) {
@@ -183,6 +198,7 @@ async function fetchQuotesTv(sb, opts) {
   var tickers = sb.list.map(function (e) { return tvTicker(e.y); });
   var rows = {};
   for (var i = 0; i < tickers.length; i += 60) {
+    if (outOfTime()) throw new Error("budget temps dépassé : relevé TradingView interrompu");
     var part = tickers.slice(i, i + 60);
     var data = await tvScan(part);
     data.forEach(function (row) { rows[String(row.s).split(":")[1].toUpperCase()] = row.d; });
@@ -202,15 +218,21 @@ async function fetchQuotesTv(sb, opts) {
   if (list.length / sb.list.length < (opts.minRatio || 0.9)) {
     throw new Error("trop peu de réponses TradingView : " + list.length + "/" + sb.list.length + " — quotes.json précédent conservé");
   }
-  // indice : SBF 120 absent du scanner → repli CAC 40, explicitement nommé (idx.name affiché par l'UI)
+  // indice : SBF 120 absent du scanner → repli CAC 40, explicitement nommé (idx.name affiché par l'UI).
+  // Règle v4.0.4 : un relevé de repli SANS indice est REJETÉ (avant écriture) — le validateur
+  // exige idx.px, on ne publie jamais un quotes.json destiné à être invalidé. 2 tentatives,
+  // puis échec explicite : le relevé précédent est conservé, le cycle suivant réessaiera.
   var idx = null;
-  try {
-    var idxData = await tvScan(["EURONEXT:PX1"]);
-    if (idxData[0] && tvNum(idxData[0].d[1]) != null) {
-      idx = { px: idxData[0].d[1], chg: tvNum(idxData[0].d[2]), t: null,
-        name: "CAC 40 (repli — SBF 120 absent de TradingView)" };
-    }
-  } catch (eIdx) { log("[quotes/TV] indice indisponible : " + eIdx.message); }
+  for (var k = 0; k < 2 && !idx; k++) {
+    try {
+      var idxData = await tvScan(["EURONEXT:PX1"]);
+      if (idxData[0] && tvNum(idxData[0].d[1]) != null) {
+        idx = { px: idxData[0].d[1], chg: tvNum(idxData[0].d[2]), t: null,
+          name: "CAC 40 (repli — SBF 120 absent de TradingView)" };
+      }
+    } catch (eIdx) { log("[quotes/TV] indice : tentative " + (k + 1) + "/2 en échec — " + eIdx.message); }
+  }
+  if (!idx) throw new Error("indice de repli (CAC 40) indisponible — relevé rejeté (règle v4.0.4 : jamais de quotes.json sans indice)");
   return {
     updated: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
     source: "TradingView (repli — Yahoo indisponible), Euronext en différé ~15 min",
@@ -222,19 +244,59 @@ async function fetchQuotesTv(sb, opts) {
   };
 }
 
+// Bascule v4.0.3 : Yahoo d'abord, repli TradingView si Yahoo sature (429 par rafales).
+// v4.0.4 : budget temps PAR ÉTAPE — l'étape Yahoo ne doit jamais consommer celui du repli
+// (constaté en réel : 8 tentatives getcrumb ≈ 90 s, il ne restait plus rien pour TradingView).
+async function fetchQuotesAuto(sb, opts) {
+  opts = opts || {};
+  var eYahoo = null;
+  try {
+    try {
+      setDeadline(opts.budgetYahooMs || 75000);
+      return await fetchQuotes(sb, opts);
+    } catch (e) { eYahoo = e; }
+    setDeadline(opts.budgetTvMs || 60000);
+    log("[quotes] Yahoo en échec (" + eYahoo.message + ") — repli TradingView");
+    var out = await fetchQuotesTv(sb, opts);
+    log("[quotes] relevé TradingView OK : " + out.n + " valeurs");
+    return out;
+  } finally {
+    setDeadline(null); // jamais de budget résiduel entre deux collectes
+  }
+}
+
+// Âge d'un relevé en minutes (null si absent/invalide) — pour la garde anti-doublon.
+function ageMinutesOf(updatedIso) {
+  if (!updatedIso) return null;
+  var t = Date.parse(updatedIso);
+  if (!isFinite(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 60000));
+}
+
 async function main() {
   var dest = path.join(__dirname, "..", "quotes.json");
+  // v4.0.4 anti-double collecte : --max-age-min=N (utilisé par le secours de pages.yml) —
+  // si le quotes.json existant a moins de N minutes, on ne re-collecte PAS (le cron quotes.yml
+  // couvre déjà la cadence). Sans l'option, on collecte toujours (workflow cotes dédié).
+  var maxAge = null;
+  process.argv.forEach(function (a) {
+    var m = /^--max-age-min=(\d+)$/.exec(a);
+    if (m) maxAge = parseInt(m[1], 10);
+  });
   try {
     var sb = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "sbf120.json"), "utf8"));
-    var out;
-    try {
-      out = await fetchQuotes(sb, {});
-    } catch (eYahoo) {
-      // Yahoo sature par rafales (429) : repli TradingView plutôt qu'un relevé vide.
-      log("[quotes] Yahoo en échec (" + eYahoo.message + ") — repli TradingView");
-      out = await fetchQuotesTv(sb, {});
-      log("[quotes] relevé TradingView OK : " + out.n + " valeurs");
+    if (maxAge !== null) {
+      try {
+        var prev = JSON.parse(fs.readFileSync(dest, "utf8"));
+        var age = ageMinutesOf(prev.updated);
+        if (age !== null && age < maxAge) {
+          log("[quotes] relevé précédent frais (" + age + " min < " + maxAge + ") — pas de nouvelle collecte (anti-doublon)");
+          return;
+        }
+      } catch (eRead) { /* pas de quotes.json précédent : on collecte normalement */ }
     }
+    setDeadline(null); // fetchQuotesAuto pose son budget par étape (Yahoo puis repli)
+    var out = await fetchQuotesAuto(sb, {});
     fs.writeFileSync(dest, JSON.stringify(out));
     log("[quotes] écrit : " + out.n + " valeurs" + (out.missing.length ? " (manquantes : " + out.missing.join(", ") + ")" : "") + " -> " + dest);
   } catch (e) {
@@ -244,4 +306,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker };
+module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker, fetchQuotesAuto: fetchQuotesAuto, ageMinutesOf: ageMinutesOf, setDeadline: setDeadline };

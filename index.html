@@ -167,6 +167,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       <div class="stat"><div class="v" id="sbIdxChg">—</div><div class="l">variation du jour</div></div>
       <div class="stat"><div class="v" id="sbN">—</div><div class="l">valeurs cotées</div></div>
       <div class="stat"><div class="v" id="sbRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
+      <div class="stat"><div class="v" id="sbSrc">—</div><div class="l">source des cotes</div></div>
     </div>
     <div class="card hidden" id="sbBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
     <div class="card filters">
@@ -191,7 +192,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Achats ≥ 1 000 $ ; ventes ≥ 50 000 $ et uniquement hors plan 10b5-1 / hors levée d'options.</li>
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
-        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance — Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext.</li>
+        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext.</li>
       </ul>
       <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
       <p style="margin-top:6px">⚠️ Outil d'information, pas un conseil en investissement. Les initiés vendent pour mille raisons et achètent pour une : leur achat est un signal, pas une garantie.</p>
@@ -665,6 +666,8 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     }
     $("sbN").textContent = String(q.list.length);
     $("sbRel").textContent = q.updated ? String(q.updated).slice(11, 16) + " UTC" : "—";
+    // v4.0.4 : transparence totale — le fournisseur réel des cotes est affiché (Yahoo, ou repli TradingView)
+    $("sbSrc").textContent = (q.source ? (String(q.source).indexOf("TradingView") > -1 ? "TradingView" : "Yahoo") : "—");
     var msgs = [];
     if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
     if (q.missing && q.missing.length) msgs.push("⚠️ " + q.missing.length + " valeur" + (q.missing.length > 1 ? "s" : "") + " sans cote (" + esc(q.missing.slice(0, 6).join(", ")) + (q.missing.length > 6 ? "…" : "") + ").");

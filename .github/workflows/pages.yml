@@ -43,7 +43,10 @@ jobs:
           # (charge GitHub Actions : les schedules peuvent l'être), chaque déploiement
           # tente un relevé frais depuis le runner. Non bloquant : en cas d'échec,
           # le quotes.json du dernier commit (cron) est servi tel quel.
-          if node tools/fetch-quotes.js && node tools/validate-quotes.js; then
+          # v4.0.4 : --max-age-min=20 = anti-doublon — si le cron cotations a déjà livré
+          # un relevé de moins de 20 min (ou que le ping horaire vient de passer), on ne
+          # re-collecte pas : une seule collecte par cycle, appels réseau économisés.
+          if node tools/fetch-quotes.js --max-age-min=20 && node tools/validate-quotes.js; then
             echo "cotes fraîches générées pour ce déploiement"
             # cumul : le relevé réussi est committé (le 404 disparaît durablement) ;
             # le push au GITHUB_TOKEN ne déclenche AUCUN workflow — pas de boucle.

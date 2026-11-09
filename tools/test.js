@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.3");
+  EQ(RI.VERSION, "4.0.4");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -1358,6 +1358,114 @@ function TA(name, fn) {
     return FQ.fetchQuotes({ list: sbf100() }, {}).then(function () {
       throw new Error("aurait dû échouer");
     }, function (e) { A(String(e.message).length > 0, "échec propre : " + e.message); });
+  });
+
+  // ---------- v4.0.4 : repli TradingView — couverture harnais (revue Jade du 09/11) ----------
+  TA("v4.0.4 tvTicker : MC.PA → EURONEXT:MC, insensible à la casse", function () {
+    EQ(FQ.tvTicker("MC.PA"), "EURONEXT:MC");
+    EQ(FQ.tvTicker("mc.pa"), "EURONEXT:MC");
+    EQ(FQ.tvTicker("AIR.PA"), "EURONEXT:AIR");
+  });
+  TA("v4.0.4 tvScan : erreurs HTTP répétées → échec explicite, jamais de bouillie", function () {
+    var n = 0;
+    FQ.setFetchForTests(function () {
+      n++;
+      return Promise.resolve(res(500, "boom"));
+    });
+    return FQ.tvScan(["EURONEXT:MC"], 2).then(function () {
+      throw new Error("tvScan aurait dû échouer");
+    }, function (e) {
+      EQ(n, 2, "tentatives épuisées puis abandon");
+      A(String(e.message).indexOf("scanner TV en échec") > -1, "échec explicite : " + e.message);
+    });
+  });
+  TA("v4.0.4 fetchQuotesTv : réponses partielles → missing ; métriques reportées ; indice repli nommé", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      A(String(url).indexOf("scanner.tradingview.com") > -1, "URL scanner TV : " + url);
+      var body = JSON.parse(opts.body);
+      var out = [];
+      body.symbols.tickers.forEach(function (t) {
+        if (t === "EURONEXT:PX1") { out.push({ s: t, d: ["PX1", 8229.14, 1.07] }); return; }
+        var key = t.split(":")[1];
+        var n = parseInt(key.slice(1), 10);
+        if (n >= 2095) return; // 5 valeurs muettes → missing (95 % > garde 90 %)
+        out.push({ s: t, d: [key, 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9] });
+      });
+      return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+    });
+    return FQ.fetchQuotesTv(sb, {}).then(function (q) {
+      EQ(q.n, 95, "95 cotes, 5 muettes");
+      EQ(q.missing.length, 5, "les muettes sont listées dans missing");
+      A(String(q.source).indexOf("TradingView") > -1, "source = repli TradingView");
+      A(q.idx && q.idx.px === 8229.14, "indice de repli récupéré");
+      A(String(q.idx.name).indexOf("CAC 40") > -1, "indice nommé honnêtement (pas déguisé en SBF 120)");
+      EQ(q.list[0].per, 12.4, "PER trailing reporté");
+      EQ(q.list[0].cap, 2.5e9, "capitalisation reportée");
+      EQ(q.list[0].fper, null, "forward PER absent sur EURONEXT → null");
+    });
+  });
+  TA("v4.0.4 fetchQuotesTv : garde < 90 % → rejet, pas de relevé partiel servi", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      var body = JSON.parse(opts.body);
+      var out = [];
+      body.symbols.tickers.forEach(function (t) {
+        if (t === "EURONEXT:PX1") { out.push({ s: t, d: ["PX1", 8229.14, 1.07] }); return; }
+        var key = t.split(":")[1];
+        if (parseInt(key.slice(1), 10) >= 2050) return; // 50 réponses = 50 % < garde
+        out.push({ s: t, d: [key, 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9] });
+      });
+      return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+    });
+    return FQ.fetchQuotesTv(sb, {}).then(function () {
+      throw new Error("la garde aurait dû déclencher");
+    }, function (e) {
+      A(String(e.message).indexOf("trop peu de réponses TradingView") > -1, "garde 90 % : " + e.message);
+    });
+  });
+  TA("v4.0.4 fetchQuotesTv : indice absent → rejet explicite avant écriture (règle : pas de quotes.json sans indice)", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      var body = JSON.parse(opts.body);
+      var out = [];
+      body.symbols.tickers.forEach(function (t) {
+        if (t === "EURONEXT:PX1") return; // l'indice ne répond jamais
+        out.push({ s: t, d: [t.split(":")[1], 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9] });
+      });
+      return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+    });
+    return FQ.fetchQuotesTv(sb, {}).then(function () {
+      throw new Error("aurait dû être rejeté sans indice");
+    }, function (e) {
+      A(String(e.message).indexOf("indice de repli") > -1, "rejet explicite : " + e.message);
+    });
+  });
+  TA("v4.0.4 fetchQuotesAuto : Yahoo KO → bascule TradingView automatique", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      var u = String(url);
+      if (u.indexOf("scanner.tradingview.com") > -1) {
+        var body = JSON.parse(opts.body);
+        var out = body.symbols.tickers.map(function (t) {
+          return t === "EURONEXT:PX1"
+            ? { s: t, d: ["PX1", 8229.14, 1.07] }
+            : { s: t, d: [t.split(":")[1], 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9] };
+        });
+        return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+      }
+      return Promise.resolve(res(429, "Too Many Requests")); // Yahoo sature
+    });
+    return FQ.fetchQuotesAuto(sb, { sessionAttempts: 1 }).then(function (q) {
+      A(String(q.source).indexOf("TradingView") > -1, "relevé final via le repli");
+      EQ(q.n, 100, "100 cotes via TradingView");
+    });
+  });
+  TA("v4.0.4 ageMinutesOf : âge en minutes ; absent/invalide → null (garde anti-doublon)", function () {
+    EQ(FQ.ageMinutesOf(null), null);
+    EQ(FQ.ageMinutesOf("pas une date"), null);
+    var age = FQ.ageMinutesOf(new Date(Date.now() - 5 * 60000).toISOString());
+    A(age !== null && age >= 4 && age <= 6, "≈ 5 min : " + age);
   });
   function sbf100() {
     var l = [];
