@@ -310,7 +310,7 @@ module.exports = function simDom(cb) {
       A(s.indexOf("RCO") > -1 && s.indexOf("Mid 60") > -1, "mnémonique + groupe");
       A(s.indexOf("🔥 +10") > -1, "badge initiés (cluster ROCHE BOBOIS niveau 2 → +10)");
       A(s.indexOf("PER 9,5") > -1, "PER affiché au format français");
-      A(s.indexOf("hors classement") > -1 && s.indexOf("—") > -1, "société en perte : pas de score, « — » affiché");
+      A(s.indexOf("pas de score 🏆") > -1 && s.indexOf("—") > -1, "société en perte : « — » + explication du score 🏆 manquant");
       A(s.indexOf("TOTALENERGIES") > -1 && s.slice(s.indexOf("TOTALENERGIES"), s.indexOf('<div class="card"', s.indexOf("TOTALENERGIES"))).indexOf("🔥") === -1, "pas de badge initiés pour les VENDEURS (TOTALENERGIES n'a que des ventes)");
       A((elements["sbIdxPx"].textContent || "").length > 2, "indice rendu : " + elements["sbIdxPx"].textContent);
       A(elements["sbN"].textContent === "4", "compteur de valeurs cotées");

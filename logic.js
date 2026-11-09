@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.9";   // version unique de l'app (badge + footer la lisent) — v4.0.9 : fondamentaux qualité depuis le scanner TradingView en repli (ROE, marge op., dette/CP — sans la croissance, règle 3/4) quand Yahoo est saturé
+  var VERSION = "4.0.10";   // version unique de l'app (badge + footer la lisent) — v4.0.10 : liste unique 🏆 Long terme (qualité 55 + point d'entrée 35 + initiés 10) qui remplace les classements séparés ; ex æquo → rang moyen aussi dans la valorisation ; percentile à valeur unique → null
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -629,14 +629,20 @@ var RI = (function () {
       idx[i] = v; n++;
     }
     var pcts = {};
+    // v4.0.10 (3e revue) : ex æquo → RANG MOYEN, comme rankPctAny. L'ancien rang strict
+    // mettait TOUS les non-payeurs de dividende à 0 (dY ex æquo) — punir l'égalité n'a pas
+    // de sens. Une seule valeur = pas de comparaison possible → percentile ABSENT, pas un
+    // 50 qui ressemblerait à un rang neutre sans l'être.
     for (var a in idx) {
       if (!Object.prototype.hasOwnProperty.call(idx, a)) continue;
-      var less = 0;
+      if (n < 2) continue;
+      var less = 0, tied = 0;
       for (var b in idx) {
         if (!Object.prototype.hasOwnProperty.call(idx, b) || b === a) continue;
         if (lowerIsBetter ? (idx[b] > idx[a]) : (idx[b] < idx[a])) less++;
+        else if (idx[b] === idx[a]) tied++;
       }
-      pcts[a] = n > 1 ? Math.round((less / (n - 1)) * 100) : 50;
+      pcts[a] = Math.round(((less + tied / 2) / (n - 1)) * 100);
     }
     return pcts;
   }
@@ -745,7 +751,7 @@ var RI = (function () {
         if (lowerIsBetter ? (vals[b] > vals[a]) : (vals[b] < vals[a])) beaten++;
         else if (vals[b] === vals[a]) tied++;
       }
-      pcts[a] = n > 1 ? Math.round(((beaten + tied / 2) / (n - 1)) * 100) : 50;
+      pcts[a] = n > 1 ? Math.round(((beaten + tied / 2) / (n - 1)) * 100) : undefined; // v4.0.10 : une seule valeur = pas de comparaison → ABSENT (null côté appelant), pas un 50 faux neutre
     }
     return pcts;
   }
@@ -884,17 +890,29 @@ var RI = (function () {
       o.ins = hit ? hit.b : 0;
       o.insLvl = hit ? hit.level : 0;
       o.xScore = o.score == null ? null : (o.score + o.ins);
+      // v4.0.10 : LA liste unique 🏆 Long terme — demande de Jade : « une seule liste des
+      // meilleures entreprises pour le long terme avec un point d'entrée intéressant et
+      // justifiable ». Composition assumée (heuristique de tri, jamais validée sur historique) :
+      //   qualité 55 %   → les meilleures entreprises : ROE/marge op./croissance/dette, PAR SECTEUR
+      //                    (le long terme, c'est la qualité de l'affaire)
+      //   entrée 35 %    → le point d'entrée : PER/rendement/P/B vs pairs (entrer pas cher)
+      //   initiés 10 %   → la conviction des dirigeants : bonus FR 30 j, 0-100 (15→100), jamais de malus
+      // Le contexte d'entrée est AFFICHÉ sans entrer dans le score : 📉 position 52 s. (info,
+      // George & Hwang : momentum au plus HAUT), 🎯 potentiel consensus (avis du marché),
+      // ⚠️ bénéfices attendus en baisse. oScore null (qualité ou valorisation manquante) → pas d'avis.
+      o.ltScore = o.oScore == null ? null
+        : Math.round(0.55 * o.qScore + 0.35 * o.score + 0.10 * ((o.ins / 15) * 100));
       // v4.0.6 : potentiel vs objectif de consensus (upside) — la carte 🎯 trie là-dessus.
       o.upX = (e.tp != null && e.px > 0 && isFinite(e.tp) && isFinite(e.px)) ? Math.round((e.tp / e.px - 1) * 1000) / 10 : null;
       return o;
     });
   }
 
-  // tri des vues SBF 120 : "val" = score, "xins" = score croisé, "cap" = capitalisation,
-  // "obj" = potentiel vs objectif de consensus analystes (upside) — l'avis du marché, pas le nôtre.
-  // Les scores null (perte, pas d'objectif) restent en fin de liste — jamais cachés.
+  // tri des vues SBF 120 : "lt" = 🏆 Long terme (LA liste unique), "val" = score, "xins" = score
+  // croisé, "cap" = capitalisation, "obj" = potentiel vs objectif de consensus analystes (upside)
+  // — l'avis du marché, pas le nôtre. Les scores null (perte, pas d'objectif) restent en fin de liste — jamais cachés.
   function sbfSort(list, view) {
-    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : (view === "obj" ? "upX" : (view === "opp" ? "oScore" : "score")));
+    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : (view === "obj" ? "upX" : (view === "opp" ? "oScore" : (view === "lt" ? "ltScore" : "score"))));
     return list.slice().sort(function (a, b) {
       var va = a[key], vb = b[key];
       var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);

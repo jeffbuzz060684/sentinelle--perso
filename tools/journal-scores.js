@@ -18,13 +18,25 @@ var RI = require("../logic.js");
 
 var QUOTES_PATH = path.join(__dirname, "..", "quotes.json");
 var JOURNAL_PATH = path.join(__dirname, "..", "journal-scores.jsonl");
+var DATA_PATH = path.join(__dirname, "..", "data.json");
 var TOP_N = 20;
 
-function buildJournalEntry(q) {
+// v4.0.10 : le top journalisé est LA liste unique 🏆 Long terme (qualité 55 + entrée 35 + initiés 10).
+// buildJournalEntry(q, data) : data = data.json (initiés FR) lu au mieux — absent/corrompu ⇒ bonus 0,
+// le score 🏆 se calcule quand même (0 point d'initiés, jamais de malus).
+function buildJournalEntry(q, data) {
   if (!q || !q.list || !q.list.length) return null;
   var val = RI.oppScores(RI.valScores(q.list));
-  var oppTop = RI.sbfSort(val.filter(function (e) { return e.oScore != null; }), "opp").slice(0, TOP_N);
-  var valTop = RI.sbfSort(val.filter(function (e) { return e.score != null; }), "val").slice(0, TOP_N);
+  var bonus = { byName: {}, byIsin: {} };
+  try {
+    if (data && Array.isArray(data.fr) && data.fr.length) {
+      var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000));
+      bonus = RI.insiderFrBonus(data.fr, { since: since30 });
+    }
+  } catch (eBonus) { /* bonus = vide : top 🏆 sans composante initiés, honnête */ }
+  var enr = RI.sbfEnrich(val, bonus);
+  var ltTop = RI.sbfSort(enr.filter(function (e) { return e.ltScore != null; }), "lt").slice(0, TOP_N);
+  var valTop = RI.sbfSort(enr.filter(function (e) { return e.score != null; }), "val").slice(0, TOP_N);
   var px = {};
   q.list.forEach(function (e) { if (isFinite(e.px)) px[e.y] = Math.round(e.px * 100) / 100; });
   return {
@@ -33,8 +45,8 @@ function buildJournalEntry(q) {
     source: q.source || null,
     idx: (q.idx && isFinite(q.idx.px)) ? Math.round(q.idx.px * 100) / 100 : null,
     px: px,
-    opp: oppTop.map(function (e) {
-      return { y: e.y, oScore: e.oScore, qScore: e.qScore, score: e.score, pos52: e.pos52 != null ? e.pos52 : null };
+    lt: ltTop.map(function (e) {
+      return { y: e.y, ltScore: e.ltScore, qScore: e.qScore, score: e.score, ins: e.ins || 0, pos52: e.pos52 != null ? e.pos52 : null };
     }),
     val: valTop.map(function (e) { return { y: e.y, score: e.score }; })
   };
@@ -60,7 +72,7 @@ function appendEntry(entry) {
     return false;
   }
   fs.writeFileSync(JOURNAL_PATH, prev + (prev && !prev.endsWith("\n") ? "\n" : "") + JSON.stringify(entry) + "\n");
-  console.log("[journal] " + entry.date + " : top " + entry.opp.length + " 💎 + top " + entry.val.length + " 📐, " +
+  console.log("[journal] " + entry.date + " : top " + entry.lt.length + " 🏆 + top " + entry.val.length + " 📐, " +
     Object.keys(entry.px).length + " cours, indice " + entry.idx);
   return true;
 }
@@ -98,10 +110,11 @@ function report() {
       var bench = later.idx / l.idx - 1;
       var px0 = l.px || {};
       var top = function (arr) { return arr.slice(0, 5).map(function (t2) { return { y: t2.y, px: px0[t2.y] }; }); };
-      var o = l.opp && l.opp.length ? fwd(top(l.opp), later.px || {}, bench) : null;
+      var o = l.lt || l.opp; // v4.0.10 : clé "lt" (lignes anciennes : "opp")
+      var oF = o && o.length ? fwd(top(o), later.px || {}, bench) : null;
       var v = l.val && l.val.length ? fwd(top(l.val), later.px || {}, bench) : null;
       console.log("[journal] " + l.date + " +" + h[0] + " : " +
-        (o == null ? "💎 n/a" : "💎 top 5 : " + (o.mean * 100).toFixed(1) + " % (n=" + o.n + ") vs indice " + (bench * 100).toFixed(1) + " % → " + ((o.mean - bench) * 100).toFixed(1) + " pt") +
+        (oF == null ? "🏆 n/a" : "🏆 top 5 : " + (oF.mean * 100).toFixed(1) + " % (n=" + oF.n + ") vs indice " + (bench * 100).toFixed(1) + " % → " + ((oF.mean - bench) * 100).toFixed(1) + " pt") +
         (v == null ? "" : " | 📐 top 5 : " + (v.mean * 100).toFixed(1) + " % → " + ((v.mean - bench) * 100).toFixed(1) + " pt"));
       n++;
     });
@@ -114,7 +127,9 @@ function main() {
   var q;
   try { q = JSON.parse(fs.readFileSync(QUOTES_PATH, "utf8")); }
   catch (e) { console.error("[journal] quotes.json illisible — journal ignoré : " + e.message); process.exit(1); }
-  var entry = buildJournalEntry(q);
+  var data = null; // data.json (initiés FR) au mieux : absent ⇒ bonus 0 dans le top 🏆
+  try { data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8")); } catch (eData) { data = null; }
+  var entry = buildJournalEntry(q, data);
   if (!entry) { console.error("[journal] quotes.json sans list — journal ignoré"); process.exit(1); }
   appendEntry(entry);
 }

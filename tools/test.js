@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.9");
+  EQ(RI.VERSION, "4.0.10");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -810,12 +810,12 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("≈ à vérifier") > -1, "badge approx visible sur les tickers approximatifs");
     A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
     A(h.indexOf('data-v="obj"') > -1 && h.indexOf("🎯 Objectifs") > -1, "segment 🎯 Objectifs");
-    A(h.indexOf('data-v="opp"') > -1 && h.indexOf("💎 Opportunité") > -1, "segment 💎 Opportunité");
+    A(h.indexOf('data-v="lt"') > -1 && h.indexOf("🏆 Long terme") > -1, "segment 🏆 Long terme (LA liste unique, v4.0.10)");
     A(h.indexOf("📉 bas de fourchette 52 s.") > -1, "badge position 52 s. neutre (info, pas un signal d'achat)");
-    A(h.indexOf("qualité 57 %") > -1 && h.indexOf("valorisation 43 %") > -1, "note méthodo 💎 : pondérations 57/43 affichées");
-    A(h.indexOf("n'entre PAS dans le score") > -1 || h.indexOf("n’entre PAS dans le score") > -1, "point bas explicitement HORS score");
+    A(h.indexOf("qualité 55 %") > -1 && h.indexOf("point d'entrée 35 %") > -1 && h.indexOf("initiés FR 10 %") > -1, "note méthodo 🏆 : 55/35/10 affichés");
+    A(h.indexOf("affiché sans être noté") > -1, "v4.0.10 : contexte d'entrée (52 s., consensus 🎯) affiché mais hors score");
     A(h.indexOf("George &amp; Hwang") > -1 || h.indexOf("George & Hwang") > -1, "référence littérature momentum citée");
-    A(h.indexOf("Un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n’est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
+    A(h.indexOf("Un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n'est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
     A(h.indexOf("⚠️ bénef. attendus en baisse") > -1, "garde-fou piège à valeur (fper > per) affiché");
     A(h.indexOf('id="sbQ"') > -1, "stat couverture qualité (v4.0.8)");
     A(h.indexOf("journal-scores.jsonl") > -1, "journal de validation mentionné dans l'aide");
@@ -1613,13 +1613,16 @@ function TA(name, fn) {
     EQ(val2[8].qMode, "index", "sans secteur → vs indice");
     // X : roe/gRev/de battent les 8 autres → 100/100/100 → (0,35+0,2+0,2)×100/0,75 = 100
     EQ(val2[8].qScore, 100, "X : qualité 100 vs indice");
-    // oScore de Bk3 : valorisation sectorielle per 57 (battu 4/7) · dY 0 (ex æquo, rankPct strict) · pb 0 → 29
-    // oScore = 0,57×47 + 0,43×29 = 39,26 → 39
-    EQ(val2[3].oScore, 39, "Bk3 : composite 💎 39");
-    // X : per à égalité avec Bk0 (10) → rang strict 88 (battu 7/8) · dY 100 (battu 8/8) · pb 0
-    //     (ex æquo avec les 8 banques, rankPct strict) → score = 0,5×88 + 0,3×100 + 0,2×0 = 74
-    // oScore = 0,57×100 + 0,43×74 = 88,82 → 89
-    EQ(val2[8].oScore, 89, "X : composite 💎 89");
+    // oScore de Bk3 (v4.0.10 : ex æquo → rang moyen PARTOUT) : per 57 (battu 4/7) · dY 50
+    // (les 8 banques sont TOUTES ex æquo à 1 → rang moyen 50, plus de punition de l'égalité)
+    // · pb 50 (idem, toutes à 1) → score = 0,5×57 + 0,3×50 + 0,2×50 = 53,5 → 54
+    // oScore = 0,57×47 + 0,43×54 = 50,01 → 50
+    EQ(val2[3].oScore, 50, "Bk3 : composite 💎 50");
+    // X (v4.0.10 : rang moyen) : per à égalité avec Bk0 (10) → battu 7, ex æquo 1 → (7+0,5)/8 = 94
+    // · dY 100 (battu 8/8) · pb 50 (les 9 lignes ex æquo à 1 → rang moyen, plus de 0)
+    //     → score = 0,5×94 + 0,3×100 + 0,2×50 = 87
+    // oScore = 0,57×100 + 0,43×87 = 94,41 → 94
+    EQ(val2[8].oScore, 94, "X : composite 💎 94");
   });
   T("v4.0.7 quoteRow : bornes 52 s. Yahoo rapportées (fiftyTwoWeekLow/High)", function () {
     var r = FQ.quoteRow({ symbol: "MC.PA", shortname: "LVMH", regularMarketPrice: 402.45, regularMarketChangePercent: -0.5,
@@ -1681,6 +1684,39 @@ function TA(name, fn) {
     A(o[0].pRev === null, "croissance absente → percentile croissance null (pas un zéro qui punirait)");
     EQ(o[1].qBase, 3, "B : qBase 3 → qScore non null malgré l'absence de croissance");
   });
+  T("v4.0.10 rankPct : ex æquo → RANG MOYEN aussi dans la valorisation ; valeur unique → pas de faux 50", function () {
+    var l = [
+      { n: "A", per: 10, dY: 0 }, // 2 non-payeurs de dividende ex æquo — plus de « tous à 0 »
+      { n: "B", per: 10, dY: 0 },
+      { n: "C", per: 20, dY: 3 },
+      { n: "D", per: 30, dY: 5 }
+    ];
+    var pPer = RI.rankPct(l, "per", true);
+    // per (plus bas mieux) : A ex æquo avec B, bat C et D → (2 + 1/2)/3 = 83 ; D dernier → 0
+    EQ(pPer[0], 83, "A : rang moyen de l'ex æquo per (plus de rang strict qui cassait l'égalité)");
+    EQ(pPer[1], 83, "B : MÊME rang que A — l'égalité n'est plus une punition");
+    EQ(pPer[3], 0, "D : dernier, 0");
+    var pDY = RI.rankPct(l, "dY", false);
+    // dY (plus haut mieux) : A et B à 0 ex æquo → (0 + 1/2)/3 = 17 ; D seule à 5 → 100
+    EQ(pDY[0], 17, "A non-payeur : rang moyen 17, pas 0");
+    EQ(pDY[1], 17, "B non-payeur : idem A");
+    EQ(pDY[3], 100, "D meilleur rendement : 100");
+    var solo = RI.rankPct([{ per: 5 }, { per: -3 }], "per", true); // -3 exclu (non positif) → 1 seule valeur
+    A(solo[0] === undefined, "valeur unique → ABSENT (pas de 50 qui ressemblerait à un rang neutre sans l'être)");
+  });
+  T("v4.0.10 🏆 Long terme : ltScore = qualité 55 + point d'entrée 35 + initiés 10 (jamais de malus) ; LA liste unique", function () {
+    var bonus = { byName: {}, byIsin: { "FR0000120073": { b: 15, level: 3, buys: 9, societe: "TOTAL" } } };
+    var l = [
+      { n: "A", y: "A.PA", mn: "A", isin: "", qScore: 80, score: 60, oScore: 70 },
+      { n: "B", y: "B.PA", mn: "B", isin: "FR0000120073", qScore: 80, score: 60, oScore: 70 },
+      { n: "L", y: "L.PA", mn: "L", isin: "", qScore: null, score: null, oScore: null }
+    ];
+    var e = RI.sbfEnrich(l, bonus);
+    EQ(e[0].ltScore, 65, "A sans initiés : 0,55×80 + 0,35×60 + 0,10×0 = 65");
+    EQ(e[1].ltScore, 75, "B avec initiés 🔥🔥 +15 : 44 + 21 + 0,10×100 = 75");
+    A(e[2].ltScore === null, "oScore null (qualité ou entrée non mesurable) → ltScore null, on n'invente rien");
+    EQ(RI.sbfSort(e, "lt").map(function (r) { return r.n; }), ["B", "A", "L"], "vue 🏆 : B (conviction initiés) devant A, null en fin");
+  });
   T("v4.0.8 journal-scores : entrée du jour (top triés + cours des 120 = pas de biais du survivant), anti-doublon par date", function () {
     var J = require("./journal-scores.js");
     var q = {
@@ -1694,8 +1730,10 @@ function TA(name, fn) {
     var e = J.buildJournalEntry(q);
     EQ(e.date, "2026-11-09", "date = jour du relevé (UTC)");
     EQ(e.idx, 8229.14, "indice journalisé (benchmark intégré à chaque ligne)");
-    EQ(e.opp.length, 2, "top 💎 = valeurs avec oScore non null");
-    EQ(e.opp[0].y, "A.PA", "meilleur 💎 en tête");
+    EQ(e.lt.length, 2, "top 🏆 = valeurs avec ltScore non null");
+    EQ(e.lt[0].y, "A.PA", "meilleur 🏆 en tête");
+    EQ(e.lt[0].ltScore, 90, "🏆 = 0,55×100 (qualité) + 0,35×100 (entrée) + 0,10×0 (pas d'initiés dans le fixture)");
+    EQ(e.lt[0].ins, 0, "composante initiés journalisée (0 ici)");
     EQ(e.val.length, 2, "top 📐 = valeurs avec score non null");
     EQ(e.px["C.PA"], 12, "TOUTES les valeurs journalisées (même sans score) — rendements futurs sans biais du survivant");
     A(J.shouldAppend("", "2026-11-09"), "journal vide → on écrit");
