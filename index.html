@@ -73,6 +73,13 @@ h3{font-size:13px;margin-bottom:6px}
 .xs{font-size:10.5px;font-weight:700;background:rgba(251,113,133,.14);color:var(--red);border-radius:5px;padding:1px 5px;white-space:nowrap}
 .newdot{font-size:10px;font-weight:700;background:rgba(52,211,153,.16);color:var(--green);border-radius:5px;padding:1px 5px;white-space:nowrap}
 .mut{font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5}
+.tabs{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:12px}
+.tabs button{flex:1;background:transparent;border:0;color:var(--mut);font-size:13px;padding:7px 6px;cursor:pointer}
+.tabs button.on{background:var(--blue);color:#041022;font-weight:700}
+.gb{font-size:10px;font-weight:700;background:rgba(148,163,184,.14);color:var(--mut);border-radius:5px;padding:1px 5px;white-space:nowrap}
+.up{color:var(--green)}.dn{color:var(--red)}
+.sbsc{font-size:16px;font-weight:700;white-space:nowrap;text-align:right}
+.sbsc small{display:block;font-size:9.5px;color:var(--mut);font-weight:500}
 details summary{cursor:pointer;color:var(--txt);font-weight:600;font-size:13.5px}
 footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-height:1.6}
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:12.5px;opacity:0;transition:opacity .4s;pointer-events:none;max-width:90vw}
@@ -86,6 +93,13 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     <span class="badge" id="ver">v3.3</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
+
+    <div class="tabs" id="tabs">
+    <button data-tab="ins" class="on">👁 Initiés</button>
+    <button data-tab="sbf">📊 SBF 120</button>
+  </div>
+
+  <div id="viewIns">
 
   <div class="stats">
     <div class="stat"><div class="v" id="nFr">—</div><div class="l">achats AMF 🇫🇷 (90 j)</div></div>
@@ -145,6 +159,29 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
   <div id="list"></div>
 
+    </div><!-- /viewIns -->
+
+  <div id="viewSbf" class="hidden">
+    <div class="stats">
+      <div class="stat"><div class="v" id="sbIdxPx">—</div><div class="l">indice SBF 120</div></div>
+      <div class="stat"><div class="v" id="sbIdxChg">—</div><div class="l">variation du jour</div></div>
+      <div class="stat"><div class="v" id="sbN">—</div><div class="l">valeurs cotées</div></div>
+      <div class="stat"><div class="v" id="sbRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
+    </div>
+    <div class="card hidden" id="sbBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
+    <div class="card filters">
+      <div class="filters">
+        <div class="seg" id="segSb">
+          <button data-v="val" class="on">📐 Valorisation</button>
+          <button data-v="xins">🔀 × Initiés FR</button>
+        </div>
+        <input type="search" id="sq" placeholder="🔎 valeur du SBF 120…" aria-label="Rechercher">
+      </div>
+      <p class="mut">Percentiles internes à l’indice : PER 50 % · rendement 30 % · P/B 20 %. Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. La vue 🔀 ajoute le bonus initiés FR (clusters 30 j : +15/10/4 selon le niveau). Outil de tri, pas un conseil.</p>
+    </div>
+    <div id="sbList"></div>
+  </div><!-- /viewSbf -->
+
   <div class="card info">
     <details>
       <summary>Comment ça marche — délais honnêtes</summary>
@@ -154,6 +191,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Achats ≥ 1 000 $ ; ventes ≥ 50 000 $ et uniquement hors plan 10b5-1 / hors levée d'options.</li>
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
+        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance — Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext.</li>
       </ul>
       <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
       <p style="margin-top:6px">⚠️ Outil d'information, pas un conseil en investissement. Les initiés vendent pour mille raisons et achètent pour une : leur achat est un signal, pas une garantie.</p>
@@ -161,7 +199,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   </div>
 
   <footer>
-    Sources : déclarations publiques <a href="https://transactions-amf.swaoo.com/" target="_blank" rel="noopener">Transactions AMF</a> · <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank" rel="noopener">SEC EDGAR</a><br>
+    Sources : déclarations publiques <a href="https://transactions-amf.swaoo.com/" target="_blank" rel="noopener">Transactions AMF</a> · <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank" rel="noopener">SEC EDGAR</a> · <a href="https://finance.yahoo.com/" target="_blank" rel="noopener">Yahoo Finance</a><br>
     Sentinelle perso <span id="footVer">v3.3</span> · pipeline GitHub Actions · aucune donnée personnelle dans cette app
   </footer>
 </div>
@@ -174,7 +212,8 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   var DATA_KEY = "sentinelle-perso-data-v1";
   var PREF_KEY = "sentinelle-perso-prefs-v1";
   var SEEN_KEY = "sentinelle-perso-lastseen-v1";
-  var state = { data: null, newIds: {}, limit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false } };
+  var QKEY = "sentinelle-perso-quotes-v4";
+  var state = { data: null, quotes: null, newIds: {}, limit: 100, sbLimit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false, sbQ: "", tab: "ins", sbView: "val" } };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -196,6 +235,9 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         if (typeof p.q === "string") state.prefs.q = p.q;
         if (typeof p.new === "boolean") state.prefs.new = p.new;
         if (p.side === "buy" || p.side === "sell" || p.side === "all") state.prefs.side = p.side;
+        if (p.tab === "ins" || p.tab === "sbf") state.prefs.tab = p.tab;
+        if (p.sbView === "val" || p.sbView === "xins") state.prefs.sbView = p.sbView;
+        if (typeof p.sbQ === "string") state.prefs.sbQ = p.sbQ;
       }
     } catch (e) { }
   }
@@ -257,7 +299,32 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     return false;
   }
 
+  function applyQuotes(q) {
+    if (!q || !q.list) return false;
+    state.quotes = q;
+    try { localStorage.setItem(QKEY, JSON.stringify(q)); } catch (e) { }
+    if (state.prefs.tab === "sbf") renderSbf();
+    return true;
+  }
+  function useCachedQuotes() {
+    try {
+      var q = JSON.parse(localStorage.getItem(QKEY) || "null");
+      if (q && q.list) { state.quotes = q; return true; }
+    } catch (e) { }
+    return false;
+  }
+  function refreshQuotes(silent) {
+    fetch("quotes.json?v=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (q) { applyQuotes(q); })
+      .catch(function () {
+        if (!state.quotes) useCachedQuotes();
+        if (state.prefs.tab === "sbf") { renderSbf(); if (!silent) toast("Cotes hors ligne — dernier relevé affiché"); }
+      });
+  }
+
   function refresh(silent) {
+    refreshQuotes(silent);
     fetch("data.json?v=" + Date.now(), { cache: "no-store" })
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (d) {
@@ -545,6 +612,111 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       state.limit += 100; // pagination par centaines
       render();
     });
+    $("sbList").addEventListener("click", function (e) {
+      var b = e.target && e.target.closest ? e.target.closest("#sbMore") : null;
+      if (!b) return;
+      state.sbLimit += 100;
+      renderSbf();
+    });
+    $("tabs").addEventListener("click", function (e) {
+      var b = e.target && e.target.closest ? e.target.closest("button[data-tab]") : null;
+      if (!b) return;
+      state.prefs.tab = b.getAttribute("data-tab");
+      savePrefs();
+      reflectPrefs();
+      if (state.prefs.tab === "sbf") renderSbf();
+    });
+    $("segSb").addEventListener("click", function (e) {
+      var b = e.target && e.target.closest ? e.target.closest("button[data-v]") : null;
+      if (!b) return;
+      state.prefs.sbView = b.getAttribute("data-v");
+      state.sbLimit = 100;
+      savePrefs();
+      reflectPrefs();
+      renderSbf();
+    });
+    $("sq").addEventListener("input", function (e) {
+      state.prefs.sbQ = e.target.value;
+      state.sbLimit = 100;
+      savePrefs();
+      renderSbf();
+    });
+  }
+
+  function sbGroupLabel(g) { return g === "cac40" ? "CAC 40" : (g === "next20" ? "Next 20" : "Mid 60"); }
+  function sbQuoteUrl(e) {
+    var q = String(e.isin || e.mn || e.n).trim();
+    return "https://www.boursorama.com/recherche/?query=" + encodeURIComponent(q);
+  }
+  function renderSbf() {
+    var q = state.quotes;
+    if (!q || !q.list || !q.list.length) {
+      $("sbList").innerHTML = '<div class="empty">Cotes du SBF 120 pas encore chargées — rafraîchis dans un instant.</div>';
+      return;
+    }
+    if (q.idx && q.idx.px != null) {
+      $("sbIdxPx").textContent = RI.fmtNum(Math.round(q.idx.px * 100) / 100);
+      var chg = q.idx.chg;
+      var el = $("sbIdxChg");
+      el.textContent = RI.fmtPct(chg);
+      el.className = "v " + (chg > 0 ? "up" : (chg < 0 ? "dn" : ""));
+    }
+    $("sbN").textContent = String(q.list.length);
+    $("sbRel").textContent = q.updated ? String(q.updated).slice(11, 16) + " UTC" : "—";
+    var msgs = [];
+    if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
+    if (q.missing && q.missing.length) msgs.push("⚠️ " + q.missing.length + " valeur" + (q.missing.length > 1 ? "s" : "") + " sans cote Yahoo (" + esc(q.missing.slice(0, 6).join(", ")) + (q.missing.length > 6 ? "…" : "") + ").");
+    var sb = $("sbBanner");
+    if (msgs.length) { sb.innerHTML = msgs.join(" "); sb.classList.remove("hidden"); }
+    else sb.classList.add("hidden");
+    var val = RI.valScores(q.list);
+    var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000));
+    var bonus = RI.insiderFrBonus((state.data && state.data.fr) || [], { since: since30 });
+    var enr = RI.sbfEnrich(val, bonus);
+    var qTxt = String(state.prefs.sbQ || "").trim().toLowerCase();
+    var rows = RI.sbfSort(enr, state.prefs.sbView);
+    if (qTxt) rows = rows.filter(function (e) {
+      return String(e.n).toLowerCase().indexOf(qTxt) >= 0 || String(e.mn).toLowerCase().indexOf(qTxt) >= 0;
+    });
+    if (rows.length === 0) {
+      $("sbList").innerHTML = '<div class="empty">Aucune valeur du SBF 120 pour « ' + esc(qTxt) + ' ».</div>';
+      return;
+    }
+    var shown = rows.slice(0, state.sbLimit);
+    var html = [];
+    var isX = state.prefs.sbView === "xins";
+    for (var i = 0; i < shown.length; i++) {
+      var e = shown[i];
+      var sc = isX ? e.xScore : e.score;
+      var up = e.chg > 0, dn = e.chg < 0;
+      html.push(
+        '<div class="card"><div class="row fr"><div class="bar"></div>' +
+        '<div class="t">' +
+        '<div class="soc"><span style="color:var(--mut);font-size:11px;font-weight:500">' + (i + 1) + '</span> ' + esc(e.n) +
+        ' <span class="tk">' + esc(e.mn) + '</span> <span class="gb">' + sbGroupLabel(e.g) + '</span>' +
+        (e.ins > 0 ? ' <span class="lvl l' + e.insLvl + '" title="Initiés FR en accumulation sur 30 j (vue 🔰)">' + (e.insLvl >= 2 ? "🔥" : "×2") + " +" + e.ins + "</span>" : "") +
+        "</div>" +
+        '<div class="meta"><span>cours <b>' + esc(RI.fmtNum(e.px)) + ' €</b> <span class="' + (up ? "up" : (dn ? "dn" : "")) + '">' + esc(RI.fmtPct(e.chg)) + "</span></span>" +
+        "<span>cap. " + esc(RI.fmtCap(e.cap)) + "</span></div>" +
+        '<div class="details">PER ' + (e.per != null ? esc(String(Math.round(e.per * 100) / 100).replace(".", ",")) : "—") +
+        " · projeté " + (e.fper != null ? esc(String(Math.round(e.fper * 100) / 100).replace(".", ",")) : "—") +
+        " · rendement " + (e.dY != null ? esc(String(Math.round(e.dY * 100) / 100).replace(".", ",")) + " %" : "—") +
+        " · P/B " + (e.pb != null ? esc(String(Math.round(e.pb * 100) / 100).replace(".", ",")) : "—") +
+        ' · <a href="' + esc(sbQuoteUrl(e)) + '" target="_blank" rel="noopener">cote ↗</a>' +
+        "</div></div>" +
+        '<div class="sbsc">' + (sc == null
+          ? '<span title="Pas de bénéfice net sur les 4 derniers trimestres (PER indisponible) — hors classement valorisation">—</span>'
+          : "<b>" + sc + "</b>") +
+        (isX && e.ins > 0 ? "<small>+" + e.ins + " initiés</small>" : "<small>" + (isX ? "score + initiés" : "/100") + "</small>") +
+        "</div>" +
+        "</div></div>"
+      );
+    }
+    if (rows.length > shown.length) {
+      html.push('<div class="card" style="text-align:center"><button class="amt" id="sbMore">Afficher plus — ' +
+        (rows.length - shown.length) + " restante" + (rows.length - shown.length > 1 ? "s" : "") + "</button></div>");
+    }
+    $("sbList").innerHTML = html.join("");
   }
 
   function reflectPrefs() {
@@ -564,6 +736,15 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     });
     $("newChip").classList.toggle("on", state.prefs.new === true);
     $("q").value = state.prefs.q;
+    Array.prototype.forEach.call($("segSb").querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-v") === state.prefs.sbView);
+    });
+    Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-tab") === state.prefs.tab);
+    });
+    $("viewIns").classList.toggle("hidden", state.prefs.tab !== "ins");
+    $("viewSbf").classList.toggle("hidden", state.prefs.tab !== "sbf");
+    $("sq").value = state.prefs.sbQ || "";
   }
 
   // version écrite à UN seul endroit : RI.VERSION (logic.js) — badge et footer la lisent ici
@@ -575,6 +756,8 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   reflectPrefs();
   wire();
   useCached();
+  useCachedQuotes();
+  if (state.prefs.tab === "sbf" && state.quotes) renderSbf();
   refresh(true);
   // PWA : enregistrement du service worker (cache v3.1, secours hors ligne)
   if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.register) {

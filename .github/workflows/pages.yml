@@ -38,11 +38,18 @@ jobs:
           node tools/gen-icons.js
           # v3.3 : Pages ne publie plus tout le dépôt (outils, workflows, state) —
           # uniquement les fichiers de l'app, dans dist/
+          # v4.0 : quotes.json/sbf120.json copiés s'ils existent (tolérant tant que
+          # le premier cron cotations n'a pas encore tourné)
           mkdir -p dist
           cp index.html logic.js sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png data.json dist/
+          test -f quotes.json && cp quotes.json dist/ || echo "  note : quotes.json absent du dépôt"
+          test -f sbf120.json && cp sbf120.json dist/ || echo "  note : sbf120.json absent du dépôt"
           ls dist/
       - name: Valider data.json
         run: node tools/validate-data.js
+      - name: Valider quotes.json + sbf120.json
+        run: |
+          cd dist && node ../tools/validate-quotes.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

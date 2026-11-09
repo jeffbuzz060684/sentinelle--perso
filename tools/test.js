@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "3.3");
+  EQ(RI.VERSION, "4.0");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -738,10 +738,10 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer recherche, pas conseil");
     A(html.indexOf("data-sig=") > -1, "lien « voir les déclarations » réutilise le filtre recherche");
   });
-  T("sw.js : cache v3.3 + timeout réseau 3,5 s", function () {
+  T("sw.js : cache v4.0 + timeout réseau 3,5 s", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf("sentinelle-perso-v3.3") > -1, "cache v3.3");
-    A(sw.indexOf("sentinelle-perso-v3.2") === -1 && sw.indexOf("sentinelle-perso-v3.1.1") === -1, "plus d'ancien nom de cache");
+    A(sw.indexOf("sentinelle-perso-v4") > -1, "cache v4");
+    A(sw.indexOf("sentinelle-perso-v3.3") === -1 && sw.indexOf("sentinelle-perso-v3.2") === -1, "plus d'ancien nom de cache");
     A(sw.indexOf("3500") > -1, "timeout réseau 3,5 s (repli cache si connexion morte)");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
@@ -768,6 +768,160 @@ T("fetch-insiders.js compile", function () {
   });
   T("un seul workflow de scan : scan.yml supprimé (doublon horaire)", function () {
     A(!fs.existsSync(__dirname + "/../.github/workflows/scan.yml"), "scan.yml absent");
+  });
+  // ---------- v4.0 : onglet SBF 120 (valorisation + vue croisée initiés FR) ----------
+  T("v4.0 : workflows YAML cotations + composition + déploiement", function () {
+    var q = fs.readFileSync(__dirname + "/../.github/workflows/quotes.yml", "utf8");
+    A(q.indexOf("*/15 7-16 * * 1-5") > -1, "cron 15 min en séance (07:00-16:45 UTC, lun-ven)");
+    A(q.indexOf("timeout-minutes: 10") > -1, "timeout du run cotations");
+    A(q.indexOf("node tools/fetch-quotes.js") > -1, "relevé des cotes");
+    A(q.indexOf("node tools/validate-quotes.js") > -1, "validation avant commit");
+    A(q.indexOf("git pull --rebase origin main") > -1, "pull --rebase avant push (pas de collision avec le cron initiés)");
+    A(q.indexOf("contents: write") > -1 && q.indexOf("actions: write") > -1, "permissions commit + relance pages");
+    A(q.indexOf("gh workflow run pages.yml") > -1, "redéploiement Pages quand les cotes changent");
+    A(q.indexOf("concurrency") > -1 && q.indexOf("cancel-in-progress: true") > -1, "runs obsolètes annulés (une seule vague de cotes à la fois)");
+    var s = fs.readFileSync(__dirname + "/../.github/workflows/sbf120.yml", "utf8");
+    A(s.indexOf("node tools/build-sbf120.js") > -1, "reconstruction de la composition");
+    A(s.indexOf("git add sbf120.json") > -1, "commit de la seule composition");
+    A(s.indexOf("37 4 3 * *") > -1, "cron mensuel (prêt avant les révisions trimestrielles Euronext)");
+    var p = fs.readFileSync(__dirname + "/../.github/workflows/pages.yml", "utf8");
+    A(p.indexOf("test -f quotes.json && cp quotes.json dist/") > -1, "quotes.json servi (cp tolérant tant que le premier cron n'a pas tourné)");
+    A(p.indexOf("test -f sbf120.json && cp sbf120.json dist/") > -1, "sbf120.json servi");
+    A(p.indexOf("validate-quotes.js") > -1, "validation quotes + composition AVANT déploiement");
+  });
+  T("v4.0 : structure de l'onglet SBF 120 dans index.html", function () {
+    var h = fs.readFileSync(__dirname + "/../index.html", "utf8");
+    A(h.indexOf('id="tabs"') > -1 && h.indexOf('data-tab="sbf"') > -1, "barre d'onglets 👁 Initiés / 📊 SBF 120");
+    A(h.indexOf('id="viewIns"') > -1 && h.indexOf('id="viewSbf"') > -1, "deux vues séparées");
+    A(h.indexOf('id="segSb"') > -1 && h.indexOf('data-v="val"') > -1 && h.indexOf('data-v="xins"') > -1, "segment 📐 Valorisation / 🔀 × Initiés FR");
+    A(h.indexOf('id="sq"') > -1, "recherche d'une valeur");
+    A(h.indexOf('id="sbList"') > -1 && h.indexOf("sbLimit") > -1, "liste + pagination 100");
+    A(h.indexOf('id="sbIdxPx"') > -1 && h.indexOf('id="sbIdxChg"') > -1, "stats indice");
+    A(h.indexOf("sentinelle-perso-quotes-v4") > -1, "clé de cache localStorage des cotes");
+    A(h.indexOf("refreshQuotes") > -1, "rafraîchissement des cotes au chargement");
+    A(h.indexOf("différé ≈ 15 min") > -1, "mention honnête du différé (pas de temps réel officiel payant)");
+    A(h.indexOf("Percentiles internes à l’indice") > -1, "note méthodo dans la page");
+    A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
+  });
+  T("rankPct : percentiles, plus bas = 100, exclusion des non positifs", function () {
+    var l = [
+      { per: 5 }, { per: 10 }, { per: 20 }, { per: 40 }, // PER croissant
+      { per: -3 }, { per: 0 }                            // perte et zéro : hors rang
+    ];
+    var p = RI.rankPct(l, "per", true);
+    EQ(p[0], 100, "PER 5 (le plus bas) = 100");
+    EQ(p[3], 0, "PER 40 (le plus haut) = 0");
+    A(p[4] === undefined && p[5] === undefined, "non positifs exclus du rang");
+    var d = [{ dY: 0 }, { dY: 2 }, { dY: 6 }];
+    var pd = RI.rankPct(d, "dY", false);
+    EQ(pd[2], 100, "rendement le plus haut = 100");
+    A(pd[0] !== undefined, "rendement 0 participe (null seulement est exclu)");
+  });
+  T("valScores : pondération PER 50 / rendement 30 / P/B 20 — PER exigé", function () {
+    var l = [
+      { n: "A", per: 5, dY: 6, pb: 0.5 },   // les trois meilleurs → 100
+      { n: "B", per: 40, dY: 0, pb: 8 },    // les trois pires → 0
+      { n: "C", per: null, dY: 3, pb: 2 },  // PER absent (perte) → score null
+      { n: "D", per: 10, dY: null, pb: 4 }  // rendement absent → renormalisé sur per+pb
+    ];
+    var s = RI.valScores(l);
+    EQ(s[0].score, 100, "A : tout au plancher de valorisation = 100");
+    EQ(s[1].score, 0, "B : tout au plafond = 0");
+    EQ(s[2].score, null, "C : pas de PER = pas de score (une perte n'est pas « pas chère »)");
+    EQ(s[3].score, 45, "D : renormalisé sur PER+P/B — pPer 50 (1/2) + pPb 33 (1/3) : 0.5×50+0.2×33 = 31.7/0.7");
+    EQ(s[0].pPer, 100, "percentile PER exposé");
+  });
+  T("insiderFrBonus : +15/+10/+4 par niveau de cluster 30 j, byName + byIsin", function () {
+    var mk = function (soc, isin, k, memeAuteur) { // 3 achats ; memeAuteur → 1 acheteur (niveau 2), sinon 3 (niveau 3)
+      var rows = [];
+      for (var i = 0; i < 3; i++) {
+        rows.push({ id: "b" + k + i, source: "FR", side: "buy", societe: soc, auteur: memeAuteur ? "Initie Unique" : "Initie " + (i + k), role: "DG", nature: "Acquisition", instrument: "Action", isin: isin, dateOp: "2026-11-0" + (i + 1), datePub: "2026-11-06", volume: 100, prix: 10, montant: 1000, url: "x" });
+      }
+      return rows;
+    };
+    var fr = mk("SOCIETE A SA", "FR0000000001", 1)        // 3 achats, 3 acheteurs → niveau 3
+      .concat(mk("SOCIETE B SA", "", 10, true))           // 3 achats, MÊME acheteur → niveau 2
+      .concat([{ id: "z1", source: "FR", side: "buy", societe: "SOCIETE C SA", auteur: "X", role: "DG", nature: "Acquisition", instrument: "Action", isin: "FR0000000003", dateOp: "2026-11-02", datePub: "2026-11-06", volume: 100, prix: 10, montant: 1000, url: "x" },
+        { id: "z2", source: "FR", side: "buy", societe: "SOCIETE C SA", auteur: "X", role: "DG", nature: "Acquisition", instrument: "Action", isin: "FR0000000003", dateOp: "2026-11-03", datePub: "2026-11-06", volume: 100, prix: 10, montant: 1000, url: "x" }]); // 2 achats, 1 acheteur → niveau 1
+    var b = RI.insiderFrBonus(fr, { since: "2026-10-15" });
+    EQ(b.byName["SOCIETE A SA"].b, 15, "niveau 3 → +15");
+    EQ(b.byName["SOCIETE B SA"].b, 10, "niveau 2 → +10");
+    EQ(b.byName["SOCIETE C SA"].b, 4, "niveau 1 → +4");
+    EQ(b.byIsin["FR0000000001"].b, 15, "index par ISIN");
+    var bNone = RI.insiderFrBonus([], { since: null });
+    EQ(Object.keys(bNone.byName).length, 0, "pas d'achats → bonus vide, pas d'erreur");
+    // hors fenêtre : le signal ancien ne donne plus de bonus
+    var old = [{ id: "o1", source: "FR", side: "buy", societe: "VIEILLE SA", auteur: "X", role: "DG", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-01-02", datePub: "2026-01-06", volume: 100, prix: 10, montant: 1000, url: "x" },
+      { id: "o2", source: "FR", side: "buy", societe: "VIEILLE SA", auteur: "Y", role: "DG", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-01-03", datePub: "2026-01-07", volume: 100, prix: 10, montant: 1000, url: "x" }];
+    var bOld = RI.insiderFrBonus(old, { since: "2026-10-15" });
+    EQ(Object.keys(bOld.byName).length, 0, "cluster hors fenêtre 30 j → pas de bonus");
+  });
+  T("sbfEnrich : « ROCHE BOBOIS SA » (déclaration AMF) matche « ROCHE BOBOIS » (nom Yahoo)", function () {
+    var bonus = { byName: { "ROCHE BOBOIS SA": { b: 10, level: 2, buys: 2, societe: "ROCHE BOBOIS SA" } }, byIsin: {} };
+    var r = RI.sbfEnrich([{ n: "ROCHE BOBOIS", mn: "RCO", score: 55, isin: "" }, { n: "TOTALENERGIES", mn: "TTE", score: 50, isin: "" }], bonus);
+    EQ(r[0].ins, 10, "préfixe au mot : la déclaration avec suffixe SA matche le nom Yahoo nu");
+    EQ(r[0].insLvl, 2, "niveau du cluster reporté");
+    EQ(r[0].xScore, 65, "score croisé = score + bonus");
+    EQ(r[1].ins, 0, "TOTAL ne matche pas TOTALENERGIES (frontière de mot)");
+    EQ(r[1].xScore, 50, "sans initiés, score croisé = score");
+    var byIsin = RI.sbfEnrich([{ n: "Exemple", mn: "EX", score: 20, isin: "FR0000030823" }], { byName: {}, byIsin: { FR0000030823: { b: 10, level: 3, buys: 3, societe: "EXEMPLE SA" } } });
+    EQ(byIsin[0].ins, 10, "match par ISIN direct");
+    var perte = RI.sbfEnrich([{ n: "En Perte", mn: "PL", score: null, isin: "" }], bonus);
+    EQ(perte[0].xScore, null, "score null → xScore null (jamais déguisé en 0+bonus)");
+  });
+  T("sbfSort : tri desc, nulls en fin, vues val/xins/cap", function () {
+    var l = [
+      { n: "A", score: 90, xScore: 90, cap: 1 },
+      { n: "B", score: 20, xScore: 105, cap: 100 },
+      { n: "P", score: null, xScore: null, cap: 10 }
+    ];
+    EQ(RI.sbfSort(l, "val").map(function (e) { return e.n; }), ["A", "B", "P"], "vue valorisation, perte en fin");
+    EQ(RI.sbfSort(l, "xins").map(function (e) { return e.n; }), ["B", "A", "P"], "vue croisée : le bonus initiés peut renverser le tri");
+    EQ(RI.sbfSort(l, "cap").map(function (e) { return e.n; }), ["B", "P", "A"], "vue capitalisation");
+    EQ(RI.sbfSort(l, "val").length, 3, "sort ne mute pas la liste d'entrée");
+  });
+  T("fmtCap/fmtPct : formats français", function () {
+    EQ(RI.fmtCap(2.34e12), "2,34 T€");
+    EQ(RI.fmtCap(12.5e9), "12,5 Md€");
+    EQ(RI.fmtCap(340e6), "340 M€");
+    EQ(RI.fmtCap(null), "—");
+    EQ(RI.fmtPct(1.234), "+1,23 %");
+    EQ(RI.fmtPct(-0.5), "-0,5 %");
+    EQ(RI.fmtPct(null), "—");
+  });
+  T("build-sbf120 : navboxCompanies (labels ≥ 3, exclusions v/m/CAC, hrefs absolus)", function () {
+    var SB = require("./build-sbf120.js");
+    var h = '<table class="navbox"><tr><td>Entreprises du CAC 40</td></tr><tr><td>' +
+      '<a href="/wiki/Accor" title="Accor">Accor</a> · ' +
+      '<a href="https://fr.wikipedia.org/wiki/Air liquide" title="Air liquide">Air liquide</a> · ' +
+      '<a href="/wiki/Airbus" class="new">Airbus</a> · ' +                       // article inexistant → exclu
+      '<a href="/wiki/Mod%C3%A8le:Indices_CAC" title="Modèle:Indices CAC">v · m</a> · ' + // bandeau → exclu
+      '<a href="/wiki/Accor" title="Accor">Accor</a> · ' +                      // doublon → 1 fois
+      '<a href="/wiki/CAC_Mid_60" title="CAC Mid 60">CAC Mid 60</a> · ' +        // autre indice → exclu
+      '<a href="/wiki/Eiffage" title="Eiffage">Eiffage</a>' +
+      '</td></tr></table>';
+    var r = SB.navboxCompanies(h);
+    EQ(r, [{ label: "Accor", page: "Accor" }, { label: "Air liquide", page: "Air liquide" }, { label: "Eiffage", page: "Eiffage" }],
+      "seules les sociétés, dans l'ordre, sans doublons");
+    EQ(SB.navboxCompanies("<p>pas de navbox</p>"), null, "pas de table « Entreprises du » → null");
+  });
+  T("build-sbf120 : cac40Table (41 lignes, en-tête Société|Mnémo)", function () {
+    var SB = require("./build-sbf120.js");
+    var rows = ['<tr><th>Société</th><th>Mnémo</th><th>Secteur</th></tr>'];
+    for (var i = 0; i < 40; i++) rows.push("<tr><td>Societe " + i + "</td><td> S" + (100 + i) + " </td><td>Secteur</td></tr>");
+    var h = '<table class="wikitable">' + rows.join("") + "</table>";
+    var r = SB.cac40Table(h);
+    EQ(r.length, 40, "40 lignes");
+    EQ(r[0], { nom: "Societe 0", mnemo: "S100", secteur: "Secteur" }, "mnémo nettoyé des espaces");
+    EQ(SB.cac40Table("<table><tr><td>Autre table</td></tr></table>"), null, "pas de table 41 lignes → null");
+  });
+  T("build-sbf120 : euronextFromWikitext (casse, espace, ISIN)", function () {
+    var SB = require("./build-sbf120.js");
+    EQ(SB.euronextFromWikitext("{{Euronext|AC|FR0000120404|Paris}}"), { mn: "AC", isin: "FR0000120404" }, "canonique");
+    EQ(SB.euronextFromWikitext("{{euronext|ADP}}"), { mn: "ADP", isin: "" }, "minuscules, sans ISIN");
+    EQ(SB.euronextFromWikitext("{{Euronext |BIM}}"), { mn: "BIM", isin: "" }, "espace avant le premier argument");
+    EQ(SB.euronextFromWikitext("{{Euronext|pas-un-mnemo|X}}"), null, "mnémo non conforme rejeté");
+    EQ(SB.euronextFromWikitext("pas de modèle"), null, "absence → null");
   });
   T("code mort de la v0 supprimé", function () {
     A(!fs.existsSync(__dirname + "/../app.js"), "app.js");
@@ -1113,6 +1267,160 @@ function TA(name, fn) {
         A(n0 === 0 && calls.length === 1, "topic vide (secret absent) ⇒ aucun envoi, le run continue");
       });
     });
+  });
+})();
+
+// ---------- v4.0 : tests asynchrones SBF 120 (fetch injecté, sérialisés eux aussi) ----------
+(function () {
+  var FQ = require("./fetch-quotes.js");
+  var SB2 = require("./build-sbf120.js");
+  function res(status, body, headers) {
+    var h = headers || {};
+    return {
+      status: status,
+      headers: {
+        get: function (k) { return h[String(k).toLowerCase()] || null; },
+        getSetCookie: function () { return h["set-cookie"] || []; }
+      },
+      text: function () { return Promise.resolve(typeof body === "string" ? body : JSON.stringify(body)); }
+    };
+  }
+  TA("fetch-quotes : yahooSession exige un 200 sur getcrumb — le corps 429 « Too Many Requests » ne devient jamais un crumb", function () {
+    var n = 0;
+    FQ.setFetchForTests(function (url) {
+      if (String(url).indexOf("fc.yahoo.com") > -1) return Promise.resolve(res(404, "", { "set-cookie": ["A1=d=abc123; Path=/; Max-Age=31536000"] }));
+      n++;
+      if (n === 1) return Promise.resolve(res(429, "Too Many Requests"));
+      return Promise.resolve(res(200, "crumb4tests"));
+    });
+    return FQ.yahooSession(3).then(function (s) {
+      EQ(s.crumb, "crumb4tests", "crumb valide : le 429 a été rejeté puis retenté");
+      EQ(s.cookie, "A1=d=abc123", "cookie de session extrait");
+    });
+  });
+  TA("fetch-quotes : 100 valeurs en 3 batchs + 1 indice ; valeur muette → missing ; garde < 90 % en échec", function () {
+    var sbList = [];
+    for (var i = 0; i < 100; i++) sbList.push({ n: "Val " + i, y: "V" + (1000 + i) + ".PA", mn: "V" + (1000 + i), g: "mid60", isin: "", disp: "Val " + i });
+    var sb = { updated: "2026-01-01T00:00:00Z", source: "fixture", counts: {}, list: sbList };
+    var batchCalls = 0;
+    FQ.setFetchForTests(function (url) {
+      var u = String(url);
+      if (u.indexOf("fc.yahoo.com") > -1) return Promise.resolve(res(404, "", { "set-cookie": ["A1=d=x"] }));
+      if (u.indexOf("getcrumb") > -1) return Promise.resolve(res(200, "c"));
+      if (u.indexOf("/quote?symbols=") > -1) {
+        batchCalls++;
+        var syms = decodeURIComponent(u.split("symbols=")[1].split("&")[0]).split(",");
+        var out = syms.map(function (s) {
+          if (s === "^SBF120") return { symbol: s, shortname: "SBF 120", regularMarketPrice: 6850.4, regularMarketChangePercent: 0.62, regularMarketTime: 1799900000 };
+          if (s === "V1099.PA") return null; // une valeur sans cote → missing, pas d'échec du relevé
+          return { symbol: s, shortname: s.replace(".PA", ""), regularMarketPrice: 42.5, regularMarketChangePercent: 1.1, trailingPE: 12.4, forwardPE: 11.1, dividendYield: 2.35, priceToBook: 1.8, marketCap: 2.5e9, regularMarketTime: 1799900000 };
+        }).filter(Boolean);
+        return Promise.resolve(res(200, { quoteResponse: { result: out } }));
+      }
+      return Promise.resolve(res(404, ""));
+    });
+    return FQ.fetchQuotes(sb, {}).then(function (q) {
+      EQ(q.n, 99, "99 cotes (1 valeur muette)");
+      EQ(q.missing, ["V1099.PA"], "la valeur sans cote est listée dans missing");
+      A(q.ok === true, "relevé déclaré OK");
+      EQ(batchCalls, 4, "3 batchs de 40 + 1 pour l'indice = 4 requêtes (jamais 101 requêtes individuelles)");
+      A(q.idx && q.idx.px === 6850.4, "indice récupéré");
+      EQ(q.list[0].per, 12.4, "PER trailing conservé");
+      EQ(q.list[0].dY, 2.35, "rendement conservé");
+      EQ(q.list[0].g, "mid60", "groupe reporté depuis sbf120.json");
+      // garde : minRatio inatteignable → échec, on ne sert JAMAIS un relevé partiel
+      return FQ.fetchQuotes(sb, { minRatio: 0.995 }).then(function () {
+        throw new Error("la garde aurait dû déclencher");
+      }, function (e) {
+        A(String(e.message).indexOf("trop peu de réponses") > -1, "garde 90 % : " + e.message);
+      });
+    });
+  });
+  TA("fetch-quotes : 429 sur un batch → Retry-After honoré, batch retenté puis réussi", function () {
+    var n = 0;
+    FQ.setFetchForTests(function () {
+      n++;
+      if (n === 1) return Promise.resolve(res(429, "", { "retry-after": "0" }));
+      return Promise.resolve(res(200, { quoteResponse: { result: [{ symbol: "AIR.PA", regularMarketPrice: 1 }] } }));
+    });
+    return FQ.quotesBatch(["AIR.PA"], { cookie: "a", crumb: "c" }, 3).then(function (r) {
+      EQ(r.length, 1, "réponse après retry");
+      EQ(n, 2, "1 tentative 429 + 1 réussie");
+    });
+  });
+  TA("fetch-quotes : réponse JSON inattendue → erreur, pas de quotes.json corrompu", function () {
+    FQ.setFetchForTests(function (url) {
+      var u = String(url);
+      if (u.indexOf("fc.yahoo.com") > -1) return Promise.resolve(res(404, "", { "set-cookie": ["A1=d=x"] }));
+      if (u.indexOf("getcrumb") > -1) return Promise.resolve(res(200, "c"));
+      return Promise.resolve(res(200, "ceci n'est pas du JSON attendu"));
+    });
+    return FQ.fetchQuotes({ list: sbf100() }, {}).then(function () {
+      throw new Error("aurait dû échouer");
+    }, function (e) { A(String(e.message).length > 0, "échec propre : " + e.message); });
+  });
+  function sbf100() {
+    var l = [];
+    for (var i = 0; i < 100; i++) l.push({ n: "V" + i, y: "V" + (2000 + i) + ".PA", mn: "V" + (2000 + i), g: "mid60", isin: "" });
+    return l;
+  }
+  TA("build-sbf120 : resolveYahoo — le .PA dont le nom matche gagne, sinon repli approximatif", function () {
+    SB2.setFetchForTests(function (url) {
+      A(String(url).indexOf("v1/finance/search") > -1, "URL search Yahoo : " + url);
+      return Promise.resolve(res(200, { quotes: [
+        { symbol: "AAPL" },
+        { symbol: "AIR.PA", shortname: "Autre chose" },
+        { symbol: "EXENS.PA", shortname: "Exosens" }
+      ] }));
+    });
+    return SB2.resolveYahoo("Exosens").then(function (r) {
+      EQ(r, { y: "EXENS.PA" }, "match par nom, symbole .PA valide");
+    });
+  });
+  TA("build-sbf120 : e2e fetch injecté — navbox 40/20/60 + table CAC 40 + infobox {{Euronext}} + contrôles", function () {
+    function mkNames(prefix, n) { var a = []; for (var i = 0; i < n; i++) a.push(prefix + (i < 10 ? "0" + i : i)); return a; }
+    function mkNavbox(names, titre) {
+      var links = names.map(function (n) { return '<a href="/wiki/' + n + '" title="' + n + '">' + n + "</a>"; }).join(" · ");
+      return '<table class="navbox"><tr><th>Entreprises du ' + titre + "</th></tr><tr><td>" + links + "</td></tr></table>";
+    }
+    var g40 = mkNames("Core", 40), g20 = mkNames("Next", 20), g60 = mkNames("Mid", 60);
+    var tableRows = ["<tr><th>Société</th><th>Mnémo</th></tr>"];
+    g40.forEach(function (n, i) { tableRows.push("<tr><td>" + n + "</td><td>M" + (i < 10 ? "0" + i : i) + "</td></tr>"); });
+    var page40 = mkNavbox(g40, "CAC 40") + '<table class="wikitable">' + tableRows.join("") + "</table>";
+    SB2.setFetchForTests(function (url) {
+      var u = String(url);
+      if (u.indexOf("CAC_40") > -1) return Promise.resolve(res(200, page40));
+      if (u.indexOf("CAC_Next_20") > -1) return Promise.resolve(res(200, mkNavbox(g20, "CAC Next 20")));
+      if (u.indexOf("CAC_Mid_60") > -1) return Promise.resolve(res(200, mkNavbox(g60, "CAC Mid 60")));
+      if (u.indexOf("api.php") > -1) {
+        var titles = decodeURIComponent(u.split("titles=")[1]).split("|");
+        var pages = {};
+        titles.forEach(function (t, i) {
+          var mn = "E" + t.slice(-3).toUpperCase(); // mnémo unique dérivé du titre (ET00, ED00…)
+          pages[i + 1] = { title: t, revisions: [{ "*": "{{Euronext |" + mn + "|FR00000000" + t.slice(-2) + "|Paris}}" }] };
+        });
+        return Promise.resolve(res(200, { query: { pages: pages } }));
+      }
+      return Promise.resolve(res(404, ""));
+    });
+    // la garde anti-diff lit sbf120.json s'il existe → l'écarter le temps du test (restauré dans finally)
+    var p = __dirname + "/../sbf120.json";
+    var bak = null;
+    if (fs.existsSync(p)) { bak = fs.readFileSync(p, "utf8"); fs.unlinkSync(p); }
+    var restore = function () { if (bak !== null) fs.writeFileSync(p, bak); };
+    return SB2.buildSbf120().then(function (out) {
+      EQ(out.list.length, 120, "120 valeurs");
+      EQ(out.counts, { cac40: 40, next20: 20, mid60: 60 }, "comptes par groupe");
+      EQ(out.list[0].y, "M00.PA", "mnémo CAC 40 pris depuis la table Wikipédia");
+      EQ(out.list[40].y, "ET00.PA", "mnémo Next 20 pris depuis l'infobox {{Euronext}}");
+      EQ(out.list[40].n, "Next00", "nom conservé");
+      A(out.list.every(function (e) { return /^[A-Z0-9]{1,6}\.PA$/.test(e.y); }), "symboles .PA valides");
+      var y = out.list.map(function (e) { return e.y; });
+      EQ(y.filter(function (v, i, a) { return a.indexOf(v) !== i; }).length, 0, "aucun symbole en double");
+      A(/^2026-\d{2}-\d{2}T/.test(out.updated), "horodatage ISO");
+    }, function (e) {
+      throw new Error("buildSbf120 e2e a échoué : " + e.message);
+    }).then(function () { restore(); }, function (e) { restore(); throw e; });
   });
 })();
 

@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "3.3";   // version unique de l'app (badge + footer la lisent ici — v3.1.1 la collait à 4 endroits)
+  var VERSION = "4.0";   // version unique de l'app (badge + footer la lisent) — v4.0 : onglet SBF 120
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -613,6 +613,134 @@ var RI = (function () {
     return out.slice(0, o.max || 5);
   }
 
+  // ---------- v4.0 : SBF 120 — scores de valorisation + croisement initiés FR ----------
+  // Heuristique de TRI honnête, pas une juste valeur : percentiles internes à l'indice (une valeur
+  // n'est « pas chère » que RELATIVEMENT aux 119 autres), pondération PER 50 % / rendement 30 % / P/B 20 %.
+  // Le score exige un PER positif : une société en perte n'est pas bon marché, elle est en perte.
+
+  // percentile 0-100 du champ sur la liste : lowerIsBetter -> le plus bas = 100.
+  // PER/PB non positifs exclus du rang (perte, capitaux propres négatifs).
+  function rankPct(list, field, lowerIsBetter) {
+    var vals = [], idx = {}, n = 0;
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i][field];
+      if (v == null || !isFinite(v)) continue;
+      if (field !== "dY" && v <= 0) continue;
+      idx[i] = v; n++;
+    }
+    var pcts = {};
+    for (var a in idx) {
+      if (!Object.prototype.hasOwnProperty.call(idx, a)) continue;
+      var less = 0;
+      for (var b in idx) {
+        if (!Object.prototype.hasOwnProperty.call(idx, b) || b === a) continue;
+        if (lowerIsBetter ? (idx[b] > idx[a]) : (idx[b] < idx[a])) less++;
+      }
+      pcts[a] = n > 1 ? Math.round((less / (n - 1)) * 100) : 50;
+    }
+    return pcts;
+  }
+
+  // ajoute pPer/pDY/pPb/score à une copie de chaque ligne ; score null sans PER exploitable.
+  function valScores(list) {
+    var pPer = rankPct(list, "per", true);
+    var pDY = rankPct(list, "dY", false);
+    var pPb = rankPct(list, "pb", true);
+    var W = { per: 0.5, dY: 0.3, pb: 0.2 };
+    return list.map(function (e, i) {
+      var s = 0, w = 0;
+      if (pPer[i] != null) { s += W.per * pPer[i]; w += W.per; }
+      if (pDY[i] != null) { s += W.dY * pDY[i]; w += W.dY; }
+      if (pPb[i] != null) { s += W.pb * pPb[i]; w += W.pb; }
+      var o = {};
+      for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
+      o.pPer = pPer[i] != null ? pPer[i] : null;
+      o.pDY = pDY[i] != null ? pDY[i] : null;
+      o.pPb = pPb[i] != null ? pPb[i] : null;
+      o.score = (pPer[i] != null && w > 0) ? Math.round(s / w) : null;
+      return o;
+    });
+  }
+
+  // signaux initiés FR (fenêtre 30 j) indexés par nom normalisé + ISIN → bonus de la vue croisée.
+  // « Les initiés achètent pour une raison qu'ils connaissent » : on SURFAIT la valorisation du
+  // marché, on ne remplace pas — bonus plafonné (15/10/4 pts par niveau de cluster), jamais un malus.
+  function insiderFrBonus(frRows, opts) {
+    var o = opts || {};
+    var sigs = signalsFrom(pickBuyRows(frRows || []), { since: o.since || null });
+    var byName = {}, byIsin = {};
+    for (var i = 0; i < sigs.length; i++) {
+      var s = sigs[i];
+      var b = s.level >= 3 ? 15 : (s.level === 2 ? 10 : 4);
+      var k = normName(s.societe);
+      if (!byName[k] || byName[k].b < b) {
+        byName[k] = { b: b, level: s.level, buys: s.buys, societe: s.societe };
+      }
+      if (s.isin && !byIsin[s.isin]) byIsin[s.isin] = byName[k];
+    }
+    return { byName: byName, byIsin: byIsin };
+  }
+
+  // attache le bonus initiés (ins, insLvl) + le score croisé (xScore = score + bonus) à la liste valorisée.
+  function sbfEnrich(list, bonus) {
+    bonus = bonus || { byName: {}, byIsin: {} };
+    // correspondance société AMF ↔ nom Yahoo : l'égalité stricte ne suffit JAMAIS seule —
+    // la déclaration dit « ROCHE BOBOIS SA », Yahoo dit « ROCHE BOBOIS », et 37/63 lignes FR
+    // réelles n'ont pas d'ISIN. Règle : égalité, puis ISIN, puis préfixe AU MOT (« ROCHE
+    // BOBOIS SA » commence par « ROCHE BOBOIS » ; « TOTAL » ne matche pas « TOTALENERGIES »
+    // car on exige la frontière de mot), plus court des deux ≥ 4 caractères.
+    function findHit(e) {
+      var a = normName(e.n), d = normName(e.disp || "");
+      if (e.isin && bonus.byIsin[e.isin]) return bonus.byIsin[e.isin];
+      if (bonus.byName[a]) return bonus.byName[a];
+      if (d && bonus.byName[d]) return bonus.byName[d];
+      var ks = Object.keys(bonus.byName);
+      for (var i = 0; i < ks.length; i++) {
+        var k = ks[i];
+        if (k.length < 4) continue;
+        if (a.length >= 4 && (k.indexOf(a + " ") === 0 || a.indexOf(k + " ") === 0)) return bonus.byName[k];
+        if (d.length >= 4 && (k.indexOf(d + " ") === 0 || d.indexOf(k + " ") === 0)) return bonus.byName[k];
+      }
+      return null;
+    }
+    return list.map(function (e) {
+      var hit = findHit(e);
+      var o = {};
+      for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
+      o.ins = hit ? hit.b : 0;
+      o.insLvl = hit ? hit.level : 0;
+      o.xScore = o.score == null ? null : (o.score + o.ins);
+      return o;
+    });
+  }
+
+  // tri des vues SBF 120 : "val" = score, "xins" = score croisé, "cap" = capitalisation.
+  // Les scores null (perte) restent en fin de liste — jamais cachés.
+  function sbfSort(list, view) {
+    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : "score");
+    return list.slice().sort(function (a, b) {
+      var va = a[key], vb = b[key];
+      var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      return vb - va;
+    });
+  }
+
+  function fmtCap(cap) {
+    if (cap == null || !isFinite(cap)) return "—";
+    if (cap >= 1e12) return (cap / 1e12).toFixed(2).replace(".", ",") + " T€";
+    if (cap >= 1e9) return (cap / 1e9).toFixed(1).replace(".", ",") + " Md€";
+    if (cap >= 1e6) return (cap / 1e6).toFixed(0) + " M€";
+    return fmtNum(cap) + " €";
+  }
+  function fmtPct(v) {
+    if (v == null || !isFinite(v)) return "—";
+    var s = (v > 0 ? "+" : "") + String(Math.round(v * 100) / 100).replace(".", ",");
+    return s + " %";
+  }
+
   // lien cote en 1 tap — pas d'API marché (fragile, CORS) : on renvoie vers la recherche
   function quoteUrl(r) {
     if (r.source === "US") {
@@ -641,7 +769,8 @@ var RI = (function () {
     rowsOfSide: rowsOfSide,
     pickBuyRows: pickBuyRows,
     sellStatsByKey: sellStatsByKey, insiderScoreFor: insiderScoreFor, fundScore: fundScore,
-    xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom, picksFromFr: picksFromFr
+    xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom, picksFromFr: picksFromFr,
+    rankPct: rankPct, valScores: valScores, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

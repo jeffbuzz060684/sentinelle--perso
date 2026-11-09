@@ -1,0 +1,52 @@
+name: Cotations SBF 120 (toutes les 15 min en séance)
+on:
+  schedule:
+    # 07:00-16:45 UTC du lundi au vendredi, toutes les 15 min
+    # (Paris : 8h00-17h45 l'hiver — couvre la séance Euronext 9h-17h30)
+    # Cotes Yahoo/Euronext en différé ~15 min : un run à 15 min d'intervalle rafraîchit
+    # au mieux sans marteler l'API (4 requêtes par run : 3 batchs de 40 + l'indice).
+    - cron: "*/15 7-16 * * 1-5"
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: "quotes"
+  cancel-in-progress: true
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cotations SBF 120 (Yahoo Finance)
+        run: node tools/fetch-quotes.js
+        # Échec (moins de 90 % de réponses, session Yahoo impossible) -> exit 1,
+        # quotes.json précédent conservé, pas de commit : l'UI garde ses cotes anciennes.
+      - name: Validation
+        run: node tools/validate-quotes.js
+      - name: Commit si changé
+        id: changed
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "sentinelle-bot"
+            git config user.email "actions@github.com"
+            git add quotes.json
+            git commit -m "quotes: SBF 120 $(date -u '+%Y-%m-%d %Hh%M UTC')"
+            git pull --rebase origin main
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Redéployer Pages si les cotations ont changé
+        if: steps.changed.outputs.changed == 'true'
+        run: gh workflow run pages.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Avertissement si échec
+        if: failure()
+        run: echo "::warning::Relevé des cotations en échec — quotes.json précédent conservé, l'UI sert les dernières cotes connues."

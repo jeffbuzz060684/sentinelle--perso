@@ -1,6 +1,6 @@
 # 👁 Sentinelle perso
 
-PWA installable : achats **et ventes** d'initiés **🇫🇷 AMF (France)** + **🇺🇸 SEC Form 4 (US)**, relevés automatiquement — avec **signaux nettoyés**, **pistes US/FR** et **notifications**.
+PWA installable : achats **et ventes** d'initiés **🇫🇷 AMF (France)** + **🇺🇸 SEC Form 4 (US)**, relevés automatiquement — avec **signaux nettoyés**, **pistes US/FR**, **notifications** et **📊 onglet SBF 120** (valorisation × initiés).
 
 - **App** : https://jeffbuzz060684.github.io/sentinelle--perso/
 - **Relevé** : workflow GitHub Actions `insiders.yml` :
@@ -21,7 +21,7 @@ PWA installable : achats **et ventes** d'initiés **🇫🇷 AMF (France)** + **
   - **`state.json` purgé pour de vrai (40 j)** : chaque accession garde sa **date d'origine** (le bug v3.1.1 redatait tout au jour du run, donc la purge ne purgeait rien) ;
   - User-Agent SEC avec contact réel (`RI_SEC_CONTACT`, secret GitHub — warning dans le workflow s'il manque) ;
   - un `data.json`/`state.json` **illisible fait échouer le run** (exit 1) au lieu d'écraser les données avec des tableaux vides ;
-  - service worker réellement enregistré (cache `sentinelle-perso-v3.3`, **timeout réseau 3,5 s** puis repli cache).
+  - service worker réellement enregistré (cache `sentinelle-perso-v4`, **timeout réseau 3,5 s** puis repli cache).
 - **Migration v4** : les lignes US de la v3.1.1 avaient des ids incomplets (5 segments, sans prix) et aucun tag plan/levée. Au premier run v3.3 : ventes < 50 k$ purgées, lignes à ancien id de la fenêtre 3 j **supprimées puis re-téléchargées** avec le nouveau format (pas de doublons), mémoire US réinitialisée.
 - **Signaux nettoyés (v3.3)** : cartes « accumulation » et « ventes » sur **30 j** (les listes brutes restent 90 j), et :
   - **regroupement par personne physique** : les véhicules « personne morale liée à X » comptent pour X (cas KLEA : 2 holdings = 1 initié, pas 2) ;
@@ -31,16 +31,25 @@ PWA installable : achats **et ventes** d'initiés **🇫🇷 AMF (France)** + **
 - **💡 Pistes à étudier (v3.2/v3.3)** : classement maison — **🇺🇸 sur /20** = signal initiés /10 + fondamentaux /10 (croissance, rentabilité, marge nette des **comptes 10-K** via l'API XBRL officielle de la SEC, sans clé) ; **🇫🇷 sur /10** = signal initiés nettoyé seul (pas d'équivalent public et gratuit du 10-K pour les sociétés françaises — c'est dit honnêtement dans la carte). Seuils identiques des deux côtés : un vrai cluster (score initiés ≥ 4), pas un achat isolé. **Outil de tri pour la recherche, pas un conseil d'achat.** Recalcul par le workflow quand les listes bougent (sinon 1×/jour) ; XBRL injoignable ⇒ pistes précédentes conservées.
 - **🔔 Notifications (v3.3)** : le workflow pousse un message [ntfy.sh](https://ntfy.sh) quand (1) un **nouveau cluster 🔥🔥** apparaît (≥ 2 initiés distincts sur 30 j) ou (2) un **achat ≥ 100 k** est fait par un dirigeant/administrateur (les fonds à 10 % ne comptent pas). Comparaison par **clés naturelles** (société|auteur|date|volume|prix) : la migration v4 ne re-notifie pas les anciennes lignes. Topic en **secret GitHub `NTFY_TOPIC`** (le dépôt est public) ; secret absent ⇒ aucune notification, le run continue. Max 5 messages par run.
 - **Pagination (v3.3)** : « Afficher plus » par centaines — « Achats + ventes » affichait ~545 lignes d'un coup.
+- **📊 Onglet SBF 120 (v4.0)** : les 120 valeurs de l'indice (CAC 40 + Next 20 + Mid 60), cotations et **score de valorisation**, dans deux vues :
+  - **📐 Valorisation** : score 0–100 = percentiles **internes à l'indice** — PER (trailing, 50 %) + rendement du dividende (30 %) + P/B (20 %). Une société **sans PER positif (perte) est hors classement** (« — ») : une perte n'est pas « pas chère », c'est une perte. **Outil de tri relatif, pas une juste valeur** : le score dit qui est moins cher que ses pairs, pas ce que vaut l'action.
+  - **🔀 × Initiés FR** : le même score **+ un bonus** si la valeur a un cluster d'achats FR sur 30 j (+15 niveau 🔥🔥, +10 🔥, +4 achat isolé) — les initiés ne remplacent pas la valorisation du marché, ils la surpondèrent. Jamais de malus. Correspondance AMF ↔ Yahoo par ISIN, nom exact, **ou préfixe au mot** (« ROCHE BOBOIS SA » ↔ « ROCHE BOBOIS ») : 37/63 déclarations FR réelles sont sans ISIN.
+  - **Cotations** : Yahoo Finance (cookie + crumb), `^SBF120` pour l'indice. **Différé ≈ 15 min honnête** — le temps réel officiel Euronext est payant. Relevé par `quotes.yml` **toutes les 15 min pendant la cotation** (07:00–16:45 UTC, lun–ven) : 120 valeurs en 3 batchs + l'indice = 4 requêtes. Garde : < 90 % de réponses ⇒ échec, `quotes.json` précédent conservé (cotes anciennes affichées avec bandeau ⚠️).
+  - **Composition** : `sbf120.yml` reconstruit `sbf120.json` le 3 du mois à 04:37 UTC (prêt avant les révisions trimestrielles Euronext). Source : Wikipédia FR (navbox Entreprises du CAC…, à jour de la révision du 22/12/2025) + mnémoniques (table CAC 40, infobox `{{Euronext}}` en 2 requêtes batch de 50, fallback recherche Yahoo). Contrôles bloquants : 40/20/60 exact, groupes disjoints, 120 symboles uniques, garde anti-diff (+12 changements max) — une navbox vandalisée n'atteint jamais l'app.
+  - Chaque valeur a un lien **Boursorama** (recherche par ISIN/mnémo). Recherche + pagination dans l'onglet, onglet et vue mémorisés.
 
 ## Tests
 
 ```bash
 node tools/test.js           # harnais complet, 0 échec obligatoire avant déploiement
 node tools/validate-data.js  # schéma data.json (+ pistes us/fr)
+node tools/validate-quotes.js # schéma quotes.json + sbf120.json (tolérant à l'absence)
 node tools/sim-dom.js        # exécuté dans le harnais (chargement complet de la page)
 node tools/fetch-insiders.js # relevé manuel (RI_BUDGET=800 pour un premier chargement)
+node tools/fetch-quotes.js   # cotes SBF 120 manuelles
+node tools/build-sbf120.js   # composition SBF 120 manuelle
 ```
 
-Le harnais couvre le pipeline **sans réseau** (`fetch` injecté, tests **comportementaux** sérialisés — plus de grep du source) : 429/500 SEC (accession non marquée + Retry-After honoré), réponse 200 invalide (non marquée), **disjoncteur** (5 erreurs consécutives), **canari parseur** (400 XML, 0 ligne), **migration v4** (purge < 50 k$, re-téléchargement des anciens ids), purge d'état avec date d'origine conservée, garde anti-effondrement vs rétention, **alertes** (cluster nouveau, gros achat dirigeant, fonds 10 % ignoré, pas de spam), **ntfy** (URL, titre, topic vide = no-op), pistes US+FR, XBRL en cascade d'étiquettes, échec = pistes conservées.
+Le harnais couvre le pipeline **sans réseau** (`fetch` injecté, tests **comportementaux** sérialisés — plus de grep du source) : 429/500 SEC (accession non marquée + Retry-After honoré), réponse 200 invalide (non marquée), **disjoncteur** (5 erreurs consécutives), **canari parseur** (400 XML, 0 ligne), **migration v4** (purge < 50 k$, re-téléchargement des anciens ids), purge d'état avec date d'origine conservée, garde anti-effondrement vs rétention, **alertes** (cluster nouveau, gros achat dirigeant, fonds 10 % ignoré, pas de spam), **ntfy** (URL, titre, topic vide = no-op), pistes US+FR, XBRL en cascade d'étiquettes, échec = pistes conservées — **et depuis la v4.0** : session Yahoo (le corps 429 de getcrumb ne devient jamais un crumb), 100 cotes en 3 batchs + valeur muette → `missing`, garde 90 %, **percentiles/score de valorisation** (pondération, PER exigé, perte = null), bonus initiés par niveau, **rapprochement AMF ↔ Yahoo** (préfixe au mot), tri des 3 vues, parseurs Wikipédia (navbox/table/`{{Euronext}}`), build complet injecté (40/20/60 + symboles uniques), et l'**onglet SBF en simulation DOM** (clic onglet, badge 🔥, valeur en perte « — », segment 🔀, recherche).
 
 ⚠️ Outil d'information, pas un conseil en investissement. Aucune donnée personnelle dans ce dépôt public.

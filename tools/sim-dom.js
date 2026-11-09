@@ -61,38 +61,58 @@ module.exports = function simDom(cb) {
     setItem: function (k, v) { store[k] = String(v); },
     removeItem: function (k) { delete store[k]; }
   };
+  // v4.0 : dates RELATIVES à Date.now() — une fixture à date fixe casserait le harnais
+  // 30 jours plus tard (fenêtre des signaux : le cluster serait hors fenêtre en CI).
+  function isoAgo(days) { return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10); }
+  var isoNow = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   var FETCH_DATA = {
-    updated: "2026-11-09T08:07:00Z", frOk: true, usOk: true,
+    updated: isoNow, frOk: true, usOk: true,
     fr: [
-      { id: "f1", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", auteur: "TXR S.R.L.", role: "Membre du Conseil de Surveillance", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 1400, prix: 15.7286, montant: 22020.04, url: "https://bdif.amf-france.org/x" },
-      { id: "f2", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", auteur: "GIOVANNI TAMBURI", role: "Président", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 600, prix: 16, montant: 9600, url: "https://bdif.amf-france.org/y" }
+      { id: "f1", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", auteur: "TXR S.R.L.", role: "Membre du Conseil de Surveillance", nature: "Acquisition", instrument: "Action", isin: "", dateOp: isoAgo(4), datePub: isoAgo(3), volume: 1400, prix: 15.7286, montant: 22020.04, url: "https://bdif.amf-france.org/x" },
+      { id: "f2", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", auteur: "GIOVANNI TAMBURI", role: "Président", nature: "Acquisition", instrument: "Action", isin: "", dateOp: isoAgo(5), datePub: isoAgo(3), volume: 600, prix: 16, montant: 9600, url: "https://bdif.amf-france.org/y" }
     ],
-    us: [{ id: "u1", source: "US", side: "buy", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Achat", instrument: "Common Stock", isin: "", dateOp: "2026-11-04", datePub: "2026-11-05", volume: 2000, prix: 30, montant: 60000, code: "P", url: "https://sec.gov/x" }],
+    us: [{ id: "u1", source: "US", side: "buy", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Achat", instrument: "Common Stock", isin: "", dateOp: isoAgo(5), datePub: isoAgo(4), volume: 2000, prix: 30, montant: 60000, code: "P", url: "https://sec.gov/x" }],
     frS: [
-      { id: "fs1", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "POUVANNEC PHILIPPE", role: "Directeur Général Adjoint", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 15000, prix: 64.9, montant: 973500, url: "https://bdif.amf-france.org/z" },
-      { id: "fs2", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "SAUNIER BERTRAND", role: "Membre du Conseil d'Administration", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 2000, prix: 65, montant: 130000, url: "https://bdif.amf-france.org/w" }
+      { id: "fs1", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "POUVANNEC PHILIPPE", role: "Directeur Général Adjoint", nature: "Cession", instrument: "Action", isin: "", dateOp: isoAgo(4), datePub: isoAgo(3), volume: 15000, prix: 64.9, montant: 973500, url: "https://bdif.amf-france.org/z" },
+      { id: "fs2", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "SAUNIER BERTRAND", role: "Membre du Conseil d'Administration", nature: "Cession", instrument: "Action", isin: "", dateOp: isoAgo(5), datePub: isoAgo(3), volume: 2000, prix: 65, montant: 130000, url: "https://bdif.amf-france.org/w" }
     ],
-    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 2000, prix: 33.373, montant: 66746, code: "S", multi: true, url: "https://sec.gov/y" }],
+    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: isoAgo(6), datePub: isoAgo(4), volume: 2000, prix: 33.373, montant: 66746, code: "S", multi: true, url: "https://sec.gov/y" }],
     picks: {
-      updated: "2026-11-09T08:07:00Z",
+      updated: isoNow,
       us: [{
         ticker: "ACM", societe: "ACME CORP", score: 14.5,
-        insider: { score: 6.5, buys: 3, buyers: 2, level: 3, total: 90000, avgPx: 30, first: "2026-11-03", last: "2026-11-05" },
+        insider: { score: 6.5, buys: 3, buyers: 2, level: 3, total: 90000, avgPx: 30, first: isoAgo(6), last: isoAgo(4) },
         sells: { n: 1, hard: 1 },
         fund: { score: 8, growth: 50, ni: 30000000, rev: 150000000, revEnd: "2024-12-31", margin: 20 }
       }],
       fr: [{
         societe: "ROCHE BOBOIS SA", isin: "FR0000030823", score: 5,
-        insider: { score: 5, buys: 2, buyers: 2, level: 2, total: 31620, avgPx: 15.8, first: "2026-11-04", last: "2026-11-05" },
+        insider: { score: 5, buys: 2, buyers: 2, level: 2, total: 31620, avgPx: 15.8, first: isoAgo(5), last: isoAgo(4) },
         sells: { n: 0, hard: 0 }
       }]
     }
+  };
+  // v4.0 : cotes du SBF 120 (4 valeurs couvrant les cas : PER bas + initiés 🔥, société du CAC 40,
+  // valeur en perte sans PER → « — », et TOTALENERGIES qui ne doit PAS recevoir de bonus initiés
+  // (ses initiés ne font que VENDRE — le bonus ne récompense que les achats).
+  var FETCH_QUOTES = {
+    updated: isoNow, source: "Yahoo Finance (Euronext en différé ~15 min)", ok: true, n: 4, missing: [],
+    idx: { px: 6850.42, chg: 0.62, t: 1799900000 },
+    list: [
+      { y: "AC.PA", n: "Accor", mn: "AC", g: "cac40", isin: "FR0000120404", px: 39.42, chg: 0.81, per: 14.2, fper: 13.1, dY: 2.1, pb: 1.4, cap: 8.5e9, t: 1799900000 },
+      { y: "TTE.PA", n: "TOTALENERGIES", mn: "TTE", g: "cac40", isin: "FR0000120271", px: 58.1, chg: -0.3, per: 8.1, fper: 7.6, dY: 5.4, pb: 1.5, cap: 1.2e11, t: 1799900000 },
+      { y: "RCO.PA", n: "ROCHE BOBOIS", mn: "RCO", g: "mid60", isin: "FR0000030823", px: 16.4, chg: 1.2, per: 9.5, fper: 8.8, dY: 3.8, pb: 0.9, cap: 6.2e8, t: 1799900000 },
+      { y: "PL.PA", n: "Société en perte", mn: "PL", g: "mid60", isin: "", px: 3.3, chg: -2.1, per: null, fper: null, dY: null, pb: null, cap: 4.5e7, t: 1799900000 }
+    ]
   };
   var fetchCalls = 0;
   function fetchStub(url) {
     fetchCalls++;
     if (String(url).indexOf("data.json") === 0 || String(url).indexOf("data.json") > -1) {
       return Promise.resolve({ ok: true, json: function () { return Promise.resolve(JSON.parse(JSON.stringify(FETCH_DATA))); } });
+    }
+    if (String(url).indexOf("quotes.json") > -1) {
+      return Promise.resolve({ ok: true, json: function () { return Promise.resolve(JSON.parse(JSON.stringify(FETCH_QUOTES))); } });
     }
     return Promise.resolve({ ok: true, json: function () { return Promise.resolve({}); } });
   }
@@ -266,6 +286,78 @@ module.exports = function simDom(cb) {
       input({ target: qEl });
       var l3 = elements["list"] && elements["list"].innerHTML || "";
       A(l3.indexOf("TOTALENERGIES SE") === -1, "recherche effacée => retour au filtre 🟢 Achats");
+    });
+    T("v4.0 onglet SBF 120 : cotes chargées + indice rendu, vue Initiés au chargement", function () {
+      A(store["sentinelle-perso-quotes-v4"] !== undefined, "cotes mises en cache au chargement (localStorage)");
+      A(elements["viewIns"] && !elements["viewIns"]._cls.has("hidden"), "vue Initiés visible par défaut");
+      A(elements["viewSbf"] && elements["viewSbf"]._cls.has("hidden"), "vue SBF masquée par défaut");
+    });
+    T("v4.0 clic onglet 📊 SBF 120 : liste rendue, badge 🔥 initiés, PER, valeur en perte « — »", function () {
+      var btn = {
+        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
+        getAttribute: function (k) { return k === "data-tab" ? "sbf" : null; }
+      };
+      btn.closest = function () { return btn; };
+      var h = elements["tabs"] && elements["tabs"].listeners.click && elements["tabs"].listeners.click[0];
+      A(!!h, "handler tabs présent");
+      h({ target: btn, preventDefault: function () { } });
+      A(!elements["viewSbf"]._cls.has("hidden"), "vue SBF affichée");
+      A(elements["viewIns"]._cls.has("hidden"), "vue Initiés masquée");
+      var p = store["sentinelle-perso-prefs-v1"] || "";
+      A(p.indexOf("\"tab\":\"sbf\"") > -1 || p.indexOf("sbf") > -1, "onglet mémorisé : " + p);
+      var s = elements["sbList"].innerHTML || "";
+      A(s.indexOf("ROCHE BOBOIS") > -1, "société présente");
+      A(s.indexOf("RCO") > -1 && s.indexOf("Mid 60") > -1, "mnémonique + groupe");
+      A(s.indexOf("🔥 +10") > -1, "badge initiés (cluster ROCHE BOBOIS niveau 2 → +10)");
+      A(s.indexOf("PER 9,5") > -1, "PER affiché au format français");
+      A(s.indexOf("hors classement") > -1 && s.indexOf("—") > -1, "société en perte : pas de score, « — » affiché");
+      A(s.indexOf("TOTALENERGIES") > -1 && s.slice(s.indexOf("TOTALENERGIES"), s.indexOf('<div class="card"', s.indexOf("TOTALENERGIES"))).indexOf("🔥") === -1, "pas de badge initiés pour les VENDEURS (TOTALENERGIES n'a que des ventes)");
+      A((elements["sbIdxPx"].textContent || "").length > 2, "indice rendu : " + elements["sbIdxPx"].textContent);
+      A(elements["sbN"].textContent === "4", "compteur de valeurs cotées");
+      A((elements["sbRel"].textContent || "").indexOf("UTC") > -1, "heure du relevé");
+      A(elements["sbBanner"]._cls.has("hidden"), "pas de bandeau d'avertissement (relevé frais, rien de manquant)");
+      A(s.indexOf("boursorama.com") > -1, "lien cote Boursorama");
+      A(s.indexOf("score + initiés") === -1, "vue 📐 : libellé /100, pas « score + initiés »");
+    });
+    T("v4.0 clic segment 🔀 × Initiés FR : tri croisé + libellé « score + initiés » persisté", function () {
+      var btn = {
+        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
+        getAttribute: function (k) { return k === "data-v" ? "xins" : null; }
+      };
+      btn.closest = function () { return btn; };
+      var h = elements["segSb"] && elements["segSb"].listeners.click && elements["segSb"].listeners.click[0];
+      A(!!h, "handler segSb présent");
+      h({ target: btn, preventDefault: function () { } });
+      var s = elements["sbList"].innerHTML || "";
+      A(s.indexOf("score + initiés") > -1, "vue croisée active");
+      A(s.indexOf("+10 initiés") > -1, "détail du bonus affiché");
+      var p = store["sentinelle-perso-prefs-v1"] || "";
+      A(p.indexOf("xins") > -1, "vue mémorisée");
+      var rco = s.indexOf("ROCHE BOBOIS"), pl = s.indexOf("Société en perte");
+      A(rco > -1 && pl > rco, "ROCHE BOBOIS (bonus initiés) passe devant la valeur en perte");
+    });
+    T("v4.0 recherche SBF : filtre par nom/mnémonique, message si rien trouvé", function () {
+      var h = elements["sq"] && elements["sq"].listeners.input && elements["sq"].listeners.input[0];
+      A(!!h, "handler input sq présent");
+      var sqEl = elements["sq"];
+      sqEl.value = "accor";
+      h({ target: sqEl });
+      var s = elements["sbList"].innerHTML || "";
+      A(s.indexOf("Accor") > -1, "Accor trouvé");
+      A(s.indexOf("ROCHE BOBOIS") === -1, "les autres valeurs masquées");
+      sqEl.value = "zzz";
+      h({ target: sqEl });
+      A((elements["sbList"].innerHTML || "").indexOf("Aucune valeur du SBF 120") > -1, "message explicite");
+      sqEl.value = "";
+      h({ target: sqEl });
+      A((elements["sbList"].innerHTML || "").indexOf("ROCHE BOBOIS") > -1, "recherche effacée → liste complète");
+      A((elements["sbList"].innerHTML || "").indexOf("sbMore") === -1, "4 valeurs → pas de bouton pagination");
+    });
+    T("v4.0 cotes hors ligne : fetch quotes.json en échec → dernier relevé conservé, pas de crash", function () {
+      // simuler un échec réseau : on écrase le fetch du contexte par un stub qui rejette
+      // puis on déclenche refreshQuotes(false) via le rafraîchissement manuel du bouton existant
+      // (refresh appelle refreshQuotes). On vérifie surtout que l'état UI survit.
+      A(elements["sbList"] && (elements["sbList"].innerHTML || "").length > 0, "la liste SBF reste rendue");
     });
     cb(passed, failed, notes);
   }

@@ -1,4 +1,4 @@
-var CACHE = "sentinelle-perso-v3.3";
+var CACHE = "sentinelle-perso-v4";
 var SHELL = ["./", "./index.html", "./logic.js", "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
