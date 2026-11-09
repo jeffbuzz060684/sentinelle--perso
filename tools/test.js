@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 // Harnais de tests Sentinelle perso — exécuté en CI AVANT tout déploiement (0 échec obligatoire).
+// SP_HARNESS=1 : sous le harnais, fetch-quotes ne loggue PAS son warning ::warning:: de contrôle
+// de schéma TV (les fixtures volontairement sans bornes 52 s. le déclencheraient → bruit CI).
+process.env.SP_HARNESS = "1";
 // v3.3 : les tests du pipeline sont COMPORTEMENTAUX (fetch injecté), plus des grep de source
 // (Jade) — seuls les workflows YAML restent vérifiés par chaîne (pas d'autre moyen).
 var fs = require("fs");

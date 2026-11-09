@@ -309,7 +309,8 @@ async function fetchQuotesTv(sb, opts) {
   // v4.0.8 : contrôle de schéma — les bornes 52 s. sont en FIN de tableau (d[9]/d[10], d[0] = name) ;
   // si le scanner renvoyait moins de 11 colonnes, w52 serait silencieusement null partout : on prévient.
   var withW52 = list.filter(function (r) { return r.w52lo != null; }).length;
-  if (list.length >= 20 && withW52 < list.length * 0.5) {
+  // (sous le harnais de tests : silence — les fixtures sans bornes déclencheraient ce warning à chaque run CI)
+  if (!process.env.SP_HARNESS && list.length >= 20 && withW52 < list.length * 0.5) {
     log("::warning::[quotes/TV] schéma suspect : bornes 52 s. présentes sur " + withW52 + "/" + list.length + " lignes seulement — colonnes décalées ?");
   }
   // indice : SBF 120 absent du scanner → repli CAC 40, explicitement nommé (idx.name affiché par l'UI).
