@@ -21,7 +21,6 @@ T("frNum : espaces insécables et €", function () {
   EQ(RI.frNum("1\u00a0400.0000"), 1400);
   EQ(RI.frNum("22\u00a0020.0400\u00a0€"), 22020.04);
   EQ(RI.frNum("15.7286"), 15.7286);
-  EQ(RI.frNum(""), NaN !== NaN ? null : RI.frNum(""), "vide");
   A(isNaN(RI.frNum("")), "vide doit être NaN");
   EQ(RI.frNum("1\u202f234,50"), 1234.5, "narrow nbsp + virgule");
 });
@@ -191,6 +190,61 @@ T("usRowsFrom : sous le seuil exclu", function () {
     "<transactionPricePerShare><value>5</value></transactionPricePerShare></transactionAmounts>" +
     "</nonDerivativeTransaction></ownershipDocument>");
   EQ(RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06" }, r).length, 0); // 50 $ < 1000 $
+});
+T("v3.1 usRowsFrom : id anti-collision — deux tranches identiques (date, quantité), prix différents", function () {
+  var xml = "<ownershipDocument><rptOwnerName>A</rptOwnerName><officerTitle>CEO</officerTitle>" +
+    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
+    "<transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>" +
+    "</nonDerivativeTransaction>" +
+    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
+    "<transactionPricePerShare><value>12</value></transactionPricePerShare></transactionAmounts>" +
+    "</nonDerivativeTransaction></ownershipDocument>";
+  var rows = RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, RI.parseForm4(xml));
+  EQ(rows.length, 2, "les deux tranches sont conservées (v3 : la 2e était écrasée)");
+  A(rows[0].id !== rows[1].id, "ids distincts (prix + index dans l'id)");
+  EQ(rows[0].montant + rows[1].montant, 1000 + 1200, "montants cumulés exacts");
+});
+T("v3.1 parseForm4 : plan 10b5-1 et levée d'options (code M) détectés", function () {
+  var mk = function (b5, withM) {
+    return RI.parseForm4("<ownershipDocument><rptOwnerName>A</rptOwnerName><officerTitle>CEO</officerTitle>" +
+      (b5 === null ? "" : "<aff10b5One>" + b5 + "</aff10b5One>") +
+      (withM ? "<derivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+        "<transactionCoding><transactionCode>M</transactionCode></transactionCoding>" +
+        "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+        "<transactionAmounts><transactionShares><value>100</value></transactionShares></transactionAmounts>" +
+        "</derivativeTransaction>" : "") +
+      "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+      "<transactionCoding><transactionCode>S</transactionCode></transactionCoding>" +
+      "<transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>" +
+      "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
+      "<transactionPricePerShare><value>30</value></transactionPricePerShare></transactionAmounts>" +
+      "</nonDerivativeTransaction></ownershipDocument>");
+  };
+  EQ(mk("1", false).plan10b5, true, "aff10b5One=1 ⇒ plan 10b5-1");
+  EQ(mk("0", false).plan10b5, false, "aff10b5One=0 ⇒ pas de plan déclaré");
+  EQ(mk(null, false).plan10b5, null, "balise absente (déclarations pré-2023) ⇒ inconnu");
+  EQ(mk("1", true).hasM, true, "code M présent ⇒ vente liée à une levée d'options");
+  EQ(mk("1", false).hasM, false, "pas de M ⇒ vente de gré à gré/marché simple");
+  var rows = RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, mk("1", true));
+  EQ(rows.length, 1);
+  EQ(rows[0].p10b5, true, "vente taguée 10b5-1 (plan automatique — signal baissier plus faible)");
+  EQ(rows[0].opt, true, "vente taguée levée d'options");
+  var rowsNoPlan = RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, mk("0", false));
+  EQ(rowsNoPlan[0].p10b5, false, "vente NON taguée 10b5-1");
+});
+T("v3.1 purgeProcessed : purge par date, entrées legacy datées du jour", function () {
+  var FI = require("./fetch-insiders.js");
+  var now = Date.parse("2026-11-09T12:00:00Z");
+  var out = FI.purgeProcessed(["acc-new|2026-11-08", "acc-vieux|2026-09-01", "acc-legacy"], now, RI.CFG.STATE_DAYS);
+  EQ(out[0], "acc-new|2026-11-08", "entrée récente conservée");
+  A(out.indexOf("acc-vieux|2026-09-01") === -1, "entrée > STATE_DAYS purgée");
+  A(out.indexOf("acc-legacy|2026-11-09") > -1, "entrée sans date (legacy) conservée + datée du jour");
 });
 
 // ---------- fusion / fenêtre / plafond ----------
@@ -395,27 +449,33 @@ T("fetch-insiders.js compile", function () {
   var html = fs.readFileSync(__dirname + "/../index.html", "utf8");
   T("index.html référence logic.js, sw, manifest et RI", function () {
     A(html.indexOf('src="logic.js"') > -1, "logic.js chargé");
-    A(html.indexOf("serviceWorker") === -1 || true, "ok");
+    A(html.indexOf("navigator.serviceWorker.register") > -1, "service worker réellement enregistré (v3.1 — était du code mort)");
     A(html.indexOf('manifest.webmanifest') > -1, "manifest lié");
     A(html.indexOf("RI.esc") > -1, "esc RI utilisé (anti-XSS)");
   });
   T("sw.js : cache versionné + réseau d'abord + clé sans ?v=", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf('sentinelle-perso-v3') > -1, "cache v3 (les téléphones v1/v2 re-téléchargent le shell)");
-    A(sw.indexOf('sentinelle-perso-v2') === -1, "plus de v2 comme nom de cache");
+    A(sw.indexOf('sentinelle-perso-v3.1') > -1, "cache v3.1 (les téléphones v1/v2/v3 re-téléchargent le shell)");
+    A(sw.indexOf('sentinelle-perso-v3"') === -1, "plus de v3 comme nom de cache");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
-  T("v3 : badge et éléments UI achats/ventes présents", function () {
-    A(html.indexOf('id="ver">v3<') > -1, "badge v3");
+  T("v3.1 : badge, éléments UI achats/ventes, fraîcheur par source, défaut Achats", function () {
+    A(html.indexOf('id="ver">v3.1<') > -1, "badge v3.1");
     A(html.indexOf('id="segSide"') > -1, "segment Achats+ventes");
     A(html.indexOf('id="segSort"') > -1, "segment tri par id (plus par position — segSide est en dernier)");
     A(html.indexOf('id="sigCardSell"') > -1, "carte ventes");
     A(html.indexOf('id="nSell"') > -1, "stat ventes");
+    A(html.indexOf('id="srcBanner"') > -1, "bandeau d'état par source (frOk/usOk/frUpdated/usUpdated)");
     A(html.indexOf('id="sigCard"') > -1, "carte accumulations");
     A(html.indexOf('id="newBanner"') > -1, "bandeau nouveaux");
     A(html.indexOf('id="newChip"') > -1, "filtre 🆕");
+    A(html.indexOf("\\ud83d\\udc1f") === -1, "plus de 🐟 dans le bandeau (emoji 🆕 corrigé)");
+    A(html.indexOf("state.newIds.indexOf") === -1, "newIds en objet (pas de indexOf en boucle de rendu)");
+    A(html.indexOf("clearTimeout(debTimer)") > -1, "recherche debouncée");
+    A(html.indexOf("/^https:\\/\\//.test(r.url)") > -1, "liens source validés https:// (anti javascript:)");
     A(html.indexOf("signalsFrom") > -1, "signaux rendus");
     A(html.indexOf("quoteUrl") > -1, "liens cote");
+    A(html.indexOf('data-side="buy"') > -1 && /data-side="buy"[^>]*class="[^"]*on"/.test(html.replace(/\n/g, " ")), "défaut 🟢 Achats actif");
   });
   T("v3 : pipeline ventes — FR Acquisition+Cession, US P+A/S+D, migration state v3, data 4 listes", function () {
     var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");
@@ -424,9 +484,24 @@ T("fetch-insiders.js compile", function () {
     A(fi.indexOf("frS") > -1 && fi.indexOf("usS") > -1, "data.json à 4 listes (fr, us, frS, usS)");
     A(fi.indexOf("rowsOfSide") > -1, "séparation buy/sell via rowsOfSide");
   });
-  T("insiders.yml : cron 2 h ouvrés + contents write + actions write + redéploiement Pages", function () {
+  T("v3.1 : fiabilité pipeline — processed sur succès, canaris, UA contact, Retry-After, fraîcheur, purge", function () {
+    var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");
+    A(fi.indexOf("marquée traitée UNIQUEMENT si téléchargée et parsée") > -1, "un 429/500/503 ne marque plus l'accession (retentée au run suivant)");
+    A(fi.indexOf("CANARI swaoo") > -1, "canari du scraper FR (HTML changé ⇒ échec, pas 0 ligne silencieux)");
+    A(fi.indexOf("canary = (fetched > 100") > -1, "canari du parseur US");
+    A(fi.indexOf("RI_SEC_CONTACT") > -1, "contact SEC surchargeable (secret GitHub ou défaut noreply)");
+    A(fi.indexOf("retryAfterSec") > -1, "backoff Retry-After honoré sur 429/503");
+    A(fi.indexOf("frUpdated") > -1 && fi.indexOf("usUpdated") > -1, "horodatage par source");
+    A(fi.indexOf("effondrement") > -1, "garde anti-effondrement (-50 % ⇒ version précédente conservée)");
+    A(fi.indexOf("purgeProcessed") > -1, "state purgé par date (STATE_DAYS)");
+    A(fi.indexOf("contact@example.com") === -1, "plus d'UA bidon");
+    A(fi.indexOf("PLAFOND") > -1, "plafond 600 hits loggé");
+  });
+  T("insiders.yml : cron 2 h ouvrés + fin de journée ET + contents write + actions write + redéploiement Pages", function () {
     var y = fs.readFileSync(__dirname + "/../.github/workflows/insiders.yml", "utf8");
-    A(y.indexOf("7 5-21/2 * * 1-5") > -1, "cron toutes les 2h du lundi au vendredi");
+    A(y.indexOf("7 5-23/2 * * 1-5") > -1, "cron 05:07–23:07 UTC (couvre la fin de journée US ET)");
+    A(y.indexOf("RI_SEC_CONTACT") > -1, "contact SEC depuis le secret");
+    A(y.indexOf("git pull --rebase origin main") > -1, "pull --rebase avant push (collisions cron/CLI)");
     A(y.indexOf("contents: write") > -1, "permission commit");
     A(y.indexOf("actions: write") > -1, "permission relancer pages.yml");
     A(y.indexOf("gh workflow run pages.yml") > -1, "redéploiement explicite");
@@ -451,7 +526,95 @@ T("fetch-insiders.js compile", function () {
   });
 })();
 
+// ---------- tests asynchrones : pipeline réel avec fetch injecté (pas de réseau) ----------
+var FI = require("./fetch-insiders.js");
+var asyncTests = [];
+function TA(name, p) {
+  asyncTests.push(Promise.resolve().then(function () { return p; }).then(function () {
+    passed++; console.log("ok  [async] " + name);
+  }, function (e) {
+    failed++; console.log("ÉCHEC [" + name + "] : " + (e && e.message));
+  }));
+}
+(function () {
+  var FTS = fs.readFileSync(__dirname + "/fixtures/fts-sample.json", "utf8"); // 3 hits, accessions distinctes
+  var okRes = function (txt) { return { ok: true, status: 200, headers: { get: function () { return null; } }, text: function () { return Promise.resolve(txt); } }; };
+  var errRes = function (status, ra) { return { ok: false, status: status, headers: { get: function (k) { return k === "retry-after" ? (ra || null) : null; } }, text: function () { return Promise.resolve(""); } }; };
+  var XML_OK = "<ownershipDocument><rptOwnerName>Testeur I</rptOwnerName><officerTitle>CEO</officerTitle>" +
+    "<aff10b5One>1</aff10b5One>" +
+    "<derivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>M</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>100</value></transactionShares></transactionAmounts>" +
+    "</derivativeTransaction>" +
+    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
+    "<transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>" +
+    "</nonDerivativeTransaction>" +
+    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>S</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
+    "<transactionPricePerShare><value>30</value></transactionPricePerShare></transactionAmounts>" +
+    "</nonDerivativeTransaction></ownershipDocument>";
+  var NOW2 = Date.parse("2026-11-09T12:00:00Z");
+
+  TA("fetchUs : XML en 500 ⇒ accession NON marquée (retentée au run suivant)", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      return Promise.resolve(errRes(500)); // les 3 XML échouent
+    });
+    var state = { v: 3, processedUs: [] };
+    return FI.fetchUs(NOW2, state, [], []).then(function (r) {
+      A(r.errors === 3, "3 erreurs attendues, got " + r.errors);
+      A(r.fetched === 0, "0 XML exploité");
+      A(state.processedUs.length === 0, "AUCUNE accession marquée traitée (le bug v3 les perdait définitivement)");
+    });
+  });
+
+  TA("fetchUs : succès ⇒ accessions marquées, achats ET ventes tagués 10b5-1/levée", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      return Promise.resolve(okRes(XML_OK));
+    });
+    var state = { v: 3, processedUs: [] };
+    return FI.fetchUs(NOW2, state, [], []).then(function (r) {
+      A(r.errors === 0 && r.fetched === 3, "3 XML téléchargés");
+      A(r.nBuys === 3 && r.nSells === 3, "3 achats + 3 ventes extraits, got " + r.nBuys + "/" + r.nSells);
+      A(state.processedUs.length === 3, "3 accessions marquées");
+      state.processedUs.forEach(function (e) {
+        A(e.slice(-12) === "|2026-11-09", "entrée datée du jour : " + e);
+      });
+      var lastSell = r.sells[r.sells.length - 1];
+      A(lastSell.p10b5 === true, "vente taguée 10b5-1");
+      A(lastSell.opt === true, "vente taguée levée d'options");
+      var lastBuy = r.buys[r.buys.length - 1];
+      A(lastBuy.side === "buy" && lastBuy.montant === 1000, "achat P+A retenu");
+    });
+  });
+
+  TA("fetchFr : déclarations brutes présentes mais 0 parsée ⇒ canari (échec, pas de 0 silencieux)", function () {
+    FI.setFetchForTests(function () {
+      return Promise.resolve(okRes("<html><body>Déclaration n° 1 Déclaration n° 2 (structure changée, aucun tableau connu)</body></html>"));
+    });
+    return FI.fetchFr(NOW2).then(function () {
+      throw new Error("le canari aurait dû faire échouer fetchFr");
+    }, function (e) {
+      A(String(e.message).indexOf("CANARI") > -1, "message canari, got : " + e.message);
+    });
+  });
+
+  TA("UA : contact SEC réel (plus d'adresse @example.com)", function () {
+    A(FI.UA.indexOf("contact@example.com") === -1, "UA sans exemple bidon");
+    A(FI.UA.indexOf("SentinellePerso research") === 0, "UA format SEC");
+    A(FI.UA.length > 30, "UA contient un contact");
+  });
+})();
+
 // ---------- simulation DOM (chargement complet de la page) ----------
+Promise.all(asyncTests).then(function () {
 require("./sim-dom.js")(function (simPassed, simFailed, notes) {
   passed += simPassed; failed += simFailed;
   (notes || []).forEach(function (n) { console.log("  sim: " + n); });
@@ -459,3 +622,4 @@ require("./sim-dom.js")(function (simPassed, simFailed, notes) {
   if (failed > 0) { console.log("ÉCHECS : " + failed); process.exit(1); }
   process.exit(0);
 });
+}).catch(function (e) { console.error("ERREUR HARNAIS", e); process.exit(1); });

@@ -53,6 +53,9 @@ module.exports = function simDom(cb) {
     hidden: false
   };
   var store = {};
+  // préférences pré-existantes côté "Achats + ventes" : sinon le défaut v3.1 (🟢 Achats)
+  // masquerait les ventes et casserait les assertions sur les 6 lignes.
+  store["sentinelle-perso-prefs-v1"] = JSON.stringify({ side: "all", src: "all", sort: "date", m: 0, q: "", new: false });
   var localStorage = {
     getItem: function (k) { return store[k] == null ? null : store[k]; },
     setItem: function (k, v) { store[k] = String(v); },
@@ -69,7 +72,7 @@ module.exports = function simDom(cb) {
       { id: "fs1", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "POUVANNEC PHILIPPE", role: "Directeur Général Adjoint", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 15000, prix: 64.9, montant: 973500, url: "https://bdif.amf-france.org/z" },
       { id: "fs2", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "SAUNIER BERTRAND", role: "Membre du Conseil d'Administration", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 2000, prix: 65, montant: 130000, url: "https://bdif.amf-france.org/w" }
     ],
-    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1000, prix: 30, montant: 30000, code: "S", url: "https://sec.gov/y" }]
+    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1000, prix: 30, montant: 30000, code: "S", p10b5: true, opt: true, url: "https://sec.gov/y" }]
   };
   var fetchCalls = 0;
   function fetchStub(url) {
@@ -152,8 +155,13 @@ module.exports = function simDom(cb) {
       A(h.indexOf("vente du") > -1, "lignes vente libellées « vente du »");
       A(h.indexOf("row fr sell") > -1, "ligne FR de vente (classe sell)");
       A(h.indexOf("row us sell") > -1, "ligne US de vente (classe sell)");
+      A(h.indexOf("10b5-1") > -1, "badge ⚙ 10b5-1 sur la vente US (plan déclaré)");
+      A(h.indexOf("levée") > -1, "badge 🪜 levée sur la vente US (code M dans le dépôt)");
       A(h.indexOf('class="xs"') > -1, "badge ×N vente en rouge (classe xs)");
       A(h.indexOf("boursorama.com") > -1 && h.indexOf("google.com/finance") > -1, "liens cote FR + US");
+    });
+    T("bandeau d'état des sources masqué quand tout va bien", function () {
+      A(elements["srcBanner"] && elements["srcBanner"]._cls.has("hidden"), "srcBanner caché (frOk + usOk)");
     });
     T("segment Achats+ventes câblé", function () {
       A(elements["segSide"] && elements["segSide"].listeners.click && elements["segSide"].listeners.click.length > 0, "handler clic segSide");
@@ -165,10 +173,34 @@ module.exports = function simDom(cb) {
     T("données persistées en localStorage (secours hors ligne)", function () {
       A(store["sentinelle-perso-data-v1"] && store["sentinelle-perso-data-v1"].indexOf("ROCHE BOBOIS") > -1, "cache local écrit");
     });
-    T("préférences persistées", function () {
-      elements["segSrc"] && elements["segSrc"].listeners.click && elements["segSrc"].listeners.click.length; // présence
-      A(true, "");
-      A(store["sentinelle-perso-prefs-v1"] !== undefined || true, "écrites à l'interaction");
+    T("clic segSrc AMF : prefs.src persistée + liste re-filtrée", function () {
+      var btn = {
+        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
+        getAttribute: function (k) { return k === "data-src" ? "FR" : null; }
+      };
+      btn.closest = function () { return btn; };
+      var h = elements["segSrc"] && elements["segSrc"].listeners.click && elements["segSrc"].listeners.click[0];
+      A(!!h, "handler segSrc présent");
+      h({ target: btn, preventDefault: function () { } });
+      var p = store["sentinelle-perso-prefs-v1"] || "";
+      A(p.indexOf("FR") > -1, "prefs.src=FR persistée : " + p);
+      var l = elements["list"] && elements["list"].innerHTML || "";
+      A(l.indexOf("ACME CORP") === -1, "lignes US masquées après filtre FR");
+    });
+    T("clic segSide Ventes : prefs.side=sell persistée, achats masqués", function () {
+      var btn = {
+        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
+        getAttribute: function (k) { return k === "data-side" ? "sell" : null; }
+      };
+      btn.closest = function () { return btn; };
+      var h = elements["segSide"] && elements["segSide"].listeners.click && elements["segSide"].listeners.click[0];
+      A(!!h, "handler segSide présent");
+      h({ target: btn, preventDefault: function () { } });
+      var p = store["sentinelle-perso-prefs-v1"] || "";
+      A(p.indexOf("sell") > -1, "prefs.side=sell persistée : " + p);
+      var l = elements["list"] && elements["list"].innerHTML || "";
+      A(l.indexOf("TOTALENERGIES SE") > -1, "ventes FR visibles");
+      A(l.indexOf("ROCHE BOBOIS SA") === -1, "achats masqués en mode Ventes");
     });
     cb(passed, failed, notes);
   }

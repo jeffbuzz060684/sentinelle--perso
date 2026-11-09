@@ -1,8 +1,9 @@
 name: Relevé initiés (toutes les 2 h, jours ouvrés)
 on:
   schedule:
-    # 05:07-21:07 UTC du lundi au vendredi = 6h07-22h07 Paris, toutes les 2 h
-    - cron: "7 5-21/2 * * 1-5"
+    # 05:07-23:07 UTC du lundi au vendredi, toutes les 2 h
+    # (Paris : 6h07-0h07/+1 selon la saison ; le dernier run couvre les dépôts US de fin de journée ET)
+    - cron: "7 5-23/2 * * 1-5"
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,6 +22,9 @@ jobs:
           node-version: 20
       - name: Relevé FR (AMF) + US (SEC)
         run: node tools/fetch-insiders.js
+        env:
+          # contact réel exigé par la SEC dans le User-Agent (facultatif : repli GitHub noreply)
+          RI_SEC_CONTACT: ${{ secrets.RI_SEC_CONTACT }}
       - name: Validation des données
         run: node tools/validate-data.js
       - name: Commit si changé
@@ -30,14 +34,20 @@ jobs:
             git config user.name "sentinelle-bot"
             git config user.email "actions@github.com"
             git add data.json state.json
-            git commit -m "scan: achats initiés $(date -u '+%Y-%m-%d %Hh UTC')"
+            git commit -m "scan: initiés $(date -u '+%Y-%m-%d %Hh UTC')"
+            git pull --rebase origin main
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Redéployer Pages (un push GITHUB_TOKEN ne déclenche aucun workflow)
+      - name: Redéployer Pages seulement si les listes ont changé
         if: steps.changed.outputs.changed == 'true'
-        run: gh workflow run pages.yml --ref main
+        run: |
+          if git diff HEAD~1 --unified=0 -- data.json | grep -E '^[+-]' | grep -vE '^[+-]{3}|"(updated|frUpdated|usUpdated|frOk|usOk|counts)":' | grep -q .; then
+            gh workflow run pages.yml --ref main
+          else
+            echo "data.json : seuls les horodateurs ont changé — pas de redéploiement"
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

@@ -176,6 +176,12 @@ var RI = (function () {
     var isDir = /^\s*(?:<value>\s*)?1/.test(g(/<isDirector>((?:(?!<\/isDirector>)[\s\S])*)/) || "0");
     var is10 = /^\s*(?:<value>\s*)?1/.test(g(/<isTenPercentOwner>((?:(?!<\/isTenPercentOwner>)[\s\S])*)/) || "0");
     if (!role) role = isDir ? "Directeur" : (is10 ? "Propriétaire 10 %" : "Initié");
+    // 10b5-1 : plan de vente programmé déclaré (case à cocher depuis 2023, <aff10b5One>1</aff10b5One>)
+    var p10 = x.match(/<aff10b5One>\s*([^<]*)/);
+    var plan10b5 = p10 ? /^\s*1/.test(p10[1]) : null; // null = balise absente (ancien dépôt)
+    // levée d'options dans le même dépôt (code M, table dérivée ou non) : une vente S qui suit une levée
+    // n'est pas un signal baissier autonome
+    var hasM = /<transactionCode>\s*M\s*<\/transactionCode>/.test(x);
     var blocks = x.match(/<nonDerivativeTransaction>[\s\S]*?<\/nonDerivativeTransaction>/g) || [];
     var txs = [];
     for (var i = 0; i < blocks.length; i++) {
@@ -195,14 +201,17 @@ var RI = (function () {
       ticker: g(/<issuerTradingSymbol>([^<]*)/),
       owner: g(/<rptOwnerName>([^<]*)/),
       role: role,
+      plan10b5: plan10b5,
+      hasM: hasM,
       transactions: txs
     };
   }
-  // Filtre "au marché uniquement" des deux côtés, pour honnêteté :
+  // Filtre des transactions qui échangent de l'argent réel, pour honnêteté :
   //   achat  = code P (purchase) + code acquis A
-  //   vente  = code S (open-market sale) + code disposé D
-  // Hors périmètre des deux côtés : F/G (cadeaux, dons), J (conversions, distributions),
-  // M (levée d'options), A (attribution) — aucun argent engagé au marché.
+  //   vente  = code S (sale) + code disposé D
+  // ⚠️ Selon les instructions officielles de la SEC, P et S couvrent les transactions
+  // « open market OU privées » — pas uniquement le marché. Hors périmètre des deux côtés :
+  // F/G (cadeaux, dons), J (conversions, distributions), M (levée d'options), A (attribution).
   function usRowsFrom(hit, f4) {
     var rows = [];
     for (var i = 0; i < f4.transactions.length; i++) {
@@ -214,7 +223,9 @@ var RI = (function () {
       var montant = t.shares * t.price;
       if (montant < CFG.US_MIN_USD) continue;
       rows.push({
-        id: hit.accession + "|" + (f4.owner || hit.owner) + "|" + t.code + "|" + t.date + "|" + t.shares,
+        // id anti-collision : deux tranches du même dépôt peuvent partager date + quantité
+        // (prix différents) — l'index et le prix les distinguent, sinon la 2e est écrasée
+        id: hit.accession + "|" + (f4.owner || hit.owner) + "|" + t.code + "|" + t.date + "|" + t.shares + "|" + (t.price || "") + "|" + i,
         source: "US",
         side: isBuy ? "buy" : "sell",
         societe: f4.issuer || hit.issuer || "",
@@ -230,6 +241,8 @@ var RI = (function () {
         prix: t.price,
         montant: Math.round(montant * 100) / 100,
         code: t.code,
+        p10b5: f4.plan10b5 === true,            // plan de vente programmé 10b5-1 déclaré
+        opt: isSell && f4.hasM === true,        // vente accompagnant une levée d'options (code M)
         url: hit.url || ""
       });
     }

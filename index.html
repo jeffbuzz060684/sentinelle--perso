@@ -82,7 +82,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 <div class="wrap">
   <header>
     <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v3</span>
+    <span class="badge" id="ver">v3.1</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
 
@@ -94,6 +94,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   </div>
 
   <div class="card hidden" id="newBanner"></div>
+  <div class="card hidden" id="srcBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4)"></div>
 
   <div class="card filters">
     <div class="filters">
@@ -110,8 +111,8 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     </div>
     <div class="amts" id="amts">
       <div class="seg" id="segSide">
-        <button data-side="all" class="on">Achats + ventes</button>
-        <button data-side="buy">🟢 Achats</button>
+        <button data-side="all">Achats + ventes</button>
+        <button data-side="buy" class="on">🟢 Achats</button>
         <button data-side="sell">🔴 Ventes</button>
       </div>
       <button class="amt on" data-m="0">Tous montants</button>
@@ -130,7 +131,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   </div>
 
   <div class="card hidden" id="sigCardSell">
-    <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">fenêtre 90 j</span></h3>
+    <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">FR 90 j · US depuis 09/11</span></h3>
     <div id="signalsSell"></div>
     <p class="mut">Les initiés vendent pour mille raisons (diversification, impôts, et côté US des <b>plans automatiques 10b5-1</b>) — une vente isolée ne veut rien dire. C'est la vente <b>groupée de plusieurs initiés distincts</b> (🔴🔴) qui est un signal d'alerte. Le prix moyen vendu marque le niveau que les initiés jugent suffisant.</p>
   </div>
@@ -143,7 +144,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       <p style="margin-top:8px">L'app agrège les <b>achats déclarés par les initiés</b> (dirigeants, membres de conseil, propriétaires 10 %) — les cessions sont exclues.</p>
       <ul>
         <li>🇫🇷 <b>AMF</b> : déclarations des dirigeants de sociétés cotées françaises, publiées sous <b>3 jours ouvrés</b> (art. L.621-18-2). Montants ≥ 1 000 €.</li>
-        <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, <b>achats au marché uniquement</b> (code P) — conversions, dons, cadeaux et levées d'options exclus. Montants ≥ 1 000 $.</li>
+        <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Montants ≥ 1 000 $.</li>
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
       </ul>
@@ -166,7 +167,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   var DATA_KEY = "sentinelle-perso-data-v1";
   var PREF_KEY = "sentinelle-perso-prefs-v1";
   var SEEN_KEY = "sentinelle-perso-lastseen-v1";
-  var state = { data: null, newIds: [], prefs: { src: "all", side: "all", sort: "date", m: 0, q: "", new: false } };
+  var state = { data: null, newIds: {}, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false } };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -205,23 +206,24 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
   function countNew(d) {
     var ls = seenGet();
-    var ids = [];
+    var ids = {};
     var all = (d.fr || []).concat(d.us || []).concat(d.frS || []).concat(d.usS || []);
     if (ls) {
       for (var i = 0; i < all.length; i++) {
         // >= le jour de la dernière visite inclus : les achats publiés ce jour-là
         // restent marqués (jour de publication = granularité max des données).
-        if (String(all[i].datePub).slice(0, 10) >= ls) ids.push(all[i].id);
+        if (String(all[i].datePub).slice(0, 10) >= ls) ids[all[i].id] = 1;
       }
     }
     state.newIds = ids;
     seenSet(todayLocal());
     var nb = $("newBanner");
-    if (ids.length > 0) {
+    var nNew = Object.keys(ids).length;
+    if (nNew > 0) {
       nb.classList.remove("hidden");
-      nb.innerHTML = "🆕 <b>" + ids.length + "</b> achat" + (ids.length > 1 ? "s" : "") +
-        " d'initi\u00e9" + (ids.length > 1 ? "s" : "") + " publi\u00e9" + (ids.length > 1 ? "s" : "") +
-        " depuis ta derni\u00e8re visite — filtre \u00ab \ud83d\udc1f Nouveaux \u00bb";
+      nb.innerHTML = "🆕 <b>" + nNew + "</b> ligne" + (nNew > 1 ? "s" : "") +
+        " publiée" + (nNew > 1 ? "s" : "") +
+        " depuis ta dernière visite — filtre \u00ab \ud83d\udd95 Nouveaux \u00bb";
     } else {
       nb.classList.add("hidden");
     }
@@ -304,8 +306,28 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
     var f = RI.freshness(d.updated, Date.now());
     var c = $("fresh");
-    c.textContent = "relevé " + f.label;
+    c.textContent = "vérifié " + f.label;
     c.className = "chip" + (f.stale ? " stale" : "");
+
+    // état réel de chaque source : un relevé « ancien » peut cacher une source figée
+    var msgs = [];
+    var srcState = function (ok, upd, name) {
+      if (ok === false) {
+        msgs.push("⚠️ <b>" + name + "</b> : échec du dernier relevé" +
+          (upd ? " — données conservées au " + esc(RI.isoToDmY(String(upd).slice(0, 10))) : "") + ".");
+      } else if (upd && RI.freshness(upd, Date.now()).stale) {
+        msgs.push("⚠️ <b>" + name + "</b> : aucun relevé réussi depuis le " + esc(RI.isoToDmY(String(upd).slice(0, 10))) + ".");
+      }
+    };
+    srcState(d.frOk, d.frUpdated, "AMF 🇫🇷");
+    srcState(d.usOk, d.usUpdated, "SEC 🇺🇸");
+    var sb = $("srcBanner");
+    if (msgs.length > 0) {
+      sb.innerHTML = msgs.join(" ");
+      sb.classList.remove("hidden");
+    } else {
+      sb.classList.add("hidden");
+    }
 
     var buys = (d.fr || []).concat(d.us || []);
     var sells = (d.frS || []).concat(d.usS || []);
@@ -324,7 +346,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     var all = state.prefs.side === "buy" ? buys : (state.prefs.side === "sell" ? sells : buys.concat(sells));
     var rows = RI.filterRows(all, { source: state.prefs.src, minMontant: state.prefs.m, q: state.prefs.q });
     if (state.prefs.new) {
-      rows = rows.filter(function (r) { return state.newIds.indexOf(r.id) > -1; });
+      rows = rows.filter(function (r) { return state.newIds[r.id]; });
     }
     rows = RI.sortRows(rows, state.prefs.sort);
 
@@ -339,7 +361,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       var lag = RI.lagLabel(r);
       var sell = r.side === "sell";
       var n = sell ? cntS[RI.sigKey(r)] : cnt[RI.sigKey(r)];
-      var isNew = state.newIds.indexOf(r.id) > -1;
+      var isNew = state.newIds[r.id];
       html.push(
         '<div class="card"><div class="row ' + (r.source === "FR" ? "fr" : "us") + (sell ? " sell" : "") + '">' +
         '<div class="bar"></div>' +
@@ -350,12 +372,14 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         "</div>" +
         '<div class="who">' + esc(r.auteur) + (r.role ? " · " + esc(r.role) : "") + "</div>" +
         '<div class="meta"><span>' + (sell ? "vente" : "achat") + " du " + esc(RI.isoToDmY(r.dateOp)) + "</span>" +
+        (sell && r.p10b5 ? "<span title=\"Plan de vente programmé 10b5-1 déclaré dans le Form 4 — pas un signal baissier autonome\">⚙ 10b5-1</span>" : "") +
+        (sell && r.opt ? "<span title=\"Vente accompagnant une levée d'options (code M dans le même dépôt) — souvent une liquidation neutre\">🪜 levée</span>" : "") +
         (lag ? "<span>" + esc(lag) + "</span>" : "") +
         (r.instrument ? "<span>" + esc(String(r.instrument).slice(0, 40)) + "</span>" : "") +
         "</div>" +
         '<div class="details">' + esc(RI.fmtNum(r.volume)) + " × " + esc(r.source === "US" ? "$" + r.prix : r.prix + " €") +
         ' · <a href="' + esc(RI.quoteUrl(r)) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        (r.url ? ' · <a href="' + esc(r.url) + '" target="_blank" rel="noopener">source</a>' : "") + "</div>" +
+        (r.url && /^https:\/\//.test(r.url) ? ' · <a href="' + esc(r.url) + '" target="_blank" rel="noopener">source</a>' : "") + "</div>" +
         "</div>" +
         '<div style="text-align:right"><div class="montant">' + esc(RI.fmtMontant(r)) + '</div><div style="margin-top:4px"><span class="src ' + (r.source === "FR" ? "fr" : "us") + '">' + r.source + "</span></div></div>" +
         "</div></div>"
@@ -427,9 +451,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       $("newChip").classList.toggle("on", state.prefs.new);
       savePrefs(); render();
     });
+    var debTimer = null;
     $("q").addEventListener("input", function (e) {
-      state.prefs.q = e.target.value || "";
-      savePrefs(); render();
+      var v = e.target.value || "";
+      if (debTimer) clearTimeout(debTimer);
+      debTimer = setTimeout(function () { state.prefs.q = v; savePrefs(); render(); }, 150);
     });
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) refresh(true);
@@ -460,6 +486,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   wire();
   useCached();
   refresh(true);
+  // PWA : enregistrement du service worker (cache v3.1, secours hors ligne)
+  if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.register) {
+    try { navigator.serviceWorker.register("./sw.js").catch(function () { }); } catch (e) { }
+  }
+
   setInterval(function () { refresh(true); }, 10 * 60 * 1000);
 })();
 </script>
