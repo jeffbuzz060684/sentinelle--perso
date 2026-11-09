@@ -4,7 +4,10 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  # v4.0.1 : contents: write pour le secours cotations — le job deploy commit quotes.json
+  # quand le relevé du déploiement réussit (un push au GITHUB_TOKEN ne re-déclenche AUCUN
+  # workflow : pas de boucle, et le cron insiders fait un pull --rebase).
+  contents: write
   pages: write
   id-token: write
 concurrency:
@@ -42,6 +45,16 @@ jobs:
           # le quotes.json du dernier commit (cron) est servi tel quel.
           if node tools/fetch-quotes.js && node tools/validate-quotes.js; then
             echo "cotes fraîches générées pour ce déploiement"
+            # cumul : le relevé réussi est committé (le 404 disparaît durablement) ;
+            # le push au GITHUB_TOKEN ne déclenche AUCUN workflow — pas de boucle.
+            git config user.name "sentinelle-bot"
+            git config user.email "actions@github.com"
+            git add quotes.json
+            if ! git diff --cached --quiet; then
+              git commit -m "quotes: secours déploiement $(date -u '+%Y-%m-%d %Hh%M UTC')"
+              git pull --rebase origin main
+              git push || echo "::warning::push quotes.json en échec (rebase ?) — dist/ servi quand même"
+            fi
           else
             git checkout -- quotes.json 2>/dev/null || rm -f quotes.json
             echo "::warning::Relevé des cotes en échec (ou invalide) — quotes.json du dernier commit servi s'il existe"
