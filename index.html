@@ -83,7 +83,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 <div class="wrap">
   <header>
     <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v3.2</span>
+    <span class="badge" id="ver">v3.3</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
 
@@ -126,21 +126,21 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   </div>
 
   <div class="card hidden" id="sigCard">
-    <h3>🔥 Initiés en accumulation <span class="badge" style="font-weight:400">fenêtre 90 j</span></h3>
+    <h3>🔥 Initiés en accumulation <span class="badge" style="font-weight:400">fenêtre 30 j</span></h3>
     <div id="signals"></div>
-    <p class="mut">Le prix moyen payé est <b>la référence des initiés</b>, pas le cours du jour — compare-la à la cote. 🔥🔥 = plusieurs initiés <b>distincts</b> achètent la même société : c'est le signal le plus fort. Un même initié qui rachète plusieurs fois (×N) montre aussi sa conviction. Heuristique maison, pas une garantie.</p>
+    <p class="mut">Clusters <b>nettoyés</b> : une même opération déclarée sous deux accessions compte pour <b>un</b> achat, et les véhicules « personne morale liée à X » comptent pour <b>une seule personne</b> (l'initié est X). Le prix moyen payé est un <b>constat</b>, pas une référence de valorisation — compare-le à la cote. 🔥🔥 = au moins deux personnes distinctes achètent la même société : le signal le plus fort. Un même initié qui rachète (×N) montre aussi sa conviction. Heuristique maison, pas une garantie.</p>
   </div>
 
   <div class="card hidden" id="sigCardSell">
-    <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">FR 90 j · US depuis 09/11</span></h3>
+    <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">fenêtre 30 j</span></h3>
     <div id="signalsSell"></div>
-    <p class="mut">Les initiés vendent pour mille raisons (diversification, impôts, et côté US des <b>plans automatiques 10b5-1</b>) — une vente isolée ne veut rien dire. C'est la vente <b>groupée de plusieurs initiés distincts</b> (🔴🔴) qui est un signal d'alerte. Le prix moyen vendu marque le niveau que les initiés jugent suffisant.</p>
+    <p class="mut">Les initiés vendent pour mille raisons (diversification, impôts…) — une vente isolée ne veut rien dire. C'est la vente <b>groupée de plusieurs personnes distinctes</b> (🔴🔴) qui est un signal d'alerte. Côté US, seules les ventes <b>≥ 50 k$</b> hors plan 10b5-1 et hors levée d'options sont collectées : les liquidations programmées ne sont pas des signaux. Le prix moyen vendu est un <b>constat</b>.</p>
   </div>
 
   <div class="card hidden" id="picksCard">
-    <h3>💡 Pistes à étudier <span class="badge" style="font-weight:400">initiés × fondamentaux · US</span></h3>
+    <h3>💡 Pistes à étudier <span class="badge" style="font-weight:400">clusters 30 j nettoyés · 🇺🇸 /20 · 🇫🇷 /10</span></h3>
     <div id="picksList"></div>
-    <p class="mut">Classement maison sur <b>/20</b> : <b>signal initiés /10</b> (clusters d'achats 🔥, initiés distincts, moins les ventes « dures » — ni plan 10b5-1 ni levée) + <b>fondamentaux /10</b> (croissance du chiffre d'affaires, rentabilité et marge nette des comptes annuels <b>10-K</b> publics de la SEC). US uniquement — pas d'équivalent public gratuit pour les sociétés françaises. <b>Outil de tri pour ta recherche, pas un conseil d'achat</b> : vérifie la cote, le secteur, la dette et les risques avant tout acte.</p>
+    <p class="mut">🇺🇸 <b>/20</b> : signal initiés /10 (clusters d'achats 🔥, personnes distinctes, moins les ventes « dures ») + fondamentaux /10 (croissance du CA, rentabilité et marge nette des comptes annuels <b>10-K</b> publics de la SEC). 🇫🇷 <b>/10</b> : signal initiés nettoyé seul — il n'existe pas d'équivalent public et gratuit du 10-K pour les sociétés françaises, les fondamentaux ne sont <b>pas évalués</b> (à vérifier toi-même dans les comptes annuels). <b>Outil de tri pour ta recherche, pas un conseil d'achat</b> : vérifie la cote, le secteur, la dette et les risques avant tout acte.</p>
   </div>
 
   <div id="list"></div>
@@ -148,10 +148,10 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   <div class="card info">
     <details>
       <summary>Comment ça marche — délais honnêtes</summary>
-      <p style="margin-top:8px">L'app agrège les <b>achats déclarés par les initiés</b> (dirigeants, membres de conseil, propriétaires 10 %) — les cessions sont exclues.</p>
+      <p style="margin-top:8px">L'app agrège les <b>achats ET ventes déclarés par les initiés</b> (dirigeants, membres de conseil, propriétaires 10 %). Les clusters et pistes sont <b>nettoyés</b> : opérations identiques dédoublonnées, véhicules « liés à X » regroupés sur la personne physique.</p>
       <ul>
         <li>🇫🇷 <b>AMF</b> : déclarations des dirigeants de sociétés cotées françaises, publiées sous <b>3 jours ouvrés</b> (art. L.621-18-2). Montants ≥ 1 000 €.</li>
-        <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Montants ≥ 1 000 $.</li>
+        <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Achats ≥ 1 000 $ ; ventes ≥ 50 000 $ et uniquement hors plan 10b5-1 / hors levée d'options.</li>
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
       </ul>
@@ -162,7 +162,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
   <footer>
     Sources : déclarations publiques <a href="https://transactions-amf.swaoo.com/" target="_blank" rel="noopener">Transactions AMF</a> · <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank" rel="noopener">SEC EDGAR</a><br>
-    Sentinelle perso v3 · pipeline GitHub Actions · aucune donnée personnelle dans cette app
+    Sentinelle perso <span id="footVer">v3.3</span> · pipeline GitHub Actions · aucune donnée personnelle dans cette app
   </footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -174,7 +174,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   var DATA_KEY = "sentinelle-perso-data-v1";
   var PREF_KEY = "sentinelle-perso-prefs-v1";
   var SEEN_KEY = "sentinelle-perso-lastseen-v1";
-  var state = { data: null, newIds: {}, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false } };
+  var state = { data: null, newIds: {}, limit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false } };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -228,9 +228,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     var nNew = Object.keys(ids).length;
     if (nNew > 0) {
       nb.classList.remove("hidden");
+      // 🆕 écrit en dur (UTF-8) : la séquence échappée \ud83d\udd95 de la v3.1.1 était 🖔,
+      // et le harnais ne testait que l'absence du mauvais emoji (leçon : tester la présence, pas l'absence)
       nb.innerHTML = "🆕 <b>" + nNew + "</b> ligne" + (nNew > 1 ? "s" : "") +
         " publiée" + (nNew > 1 ? "s" : "") +
-        " depuis ta dernière visite — filtre \u00ab \ud83d\udd95 Nouveaux \u00bb";
+        " depuis ta dernière visite — filtre « 🆕 Nouveaux »";
     } else {
       nb.classList.add("hidden");
     }
@@ -306,13 +308,17 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   }
 
   // pistes v3.2 : clusters d'initiés × fondamentaux 10-K (précalculées par le workflow)
-  function renderPicks(picks) {
+  // pistes v3.3 : US = clusters initiés × fondamentaux 10-K (/20, précalculées par le workflow) ;
+  // FR = signal initiés nettoyé seul (/10) — pas d'équivalent public gratuit du 10-K en France.
+  function renderPicks(pk) {
     var card = $("picksCard");
-    if (!picks || picks.length === 0) { card.classList.add("hidden"); return; }
+    var us = (pk && (pk.us || pk.picks)) || []; // compat : ancien format data.picks.picks
+    var fr = (pk && pk.fr) || [];
+    if (us.length === 0 && fr.length === 0) { card.classList.add("hidden"); return; }
     card.classList.remove("hidden");
     var html = [];
-    for (var i = 0; i < picks.length; i++) {
-      var p = picks[i];
+    for (var i = 0; i < us.length; i++) {
+      var p = us[i];
       var f = p.fund || {};
       var chips = [];
       if (f.growth != null) chips.push("📈 CA annuel " + (f.growth >= 0 ? "+" : "") + esc(String(f.growth)) + " %");
@@ -324,7 +330,6 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       }
       var sl = p.sells || { n: 0, hard: 0 };
       if (sl.hard > 0) chips.push("⚠️ " + sl.hard + " vente" + (sl.hard > 1 ? "s" : "") + " dure" + (sl.hard > 1 ? "s" : "") + " sur la fenêtre");
-      else if (sl.n > 0) chips.push("⚙ " + sl.n + " vente" + (sl.n > 1 ? "s" : "") + " sous plan 10b5-1/levée");
       html.push(
         '<div class="sig pick">' +
         '<div class="head"><span class="lvl pick">#' + (i + 1) + " · " + esc(String(p.score)) + '/20</span>' +
@@ -336,6 +341,24 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         '<div class="sub"><span>' + chips.join(" · ") + "</span>" +
         ' · <a href="' + esc(RI.quoteUrl({ source: "US", ticker: p.ticker, societe: p.societe })) + '" target="_blank" rel="noopener">cote ↗</a>' +
         ' · <a href="#" data-sig="' + esc(p.societe) + '">voir les déclarations</a>' +
+        "</div></div>"
+      );
+    }
+    for (var j = 0; j < fr.length; j++) {
+      var q = fr[j];
+      var qs = q.sells || { n: 0, hard: 0 };
+      var qchips = [];
+      if (qs.hard > 0) qchips.push("⚠️ " + qs.hard + " vente" + (qs.hard > 1 ? "s" : "") + " dure" + (qs.hard > 1 ? "s" : ""));
+      html.push(
+        '<div class="sig pick">' +
+        '<div class="head"><span class="lvl pick">🇫🇷 ' + esc(String(q.score)) + '/10</span>' +
+        '<span class="soc">' + esc(q.societe) + (q.isin ? ' <span class="tk">' + esc(q.isin) + "</span>" : "") + "</span></div>" +
+        '<div class="sum"><b>🔥 ' + q.insider.buys + " achat" + (q.insider.buys > 1 ? "s" : "") + " · " + q.insider.buyers + " initié" + (q.insider.buyers > 1 ? "s" : "") + " distinct" + (q.insider.buyers > 1 ? "s" : "") + "</b> · " +
+        "px moyen payé <b>" + esc(RI.fmtNum(q.insider.avgPx)) + " €</b> · total initié " + esc(RI.fmtEUR(q.insider.total)) +
+        " · signal initiés " + esc(String(q.insider.score)) + "/10</div>" +
+        '<div class="sub"><span>' + qchips.join(" · ") + "</span>" +
+        ' · <a href="' + esc(RI.quoteUrl({ source: "FR", isin: q.isin, societe: q.societe })) + '" target="_blank" rel="noopener">cote ↗</a>' +
+        ' · <a href="#" data-sig="' + esc(q.societe) + '">voir les déclarations</a>' +
         "</div></div>"
       );
     }
@@ -379,11 +402,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
     // signaux : suivent le filtre source uniquement (pas montant/recherche/côté)
     var sigRows = RI.filterRows(buys, { source: state.prefs.src });
-    var sigs = RI.signalsFrom(sigRows);
+    var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000)); // clusters 30 j, pas 90
+    var sigs = RI.signalsFrom(sigRows, { since: since30 });
     $("nSig").textContent = String(sigs.length);
     renderSignals(sigs, false);
-    renderSignals(RI.signalsFrom(RI.filterRows(sells, { source: state.prefs.src })), true);
-    renderPicks(d.picks && d.picks.picks);
+    renderSignals(RI.signalsFrom(RI.filterRows(sells, { source: state.prefs.src }), { since: since30 }), true);
+    renderPicks(d.picks); // v3.3 : { updated, us: [...], fr: [...] } — compat ancien { picks: [...] }
 
     var cnt = RI.signalCountByKey(buys);
     var cntS = RI.signalCountByKey(sells);
@@ -399,6 +423,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     rows = RI.sortRows(rows, state.prefs.sort);
 
     var el = $("list");
+    var LIMIT = state.limit || 100; // v3.3 : « Achats + ventes » affichait ~545 lignes d'un coup
     if (rows.length === 0) {
       el.innerHTML = qTxt
         ? '<div class="empty">Aucune ligne pour « ' + esc(qTxt) + ' » sur la fenêtre 90 j — vérifie l\'orthographe, ou elle n\'a aucune déclaration d\'initié (AMF/SEC) dans les seuils suivis.</div>'
@@ -406,8 +431,9 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       return;
     }
     var html = [];
-    for (var i = 0; i < rows.length; i++) {
-      var r = rows[i];
+    var shown = rows.slice(0, LIMIT);
+    for (var i = 0; i < shown.length; i++) {
+      var r = shown[i];
       var lag = RI.lagLabel(r);
       var sell = r.side === "sell";
       var n = sell ? cntS[RI.sigKey(r)] : cnt[RI.sigKey(r)];
@@ -417,13 +443,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         '<div class="bar"></div>' +
         '<div class="t">' +
         '<div class="soc">' + esc(r.societe) + (r.ticker ? ' <span class="tk">' + esc(r.ticker) + "</span>" : "") +
-        (n >= 2 ? ' <span class="' + (sell ? "xs" : "x") + '" title="Nombre de ' + (sell ? "ventes" : "achats") + ' de cette société sur la fenêtre 90 j — voir la carte ' + (sell ? "ventes" : "accumulation") + '">×' + n + "</span>" : "") +
+        (n >= 2 ? ' <span class="' + (sell ? "xs" : "x") + '" title="Nombre de ' + (sell ? "ventes" : "achats") + ' de cette société dans la liste (90 j) — voir la carte ' + (sell ? "ventes" : "accumulation") + '">×' + n + "</span>" : "") +
         (isNew ? ' <span class="newdot">🆕</span>' : "") +
         "</div>" +
         '<div class="who">' + esc(r.auteur) + (r.role ? " · " + esc(r.role) : "") + "</div>" +
         '<div class="meta"><span>' + (sell ? "vente" : "achat") + " du " + esc(RI.isoToDmY(r.dateOp)) + "</span>" +
-        (sell && r.p10b5 ? "<span title=\"Plan de vente programmé 10b5-1 déclaré dans le Form 4 — pas un signal baissier autonome\">⚙ 10b5-1</span>" : "") +
-        (sell && r.opt ? "<span title=\"Vente accompagnant une levée d'options (code M dans le même dépôt) — souvent une liquidation neutre\">🪜 levée</span>" : "") +
+        (r.multi ? "<span title=\"Form 4 déposé par plusieurs déclarants — ligne attribuée au premier, attribution incertaine (instructions SEC)\">⚠ déclarants multiples</span>" : "") +
         (lag ? "<span>" + esc(lag) + "</span>" : "") +
         (r.instrument ? "<span>" + esc(String(r.instrument).slice(0, 40)) + "</span>" : "") +
         "</div>" +
@@ -434,6 +459,10 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         '<div style="text-align:right"><div class="montant">' + esc(RI.fmtMontant(r)) + '</div><div style="margin-top:4px"><span class="src ' + (r.source === "FR" ? "fr" : "us") + '">' + r.source + "</span></div></div>" +
         "</div></div>"
       );
+    }
+    if (rows.length > shown.length) {
+      html.push('<div class="card" style="text-align:center"><button class="amt" id="moreBtn">Afficher plus — ' +
+        (rows.length - shown.length) + " ligne" + (rows.length - shown.length > 1 ? "s" : "") + " restante" + (rows.length - shown.length > 1 ? "s" : "") + "</button></div>");
     }
     el.innerHTML = html.join("");
   }
@@ -510,6 +539,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) refresh(true);
     });
+    $("list").addEventListener("click", function (e) {
+      var b = e.target.closest("#moreBtn");
+      if (!b) return;
+      state.limit += 100; // pagination par centaines
+      render();
+    });
   }
 
   function reflectPrefs() {
@@ -531,6 +566,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     $("q").value = state.prefs.q;
   }
 
+  // version écrite à UN seul endroit : RI.VERSION (logic.js) — badge et footer la lisent ici
+  try {
+    $("ver").textContent = "v" + RI.VERSION;
+    $("footVer").textContent = "v" + RI.VERSION;
+  } catch (e) { }
   loadPrefs();
   reflectPrefs();
   wire();

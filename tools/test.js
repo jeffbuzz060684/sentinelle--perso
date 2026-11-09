@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 "use strict";
-// Harnais de tests Sentinelle perso — exécuté en CI AVANT tout déploiement (0 échec obligatoire)
+// Harnais de tests Sentinelle perso — exécuté en CI AVANT tout déploiement (0 échec obligatoire).
+// v3.3 : les tests du pipeline sont COMPORTEMENTAUX (fetch injecté), plus des grep de source
+// (Jade) — seuls les workflows YAML restent vérifiés par chaîne (pas d'autre moyen).
 var fs = require("fs");
 var vm = require("vm");
 var RI = require("../logic.js");
+var FI = require("./fetch-insiders.js");
 
 var passed = 0, failed = 0;
 function T(name, fn) {
@@ -12,6 +15,8 @@ function T(name, fn) {
 }
 function A(cond, msg) { if (!cond) throw new Error(msg || "assertion"); }
 function EQ(a, b, msg) { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error((msg || "") + " : " + JSON.stringify(a) + " ≠ " + JSON.stringify(b)); }
+var NOW = Date.parse("2026-11-09T12:00:00Z");
+var dayAt = function (k) { return RI.isoDay(new Date(Date.now() - k * 86400000)); }; // dates dynamiques (fenêtres 30 j vs Date.now())
 
 // ---------- utilitaires ----------
 T("esc échappe le HTML", function () {
@@ -41,6 +46,9 @@ T("daysBetween", function () {
   EQ(RI.daysBetween("2026-11-09", "2026-11-06"), -3);
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
+T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
+  EQ(RI.VERSION, "3.3");
+});
 
 // ---------- parse FR (fixture réelle) ----------
 var swaoo = fs.readFileSync(__dirname + "/fixtures/swaoo-sample.html", "utf8");
@@ -53,7 +61,7 @@ T("parseSwaoo : champs d'une ligne complète", function () {
   A(r.id && /^2026DD\d+$/.test(r.id), "id déclaration : " + r.id);
   A(r.societe.length > 0, "société");
   A(r.auteur.length > 0, "auteur : " + r.auteur);
-  A(r.role.length > 0, "rôle : " + r.role);
+  A(r.role.length > 0, "rôle");
   EQ(r.source, "FR");
   EQ(r.nature, "Acquisition");
   EQ(r.datePub, "2026-11-06");
@@ -135,6 +143,11 @@ T("parseForm4 : fixture réelle (don F, pas un achat)", function () {
   EQ(f4.transactions[0].acq, "D");
   EQ(f4.transactions[0].code, "F");
 });
+T("parseForm4 v3.3 : déclarant unique -> multiOwner=false, owners=[nom]", function () {
+  EQ(f4.multiOwner, false);
+  EQ(f4.owners.length, 1);
+  EQ(f4.owners[0], "Noor Shain");
+});
 T("parseForm4 : directeur sans titre -> rôle Directeur", function () {
   var xml = "<ownershipDocument><rptOwnerName>Marie M</rptOwnerName><isDirector><value>1</value></isDirector>" +
     "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
@@ -153,101 +166,115 @@ T("parseForm4 : directeur sans titre -> rôle Directeur", function () {
   EQ(rows[0].code, "P");
   EQ(rows[0].dateOp, "2026-11-05");
 });
-T("usRowsFrom v3 : achat = P+A, vente = S+D ; autres codes et paires incohérentes exclus", function () {
-  var mk = function (code, acq) {
-    return RI.parseForm4("<ownershipDocument><rptOwnerName>A</rptOwnerName><officerTitle>CEO</officerTitle>" +
-      "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-      "<transactionCoding><transactionCode>" + code + "</transactionCode></transactionCoding>" +
-      "<transactionAcquiredDisposedCode><value>" + acq + "</value></transactionAcquiredDisposedCode>" +
-      "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
-      "<transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>" +
-      "</nonDerivativeTransaction></ownershipDocument>");
-  };
-  var hit = { accession: "X", fileDate: "2026-11-06", url: "u" };
-  var buy = RI.usRowsFrom(hit, mk("P", "A"));
+T("parseForm4 v3.3 : dépôt multi-déclarants -> owners complets, multiOwner=true, attribution au 1er", function () {
+  var xml = "<ownershipDocument><rptOwnerName>Alice Dupont</rptOwnerName><rptOwnerName>Bob Martin</rptOwnerName>" +
+    "<officerTitle>CEO</officerTitle>" +
+    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>1000</value></transactionShares>" +
+    "<transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>" +
+    "</nonDerivativeTransaction></ownershipDocument>";
+  var r = RI.parseForm4(xml);
+  EQ(r.owners.length, 2, "les DEUX déclarants sont extraits (instructions SEC Form 4)");
+  EQ(r.owner, "Alice Dupont", "le premier reste la référence (compat)");
+  EQ(r.multiOwner, true);
+  var rows = RI.usRowsFrom({ accession: "A2", fileDate: "2026-11-06", url: "u" }, r);
+  EQ(rows.length, 1);
+  EQ(rows[0].auteur, "Alice Dupont");
+  EQ(rows[0].multi, true, "ligne marquée multi-déclarants (attribution incertaine, badge ⚠ dans l'app)");
+});
+
+// mkForm4 : XML Form 4 synthétique (déclarants + transactions paramétrables)
+function mkForm4(opts) {
+  var o = opts || {};
+  var owners = (o.owners || ["A"]).map(function (n) { return "<rptOwnerName>" + n + "</rptOwnerName>"; }).join("");
+  var tx = (o.txs || [{ code: "P", acq: "A", shares: 100, price: 10 }]).map(function (t) {
+    return "<nonDerivativeTransaction><transactionDate><value>" + (t.date || "2026-11-05") + "</value></transactionDate>" +
+      "<transactionCoding><transactionCode>" + t.code + "</transactionCode></transactionCoding>" +
+      "<transactionAcquiredDisposedCode><value>" + t.acq + "</value></transactionAcquiredDisposedCode>" +
+      "<transactionAmounts><transactionShares><value>" + t.shares + "</value></transactionShares>" +
+      "<transactionPricePerShare><value>" + t.price + "</value></transactionPricePerShare></transactionAmounts>" +
+      "</nonDerivativeTransaction>";
+  }).join("");
+  return "<ownershipDocument>" + owners + "<officerTitle>CEO</officerTitle>" +
+    (o.plan === null || o.plan === undefined ? "" : "<aff10b5One>" + o.plan + "</aff10b5One>") +
+    (o.derivativeM ? "<derivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+      "<transactionCoding><transactionCode>M</transactionCode></transactionCoding>" +
+      "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+      "<transactionAmounts><transactionShares><value>100</value></transactionShares></transactionAmounts>" +
+      "</derivativeTransaction>" : "") +
+    tx + "</ownershipDocument>";
+}
+var HIT = { accession: "X", fileDate: "2026-11-06", url: "u" };
+T("usRowsFrom : achat = P+A (≥ 1 k$) ; codes F/G/J/M/A exclus ; paires incohérentes exclues", function () {
+  var buy = RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: "P", acq: "A", shares: 100, price: 10 }] })));
   EQ(buy.length, 1, "achat au marché P+A : retenu");
   EQ(buy[0].side, "buy");
   EQ(buy[0].nature, "Achat");
-  var sell = RI.usRowsFrom(hit, mk("S", "D"));
-  EQ(sell.length, 1, "vente au marché S+D : retenue");
-  EQ(sell[0].side, "sell");
-  EQ(sell[0].nature, "Vente");
+  EQ(buy[0].montant, 1000);
   ["F", "G", "J", "M", "A"].forEach(function (code) {
-    EQ(RI.usRowsFrom(hit, mk(code, "A")).length, 0, "code " + code + " exclu côté achat");
+    EQ(RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: code, acq: "A", shares: 100, price: 10 }] }))).length, 0, "code " + code + " exclu côté achat");
   });
-  ["F", "G", "M"].forEach(function (code) {
-    EQ(RI.usRowsFrom(hit, mk(code, "D")).length, 0, "code " + code + " exclu côté vente (pas une vente au marché)");
-  });
-  EQ(RI.usRowsFrom(hit, mk("P", "D")).length, 0, "P+D incohérent : exclu");
-  EQ(RI.usRowsFrom(hit, mk("S", "A")).length, 0, "S+A incohérent : exclu");
+  EQ(RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: "P", acq: "D", shares: 100, price: 10 }] }))).length, 0, "P+D incohérent : exclu");
+  EQ(RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: "S", acq: "A", shares: 6000, price: 10 }] }))).length, 0, "S+A incohérent : exclu");
 });
-T("usRowsFrom : sous le seuil exclu", function () {
-  var r = RI.parseForm4("<ownershipDocument><rptOwnerName>A</rptOwnerName>" +
-    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
-    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
-    "<transactionAmounts><transactionShares><value>10</value></transactionShares>" +
-    "<transactionPricePerShare><value>5</value></transactionPricePerShare></transactionAmounts>" +
-    "</nonDerivativeTransaction></ownershipDocument>");
-  EQ(RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06" }, r).length, 0); // 50 $ < 1000 $
+T("usRowsFrom v3.3 : vente S+D retenue UNIQUEMENT si ≥ 50 k$ (US_SELL_MIN_USD)", function () {
+  var low = RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: "S", acq: "D", shares: 100, price: 30 }] })));
+  EQ(low.length, 0, "vente de 3 k$ : non collectée (elles noyaient les listes, 380 en 1 journée)");
+  var hard = RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: "S", acq: "D", shares: 6000, price: 10 }] })));
+  EQ(hard.length, 1, "vente de 60 k$ sans plan ni levée : collectée (vente « dure »)");
+  EQ(hard[0].side, "sell");
+  EQ(hard[0].p10b5, false, "pas de plan déclaré");
+  EQ(hard[0].opt, false, "pas de levée");
+});
+T("usRowsFrom v3.3 : vente ≥ 50 k$ sous plan 10b5-1 déclarée ⇒ EXCLUE (liquidation programmée, pas un signal)", function () {
+  var rows = RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({
+    plan: 1,
+    txs: [{ code: "P", acq: "A", shares: 100, price: 10 }, { code: "S", acq: "D", shares: 6000, price: 10 }]
+  })));
+  EQ(rows.length, 1, "seul l'achat survit");
+  EQ(rows[0].side, "buy");
+});
+T("usRowsFrom v3.3 : vente ≥ 50 k$ dans un dépôt avec levée d'options (code M) ⇒ EXCLUE", function () {
+  var rows = RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({
+    derivativeM: true,
+    txs: [{ code: "S", acq: "D", shares: 6000, price: 10 }]
+  })));
+  EQ(rows.length, 0, "vente suivant une levée : non collectée (⚠ le code M est un constat au niveau du DÉPÔT)");
+});
+T("parseForm4 : plan 10b5-1 — 1 ⇒ plan, 0 ⇒ pas de plan, absent ⇒ inconnu", function () {
+  EQ(RI.parseForm4(mkForm4({ plan: 1, txs: [] })).plan10b5, true);
+  EQ(RI.parseForm4(mkForm4({ plan: 0, txs: [] })).plan10b5, false);
+  EQ(RI.parseForm4(mkForm4({ txs: [] })).plan10b5, null, "balise absente (dépôts pré-2023)");
+});
+T("usRowsFrom : sous le seuil achat exclu", function () {
+  EQ(RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({ txs: [{ code: "P", acq: "A", shares: 10, price: 5 }] }))).length, 0); // 50 $ < 1000 $
 });
 T("v3.1 usRowsFrom : id anti-collision — deux tranches identiques (date, quantité), prix différents", function () {
-  var xml = "<ownershipDocument><rptOwnerName>A</rptOwnerName><officerTitle>CEO</officerTitle>" +
-    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
-    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
-    "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
-    "<transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>" +
-    "</nonDerivativeTransaction>" +
-    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-    "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
-    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
-    "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
-    "<transactionPricePerShare><value>12</value></transactionPricePerShare></transactionAmounts>" +
-    "</nonDerivativeTransaction></ownershipDocument>";
-  var rows = RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, RI.parseForm4(xml));
-  EQ(rows.length, 2, "les deux tranches sont conservées (v3 : la 2e était écrasée)");
+  var rows = RI.usRowsFrom(HIT, RI.parseForm4(mkForm4({
+    txs: [{ code: "P", acq: "A", shares: 100, price: 10 }, { code: "P", acq: "A", shares: 100, price: 12 }]
+  })));
+  EQ(rows.length, 2, "les deux tranches sont conservées");
   A(rows[0].id !== rows[1].id, "ids distincts (prix + index dans l'id)");
   EQ(rows[0].montant + rows[1].montant, 1000 + 1200, "montants cumulés exacts");
 });
-T("v3.1 parseForm4 : plan 10b5-1 et levée d'options (code M) détectés", function () {
-  var mk = function (b5, withM) {
-    return RI.parseForm4("<ownershipDocument><rptOwnerName>A</rptOwnerName><officerTitle>CEO</officerTitle>" +
-      (b5 === null ? "" : "<aff10b5One>" + b5 + "</aff10b5One>") +
-      (withM ? "<derivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-        "<transactionCoding><transactionCode>M</transactionCode></transactionCoding>" +
-        "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
-        "<transactionAmounts><transactionShares><value>100</value></transactionShares></transactionAmounts>" +
-        "</derivativeTransaction>" : "") +
-      "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-      "<transactionCoding><transactionCode>S</transactionCode></transactionCoding>" +
-      "<transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>" +
-      "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
-      "<transactionPricePerShare><value>30</value></transactionPricePerShare></transactionAmounts>" +
-      "</nonDerivativeTransaction></ownershipDocument>");
-  };
-  EQ(mk("1", false).plan10b5, true, "aff10b5One=1 ⇒ plan 10b5-1");
-  EQ(mk("0", false).plan10b5, false, "aff10b5One=0 ⇒ pas de plan déclaré");
-  EQ(mk(null, false).plan10b5, null, "balise absente (déclarations pré-2023) ⇒ inconnu");
-  EQ(mk("1", true).hasM, true, "code M présent ⇒ vente liée à une levée d'options");
-  EQ(mk("1", false).hasM, false, "pas de M ⇒ vente de gré à gré/marché simple");
-  var rows = RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, mk("1", true));
-  EQ(rows.length, 1);
-  EQ(rows[0].p10b5, true, "vente taguée 10b5-1 (plan automatique — signal baissier plus faible)");
-  EQ(rows[0].opt, true, "vente taguée levée d'options");
-  var rowsNoPlan = RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, mk("0", false));
-  EQ(rowsNoPlan[0].p10b5, false, "vente NON taguée 10b5-1");
-});
-T("v3.1 purgeProcessed : purge par date, entrées legacy datées du jour", function () {
-  var FI = require("./fetch-insiders.js");
-  var now = Date.parse("2026-11-09T12:00:00Z");
-  var out = FI.purgeProcessed(["acc-new|2026-11-08", "acc-vieux|2026-09-01", "acc-legacy"], now, RI.CFG.STATE_DAYS);
+
+// ---------- purge d'état (v3.3 : date d'origine conservée) ----------
+T("purgeProcessed : purge par date, entrées legacy datées du jour", function () {
+  var out = FI.purgeProcessed(["acc-new|2026-11-08", "acc-vieux|2026-09-01", "acc-legacy"], NOW, RI.CFG.STATE_DAYS);
   EQ(out[0], "acc-new|2026-11-08", "entrée récente conservée");
   A(out.indexOf("acc-vieux|2026-09-01") === -1, "entrée > STATE_DAYS purgée");
   A(out.indexOf("acc-legacy|2026-11-09") > -1, "entrée sans date (legacy) conservée + datée du jour");
 });
+T("purgeProcessed v3.3 : la date d'ORIGINE est conservée (le bug v3.1.1 redatait tout au jour du run)", function () {
+  // now = 2026-11-09, STATE_DAYS = 40 → min 2026-09-30
+  var out = FI.purgeProcessed(["acc-old|2026-10-01", "acc-vieux|2026-09-01"], NOW, RI.CFG.STATE_DAYS);
+  EQ(out.length, 1);
+  EQ(out[0], "acc-old|2026-10-01", "entrée de 39 j conservée avec SA date d'origine, pas re-datée");
+});
 
-// ---------- v3.2 : pistes d'étude — fondamentaux XBRL + scoring ----------
+// ---------- v3.2 : fondamentaux XBRL + scoring ----------
 var XBR = JSON.parse(fs.readFileSync(__dirname + "/fixtures/xbrl-rev-sample.json", "utf8"));
 var XBNI = JSON.parse(fs.readFileSync(__dirname + "/fixtures/xbrl-ni-sample.json", "utf8"));
 T("v3.2 xbrlAnnuals : 10-K uniquement, la valeur avec frame gagne, 10-Q exclus", function () {
@@ -290,23 +317,35 @@ T("v3.2 insiderScoreFor : clusters récompensés, ventes dures pénalisées", fu
   EQ(RI.insiderScoreFor({ level: 2, buyers: 1, buys: 3 }, null), 3.5, "rachats d'un seul initié : 3.5 (sous le seuil des pistes)");
   EQ(RI.insiderScoreFor({ level: 1, buyers: 1, buys: 2 }, null), 2, "×2 même initié : 2");
 });
-T("v3.2 pickCandidates + picksFrom : US only, seuil cluster, tri /20, cap", function () {
-  var mk = function (id, source, soc, ticker, auteur) {
+
+// ---------- v3.3 : pistes US + pistes FR ----------
+T("v3.3 pickCandidates + picksFrom : US only, seuil cluster, tri /20, cap", function () {
+  var mk = function (id, source, soc, ticker, auteur, volume, prix, dateOp) {
     return { id: id, source: source, side: "buy", societe: soc, ticker: ticker, auteur: auteur,
-      montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" };
+      montant: volume * prix, volume: volume, prix: prix, dateOp: dateOp || "2026-11-05", datePub: "2026-11-06" };
   };
+  // volumes DISTINCTS par ligne : depuis v3.3, deux opérations identiques (même date/volume/prix)
+  // sont dédoublonnées — le cas Silynxcom (même opération sous 2 accessions) ne compte qu'une fois
   var buys = [
-    mk("k1", "US", "KLEA PHARMA", "KLEA", "Alice"), mk("k2", "US", "KLEA PHARMA", "KLEA", "Bob"), mk("k3", "US", "KLEA PHARMA", "KLEA", "Alice"),
-    mk("s1", "US", "SILVIA, INC.", "SVIA", "Noor"), mk("s2", "US", "SILVIA, INC.", "SVIA", "Zang"),
-    mk("o1", "US", "SOLO CORP", "SOLO", "Solo"), mk("o2", "US", "SOLO CORP", "SOLO", "Solo"), mk("o3", "US", "SOLO CORP", "SOLO", "Solo"),
-    mk("f1", "FR", "ROCHE BOBOIS SA", "", "Tamburi"), mk("f2", "FR", "ROCHE BOBOIS SA", "", "Txr"), mk("f3", "FR", "ROCHE BOBOIS SA", "", "Tamburi"),
-    mk("x1", "US", "XFIN CORP", "XFIN", "Xa"), mk("x2", "US", "XFIN CORP", "XFIN", "Xb")
+    mk("k1", "US", "KLEA PHARMA", "KLEA", "Alice", 5000, 10, "2026-11-03"),
+    mk("k2", "US", "KLEA PHARMA", "KLEA", "Bob", 4000, 10, "2026-11-04"),
+    mk("k3", "US", "KLEA PHARMA", "KLEA", "Alice", 4500, 10, "2026-11-05"),
+    mk("s1", "US", "SILVIA, INC.", "SVIA", "Noor", 5000, 10, "2026-11-04"),
+    mk("s2", "US", "SILVIA, INC.", "SVIA", "Zang", 6000, 10, "2026-11-05"),
+    mk("o1", "US", "SOLO CORP", "SOLO", "Solo", 1000, 10, "2026-11-03"),
+    mk("o2", "US", "SOLO CORP", "SOLO", "Solo", 1100, 10, "2026-11-04"),
+    mk("o3", "US", "SOLO CORP", "SOLO", "Solo", 1200, 10, "2026-11-05"),
+    mk("f1", "FR", "ROCHE BOBOIS SA", "", "Tamburi", 1400, 15.7, "2026-11-03"),
+    mk("f2", "FR", "ROCHE BOBOIS SA", "", "Txr", 600, 16, "2026-11-04"),
+    mk("f3", "FR", "ROCHE BOBOIS SA", "", "Tamburi", 500, 16, "2026-11-05"),
+    mk("x1", "US", "XFIN CORP", "XFIN", "Xa", 2000, 10, "2026-11-04"),
+    mk("x2", "US", "XFIN CORP", "XFIN", "Xb", 2400, 10, "2026-11-05")
   ];
   var sells = [{ id: "ks1", source: "US", side: "sell", societe: "KLEA PHARMA", ticker: "KLEA", auteur: "Carol",
     montant: 20000, volume: 2000, prix: 10, dateOp: "2026-11-04", datePub: "2026-11-05" }];
   var cands = RI.pickCandidates(buys, sells, 15);
-  A(cands.length === 3, "KLEA (4), SVIA (5), XFIN (5) candidates — SOLO sous le seuil, FR exclue : " + cands.length);
-  EQ(cands[0].ticker, "SVIA", "tri par score initiés");
+  A(cands.length === 3, "SVIA (5), XFIN (5), KLEA (4) candidates — SOLO (3.5) sous le seuil, FR exclue : " + cands.length);
+  EQ(cands[0].ticker, "SVIA", "tri par score initiés, total en égalité");
   var funds = {
     KLEA: { rev: 100000000, revEnd: "2024-12-31", growth: 50, ni: 30000000, margin: 30 },
     SVIA: { rev: 150000000, revEnd: "2024-12-31", growth: 50, ni: 30000000, margin: 20 }
@@ -322,9 +361,22 @@ T("v3.2 pickCandidates + picksFrom : US only, seuil cluster, tri /20, cap", func
   EQ(picks[1].insider.score, 4);
   EQ(RI.picksFrom(buys, sells, funds, { max: 1 }).length, 1, "cap max appliqué");
 });
+T("v3.3 picksFromFr : cluster FR nettoyé → piste /10 (signal initiés seul, pas de fondamentaux en France)", function () {
+  var fr = [
+    { id: "f1", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", isin: "FR0013344173", auteur: "TAMBURI GIOVANNI", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1400, prix: 15.7, montant: 21980 },
+    { id: "f2", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", isin: "FR0013344173", auteur: "TXR S.R.L.", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 600, prix: 16, montant: 9600 },
+    { id: "f3", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", isin: "FR0013344173", auteur: "TAMBURI GIOVANNI", dateOp: "2026-11-05", datePub: "2026-11-07", volume: 500, prix: 16, montant: 8000 }
+  ];
+  var picks = RI.picksFromFr(fr, [], {});
+  EQ(picks.length, 1, "cluster niveau 3 (3 achats, 2 initiés) → 1 piste");
+  EQ(picks[0].societe, "ROCHE BOBOIS SA");
+  EQ(picks[0].score, 6.5, "score initiés seul, sur /10");
+  EQ(picks[0].insider.score, 6.5);
+  EQ(picks[0].sells.n, 0);
+  A(picks[0].fund === undefined, "pas de champ fund côté FR (pas d'équivalent public du 10-K)");
+});
 
 // ---------- fusion / fenêtre / plafond ----------
-var NOW = Date.parse("2026-11-09T12:00:00Z");
 T("mergeRows : dédoublonne par id, le nouveau gagne", function () {
   var old = [{ id: "a", datePub: "2026-11-05", montant: 100 }, { id: "b", datePub: "2026-11-06", montant: 200 }];
   var neu = [{ id: "b", datePub: "2026-11-06", montant: 999 }, { id: "c", datePub: "2026-11-07", montant: 300 }];
@@ -398,14 +450,13 @@ T("frNextPage : pagination sur les lignes brutes (toutes natures)", function () 
   EQ(RI.frNextPage(3, 5), true, "page partielle mais non vide -> continuer");
 });
 T("freshness", function () {
-  var now = Date.parse("2026-11-09T12:00:00Z");
-  EQ(RI.freshness("2026-11-09T10:30:00Z", now).label, "il y a 2 h");
-  EQ(RI.freshness("2026-11-02T10:00:00Z", now).stale, true, "7 j -> périmé");
-  EQ(RI.freshness("2026-11-08T12:00:00Z", now).stale, false, "24 h -> ok (trou week-end 57 h)");
-  EQ(RI.freshness("n'importe quoi", now).stale, true);
+  EQ(RI.freshness("2026-11-09T10:30:00Z", NOW).label, "il y a 2 h");
+  EQ(RI.freshness("2026-11-02T10:00:00Z", NOW).stale, true, "7 j -> périmé");
+  EQ(RI.freshness("2026-11-08T12:00:00Z", NOW).stale, false, "24 h -> ok (trou week-end 57 h)");
+  EQ(RI.freshness("n'importe quoi", NOW).stale, true);
 });
 
-// ---------- v2 : signaux d'accumulation ----------
+// ---------- signaux d'accumulation ----------
 var SIGROWS = [
   { id: "1", source: "FR", societe: "KLEA HOLDING", isin: "FR0000039620", auteur: "SMILA RAPHAEL", dateOp: "2026-11-02", datePub: "2026-11-05", volume: 10000, prix: 4.0, montant: 40000 },
   { id: "2", source: "FR", societe: "Klea Holding", isin: "FR0000039620", auteur: "Smila Raphael", dateOp: "2026-11-03", datePub: "2026-11-06", volume: 5000, prix: 4.4, montant: 22000 },
@@ -431,7 +482,39 @@ T("signalsFrom : cluster multi-initiés -> niveau 3 (🔥🔥), prix moyen pond�
   EQ(s[0].first, "2026-11-05");
   EQ(s[0].last, "2026-11-07");
 });
-T("signalsFrom : même initié x3 -> niveau 2 ; x2 -> niveau 1 ; tri niveau puis total", function () {
+T("signalsFrom v3.3 : fenêtre {since} — les lignes publiées avant la fenêtre 30 j sont ignorées", function () {
+  var rows = [
+    { id: "a", source: "US", societe: "X CORP", ticker: "XC", auteur: "A", dateOp: "2026-10-01", datePub: "2026-10-02", volume: 100, prix: 10, montant: 1000 },
+    { id: "b", source: "US", societe: "X CORP", ticker: "XC", auteur: "B", dateOp: "2026-10-02", datePub: "2026-10-03", volume: 100, prix: 10, montant: 1000 },
+    { id: "c", source: "US", societe: "X CORP", ticker: "XC", auteur: "C", dateOp: "2026-11-04", datePub: "2026-11-05", volume: 100, prix: 10, montant: 1000 }
+  ];
+  EQ(RI.signalsFrom(rows, { since: "2026-11-01" }).length, 0, "2 lignes hors fenêtre (1 seule dedans) -> pas de signal");
+  EQ(RI.signalsFrom(rows).length, 1, "sans fenêtre -> signal (les listes brutes restent 90 j)");
+});
+T("signalsFrom v3.3 : la même opération déclarée par 2 déclarants compte UNE fois (cas Silynxcom)", function () {
+  var s = RI.signalsFrom([
+    { id: "a", source: "US", societe: "SILYNXCOM", ticker: "SLX", auteur: "PDG", dateOp: "2026-11-04", datePub: "2026-11-05", volume: 10000, prix: 2, montant: 20000 },
+    { id: "b", source: "US", societe: "SILYNXCOM", ticker: "SLX", auteur: "VP", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 10000, prix: 2, montant: 20000 },
+    { id: "c", source: "US", societe: "SILYNXCOM", ticker: "SLX", auteur: "PDG", dateOp: "2026-11-05", datePub: "2026-11-07", volume: 5000, prix: 2, montant: 10000 }
+  ]);
+  EQ(s.length, 1);
+  EQ(s[0].buys, 2, "2 achats réels, pas 3 (l'opération doublée est fusionnée)");
+  EQ(s[0].total, 30000, "total non doublé");
+  EQ(s[0].buyers, 1, "l'opération fusionnée n'ajoute pas de 2e initié (comptage conservateur : le déclarant doublé n'est pas compté comme personne distincte)");
+});
+T("personKey v3.3 : « personne morale liée à X » regroupée sur X (KLEA = 1 initié, pas 2)", function () {
+  EQ(RI.personKey("TXR S.R.L., personne morale liée à RAPHAEL SMILA"), RI.personKey("RAPHAEL SMILA"), "véhicule et personne physique = même initié");
+  EQ(RI.personKey("RAPHAEL SMILA"), "RAPHAEL SMILA");
+  EQ(RI.personKey("KLEA HOLDING, personne morale liée à Raphaël Smila"), "RAPHAEL SMILA", "accents/casse normalisés");
+  var s = RI.signalsFrom([
+    { id: "1", source: "FR", societe: "KLEA HOLDING", auteur: "KLEA HOLDING, personne morale liée à RAPHAEL SMILA", dateOp: "2026-11-02", datePub: "2026-11-05", volume: 10000, prix: 4, montant: 40000 },
+    { id: "2", source: "FR", societe: "KLEA HOLDING", auteur: "TXR S.R.L., personne morale liée à RAPHAEL SMILA", dateOp: "2026-11-03", datePub: "2026-11-06", volume: 5000, prix: 4.4, montant: 22000 },
+    { id: "3", source: "FR", societe: "KLEA HOLDING", auteur: "RAPHAEL SMILA", dateOp: "2026-11-04", datePub: "2026-11-07", volume: 1000, prix: 4.2, montant: 4200 }
+  ]);
+  EQ(s[0].buyers, 1, "3 achats de la même personne via 2 holdings + en direct = 1 initié (le cluster 🔥🔥 faux disparaît)");
+  EQ(s[0].level, 2, "1 initié -> pas un cluster multi-personnes");
+});
+T("signalsFrom : même initié x3 -> niveau 2 ; x2 -> niveau 1", function () {
   var r3 = [
     { id: "a", source: "US", societe: "X CORP", ticker: "XC", auteur: "MEME", dateOp: "2026-11-01", datePub: "2026-11-02", volume: 100, prix: 10, montant: 1000 },
     { id: "b", source: "US", societe: "X CORP", ticker: "XC", auteur: "MEME", dateOp: "2026-11-02", datePub: "2026-11-03", volume: 100, prix: 11, montant: 1100 },
@@ -444,11 +527,25 @@ T("signalsFrom : même initié x3 -> niveau 2 ; x2 -> niveau 1 ; tri niveau puis
   var l1 = RI.signalsFrom(r3.slice(0, 2));
   EQ(l1.length, 1);
   EQ(l1[0].level, 1, "2 achats même initié -> signal faible");
-  // tri : niveau 3 avant niveau 1, total décroissant à niveau égal
-  var mix = r3.concat(SIGROWS.slice(0, 3));
-  var ms = RI.signalsFrom(mix);
-  EQ(ms[0].level, 3, "KLEA cluster en tête");
-  A(ms[0].total > ms[1].total, "total décroissant à niveau différent vérifié séparément");
+});
+T("signalsFrom v3.3 : tri niveau, puis RÉCENCE du dernier achat, puis total", function () {
+  var mk = function (soc, auteur, dateOp, datePub, montant) {
+    return { id: soc + dateOp + auteur, source: "FR", societe: soc, auteur: auteur,
+      dateOp: dateOp, datePub: datePub, volume: montant, prix: 1, montant: montant };
+  };
+  var rows = [
+    mk("VIEUX GROS", "A", "2026-11-01", "2026-11-02", 900000),
+    mk("VIEUX GROS", "B", "2026-11-02", "2026-11-03", 900000),
+    mk("VIEUX GROS", "C", "2026-11-03", "2026-11-04", 900000),
+    mk("RECENT PETIT", "D", "2026-11-06", "2026-11-07", 2000),
+    mk("RECENT PETIT", "E", "2026-11-07", "2026-11-08", 2000),
+    mk("RECENT PETIT", "F", "2026-11-08", "2026-11-09", 2000)
+  ];
+  var s = RI.signalsFrom(rows);
+  EQ(s.length, 2);
+  EQ(s[0].societe, "RECENT PETIT", "même niveau 3 : le cluster tout frais prime sur le gros cluster ancien");
+  EQ(s[0].level, 3);
+  EQ(s[1].societe, "VIEUX GROS");
 });
 T("signalsFrom : total >= 1 M -> niveau 2 même avec 2 achats", function () {
   var s = RI.signalsFrom([
@@ -498,7 +595,65 @@ T("normName : accents, ponctuation, casse", function () {
   EQ(RI.normName(null), "");
 });
 
-// ---------- compilation navigateur de tous les scripts (leçon v5.3 du Radar) ----------
+// ---------- v3.3 : garde anti-effondrement SÉPARÉE de la rétention ----------
+T("collapseGuard : les lignes prev expirées (> KEEP_DAYS) ne déclenchent PAS la garde", function () {
+  var old30 = [];
+  for (var i = 0; i < 30; i++) old30.push({ id: "o" + i, datePub: "2026-06-01", montant: 1000 }); // tous hors fenêtre 90 j
+  var g = FI.collapseGuard(old30, [], "FR achats", NOW, function () { });
+  EQ(g.keep, false, "l'expiration naturelle des vieilles lignes n'est pas une panne (v3.1.1 confondait les deux)");
+  EQ(g.rows.length, 0, "next (vide) retourné : la rétention s'applique normalement");
+});
+T("collapseGuard : vraie chute -50 % sur des lignes fraîches ⇒ version précédente conservée", function () {
+  var fresh30 = [];
+  for (var i = 0; i < 30; i++) fresh30.push({ id: "f" + i, datePub: "2026-11-08", montant: 1000 });
+  var next10 = fresh30.slice(0, 10);
+  var g = FI.collapseGuard(fresh30, next10, "FR achats", NOW, function () { });
+  EQ(g.keep, true, "-67 % de lignes fraîches -> panne probable");
+  EQ(g.rows.length, 30, "les données précédentes sont conservées");
+  var ok = FI.collapseGuard(fresh30, fresh30.slice(0, 16), "FR achats", NOW, function () { });
+  EQ(ok.keep, false, "-47 % (au-dessus du seuil -50 %) -> pas de garde");
+});
+
+// ---------- v3.3 : alertes (diff avant/après du run) ----------
+T("computeAlerts : premier run (prevData vide) ⇒ aucun message (pas de spam)", function () {
+  var newBuy = { id: "n1", source: "FR", side: "buy", societe: "DYN CORP", auteur: "A", role: "PDG",
+    dateOp: dayAt(2), datePub: dayAt(1), volume: 10000, prix: 20, montant: 200000 };
+  EQ(FI.computeAlerts({}, { fr: [newBuy], us: [] }, function () { }).length, 0);
+  EQ(FI.computeAlerts(null, { fr: [newBuy], us: [] }, function () { }).length, 0);
+});
+T("computeAlerts : NOUVEAU cluster 🔥🔥 (≥ 2 initiés distincts sur 30 j) ⇒ message", function () {
+  var mk = function (id, auteur, k) {
+    return { id: id, source: "FR", side: "buy", societe: "DYN CORP", auteur: auteur, role: "Dirigeant",
+      dateOp: dayAt(k + 2), datePub: dayAt(k + 1), volume: 1000, prix: 10, montant: 10000 };
+  };
+  var prev = { fr: [mk("p1", "A", 3)], us: [] }; // 1 achat isolé avant : pas de cluster
+  var neu = { fr: [mk("p1", "A", 3), mk("n1", "B", 2), mk("n2", "C", 1)], us: [] }; // cluster 3 achats / 3 initiés
+  var msgs = FI.computeAlerts(prev, neu, function () { });
+  EQ(msgs.length, 1, "exactement le nouveau cluster, pas les achats < 100 k");
+  A(msgs[0].indexOf("DYN CORP") > -1 && msgs[0].indexOf("NOUVEAU cluster") > -1, "message cluster : " + msgs[0]);
+  EQ(FI.computeAlerts(neu, neu, function () { }).length, 0, "même cluster avant et après (même clé) ⇒ silence");
+});
+T("computeAlerts : achat ≥ 100 k d'un dirigeant ⇒ message ; fonds 10 % et doublons ⇒ silence", function () {
+  var mkBuy = function (id, role, montant) {
+    return { id: id, source: "FR", side: "buy", societe: "BIG SA", auteur: "Jean D", role: role,
+      dateOp: dayAt(3), datePub: dayAt(2), volume: montant / 10, prix: 10, montant: montant };
+  };
+  var ceo = mkBuy("c1", "Directeur Général", 150000);
+  var prev = { fr: [ceo], us: [] }; // déjà vu avant (clé naturelle identique)
+  var neu = {
+    fr: [ceo, mkBuy("f1", "Propriétaire 10 %", 200000), mkBuy("c2", "Président", 120000)],
+    us: []
+  };
+  var msgs = FI.computeAlerts(prev, neu, function () { });
+  EQ(msgs.length, 1, "le fonds 10 % et le doublon ne notifient pas");
+  A(msgs[0].indexOf("achetés par") > -1 && msgs[0].indexOf("Président") > -1, "message gros achat dirigeant : " + msgs[0]);
+  // achat ≥ 100 k sans rôle (role vide) : pas un dirigeant identifié -> silence
+  var noRole = { id: "x1", source: "US", side: "buy", societe: "X CORP", ticker: "XC", auteur: "Fund LP", role: "",
+    dateOp: dayAt(3), datePub: dayAt(2), volume: 10000, prix: 20, montant: 200000 };
+  EQ(FI.computeAlerts({ us: [], fr: [] }, { us: [noRole], fr: [] }, function () { }).length, 0, "rôle vide -> pas notifié");
+});
+
+// ---------- compilation navigateur de tous les scripts ----------
 function compilesAsBrowserScript(name, code) {
   try { new vm.Script(code, { filename: name }); }
   catch (e) { throw new Error(name + " ne compile PAS comme script navigateur : " + e.message); }
@@ -520,7 +675,7 @@ T("fetch-insiders.js compile", function () {
   T("index.html : chaque bloc <script> inline compile (" + n + ")", function () { A(n >= 1, "aucun bloc inline trouvé"); });
 })();
 
-// ---------- cohérence de l'app ----------
+// ---------- cohérence de l'app (structure HTML : pas testable autrement) ----------
 (function () {
   var html = fs.readFileSync(__dirname + "/../index.html", "utf8");
   T("index.html référence logic.js, sw, manifest et RI", function () {
@@ -529,74 +684,87 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf('manifest.webmanifest') > -1, "manifest lié");
     A(html.indexOf("RI.esc") > -1, "esc RI utilisé (anti-XSS)");
   });
-  T("sw.js : cache versionné + réseau d'abord + clé sans ?v=", function () {
-    var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf('sentinelle-perso-v3.2') > -1, "cache v3.2 (les téléphones v1→v3.1.1 re-téléchargent le shell)");
-    A(sw.indexOf('sentinelle-perso-v3.1.1') === -1, "plus de v3.1.1 comme nom de cache");
-    A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
+  T("v3.3 : version en UNE seule source (RI.VERSION) — badge et footer la lisent", function () {
+    A(html.indexOf('id="ver"') > -1, "badge version");
+    A(html.indexOf('id="footVer"') > -1, "version footer");
+    A(html.indexOf("RI.VERSION") > -1, "init lit RI.VERSION");
+    A(html.indexOf(">v3.2<") === -1 && html.indexOf(">v3<") === -1, "plus de version en dur périmée dans le HTML");
   });
-  T("v3.1 : badge, éléments UI achats/ventes, fraîcheur par source, défaut Achats", function () {
-    A(html.indexOf('id="ver">v3.2<') > -1, "badge v3.2");
+  T("v3.3 : emoji 🆕 correct (🖕 de la v3.1.1 corrigé)", function () {
+    A(html.indexOf("\ud83c\udd95") > -1, "🆕 écrit en dur (UTF-8) présent");
+    A(html.indexOf("\ud83d\udd95") === -1, "plus de 🖔 (la séquence échappée de la v3.1.1)");
+    A(html.indexOf("\ud83d\udc1f") === -1, "plus de 🐟");
+  });
+  T("v3.3 : pagination « Afficher plus » à 100 lignes", function () {
+    A(html.indexOf("Afficher plus") > -1, "bouton pagination");
+    A(html.indexOf('id="moreBtn"') > -1, "id moreBtn");
+    A(html.indexOf("state.limit") > -1, "limit pilotée par state");
+  });
+  T("v3.3 : multi-déclarants signalés, badges 10b5-1/levée retirés des lignes", function () {
+    A(html.indexOf("⚠ déclarants multiples") > -1, "badge ⚠ multi-déclarants (attribution incertaine)");
+    A(html.indexOf("r.p10b5 ?") === -1, "plus de badge ⚙ 10b5-1 sur les lignes (ventes douces non collectées)");
+    A(html.indexOf("r.opt ?") === -1, "plus de badge 🪜 levée sur les lignes");
+  });
+  T("v3.3 : fenêtre signal 30 j + ventes US ≥ 50 k$ expliquées", function () {
+    A(html.indexOf("fenêtre 30 j") > -1, "cartes signal 30 j (90 j = bruit)");
+    A(html.indexOf("50 k$") > -1, "seuil ventes US expliqué");
+    A(html.indexOf("cessions sont exclues") === -1, "plus de texte périmé « cessions exclues »");
+    A(html.indexOf("Lignes publiées") > -1, "bandeau nouveaux parle de lignes publiées");
+  });
+  T("v3.1 : éléments UI achats/ventes, fraîcheur par source, défaut Achats", function () {
     A(html.indexOf('id="segSide"') > -1, "segment Achats+ventes");
-    A(html.indexOf('id="segSort"') > -1, "segment tri par id (plus par position — segSide est en dernier)");
+    A(html.indexOf('id="segSort"') > -1, "segment tri par id");
     A(html.indexOf('id="sigCardSell"') > -1, "carte ventes");
     A(html.indexOf('id="nSell"') > -1, "stat ventes");
     A(html.indexOf('id="srcBanner"') > -1, "bandeau d'état par source (frOk/usOk/frUpdated/usUpdated)");
     A(html.indexOf('id="sigCard"') > -1, "carte accumulations");
     A(html.indexOf('id="newBanner"') > -1, "bandeau nouveaux");
     A(html.indexOf('id="newChip"') > -1, "filtre 🆕");
-    A(html.indexOf("\\ud83d\\udc1f") === -1, "plus de 🐟 dans le bandeau (emoji 🆕 corrigé)");
-    A(html.indexOf("state.newIds.indexOf") === -1, "newIds en objet (pas de indexOf en boucle de rendu)");
+    A(html.indexOf("state.newIds.indexOf") === -1, "newIds en objet");
     A(html.indexOf("clearTimeout(debTimer)") > -1, "recherche debouncée");
     A(html.indexOf("/^https:\\/\\//.test(r.url)") > -1, "liens source validés https:// (anti javascript:)");
-    A(html.indexOf("signalsFrom") > -1, "signaux rendus");
-    A(html.indexOf("quoteUrl") > -1, "liens cote");
-    A(html.indexOf('data-side="buy"') > -1 && /data-side="buy"[^>]*class="[^"]*on"/.test(html.replace(/\n/g, " ")), "défaut 🟢 Achats actif");
+    A(html.indexOf("data-side=\"buy\"") > -1 && /data-side="buy"[^>]*class="[^"]*on"/.test(html.replace(/\n/g, " ")), "défaut 🟢 Achats actif");
   });
   T("v3.1.1 : recherche par société ignore le filtre Achats/Ventes", function () {
     A(html.indexOf("var qTxt = String(state.prefs.q || \"\").trim();") > -1, "q trimé");
-    A(html.indexOf("qTxt ? buys.concat(sells)") > -1, "recherche => achats ET ventes (une société qui n'a que des ventes ne disparaît plus)");
-    A(html.indexOf("Aucune ligne pour « ") > -1, "message vide explicite quand une recherche ne trouve rien");
+    A(html.indexOf("qTxt ? buys.concat(sells)") > -1, "recherche => achats ET ventes");
+    A(html.indexOf("Aucune ligne pour « ") > -1, "message vide explicite");
   });
-  T("v3.2 : carte pistes initiés × fondamentaux", function () {
+  T("v3.3 : carte pistes 💡 US /20 + FR /10", function () {
     A(html.indexOf('id="picksCard"') > -1, "carte pistes");
     A(html.indexOf('id="picksList"') > -1, "liste pistes");
     A(html.indexOf("renderPicks") > -1, "rendu pistes branché sur render()");
-    A(html.indexOf('id="ver">v3.2<') > -1, "badge v3.2");
+    A(html.indexOf("pk.us || pk.picks") > -1, "compat ancien format picks");
     A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer recherche, pas conseil");
     A(html.indexOf("data-sig=") > -1, "lien « voir les déclarations » réutilise le filtre recherche");
   });
-  T("v3 : pipeline ventes — FR Acquisition+Cession, US P+A/S+D, migration state v3, data 4 listes", function () {
-    var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");
-    A(fi.indexOf("f_nature%5B%5D=Acquisition&f_nature%5B%5D=Cession") > -1, "requête FR avec les deux natures");
-    A(fi.indexOf("state.v !== 3") > -1, "migration v3 : mémoire US réinitialisée une fois (ventes absentes avant)");
-    A(fi.indexOf("frS") > -1 && fi.indexOf("usS") > -1, "data.json à 4 listes (fr, us, frS, usS)");
-    A(fi.indexOf("rowsOfSide") > -1, "séparation buy/sell via rowsOfSide");
+  T("sw.js : cache v3.3 + timeout réseau 3,5 s", function () {
+    var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
+    A(sw.indexOf("sentinelle-perso-v3.3") > -1, "cache v3.3");
+    A(sw.indexOf("sentinelle-perso-v3.2") === -1 && sw.indexOf("sentinelle-perso-v3.1.1") === -1, "plus d'ancien nom de cache");
+    A(sw.indexOf("3500") > -1, "timeout réseau 3,5 s (repli cache si connexion morte)");
+    A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
-  T("v3.1 : fiabilité pipeline — processed sur succès, canaris, UA contact, Retry-After, fraîcheur, purge", function () {
-    var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");
-    A(fi.indexOf("marquée traitée UNIQUEMENT si téléchargée et parsée") > -1, "un 429/500/503 ne marque plus l'accession (retentée au run suivant)");
-    A(fi.indexOf("CANARI swaoo") > -1, "canari du scraper FR (HTML changé ⇒ échec, pas 0 ligne silencieux)");
-    A(fi.indexOf("canary = (fetched > 100") > -1, "canari du parseur US");
-    A(fi.indexOf("RI_SEC_CONTACT") > -1, "contact SEC surchargeable (secret GitHub ou défaut noreply)");
-    A(fi.indexOf("retryAfterSec") > -1, "backoff Retry-After honoré sur 429/503");
-    A(fi.indexOf("frUpdated") > -1 && fi.indexOf("usUpdated") > -1, "horodatage par source");
-    A(fi.indexOf("effondrement") > -1, "garde anti-effondrement (-50 % ⇒ version précédente conservée)");
-    A(fi.indexOf("purgeProcessed") > -1, "state purgé par date (STATE_DAYS)");
-    A(fi.indexOf("contact@example.com") === -1, "plus d'UA bidon");
-    A(fi.indexOf("PLAFOND") > -1, "plafond 600 hits loggé");
-  });
-  T("insiders.yml : cron 2 h ouvrés + fin de journée ET + contents write + actions write + redéploiement Pages", function () {
+  T("workflows YAML (structure non testable par comportement — vérifiés par chaîne)", function () {
     var y = fs.readFileSync(__dirname + "/../.github/workflows/insiders.yml", "utf8");
-    A(y.indexOf("7 5-23/2 * * 1-5") > -1, "cron 05:07–23:07 UTC (couvre la fin de journée US ET)");
+    A(y.indexOf("7 5-23/2 * * 1-5") > -1, "cron 2 h ouvrés 05:07–23:07 UTC");
+    A(y.indexOf("7 2 * * 2-6") > -1, "cron 02:07 UTC mar-sam (dépôts US de 18 h à 22 h ET)");
     A(y.indexOf("RI_SEC_CONTACT") > -1, "contact SEC depuis le secret");
-    A(y.indexOf("git pull --rebase origin main") > -1, "pull --rebase avant push (collisions cron/CLI)");
+    A(y.indexOf("::warning::RI_SEC_CONTACT non défini") > -1, "warning si le secret manque (adresse que personne ne lit sinon)");
+    A(y.indexOf("NTFY_TOPIC") > -1, "topic ntfy en secret (dépôt public)");
+    A(y.indexOf("git pull --rebase origin main") > -1, "pull --rebase avant push");
     A(y.indexOf("contents: write") > -1, "permission commit");
     A(y.indexOf("actions: write") > -1, "permission relancer pages.yml");
     A(y.indexOf("gh workflow run pages.yml") > -1, "redéploiement explicite");
+    A(y.indexOf("\"(updated|frUpdated|usUpdated|counts)\":") > -1, "redéploiement si les DONNÉES changent");
+    A(y.indexOf("frOk|usOk") === -1, "un flip frOk/usOk n'est PAS exclu du diff : il DÉPLOIE aussi (les statuts doivent atteindre l'app)");
     A(y.indexOf("git add data.json state.json") > -1, "state.json committé (déduplication US durable)");
     A(y.indexOf("node tools/validate-data.js") > -1, "validation avant commit");
-    A(y.indexOf("sentinelle-bot") > -1, "identité bot unique");
+    var p = fs.readFileSync(__dirname + "/../.github/workflows/pages.yml", "utf8");
+    A(p.indexOf("node tools/test.js") > -1, "harnais bloquant dans pages.yml");
+    A(p.indexOf("node tools/validate-data.js") > -1, "validation data");
+    A(p.indexOf("needs: test") > -1, "deploy dépend de test");
+    A(p.indexOf("mkdir -p dist") > -1 && p.indexOf('path: "dist"') > -1, "dist/ construit et publié (plus tout le dépôt)");
   });
   T("un seul workflow de scan : scan.yml supprimé (doublon horaire)", function () {
     A(!fs.existsSync(__dirname + "/../.github/workflows/scan.yml"), "scan.yml absent");
@@ -604,38 +772,31 @@ T("fetch-insiders.js compile", function () {
   T("code mort de la v0 supprimé", function () {
     A(!fs.existsSync(__dirname + "/../app.js"), "app.js");
     A(!fs.existsSync(__dirname + "/../styles.css"), "styles.css");
-    A(!fs.existsSync(__dirname + "/insiders-core.js"), "insiders-core.js");
-    A(!fs.existsSync(__dirname + "/test-insiders.js"), "test-insiders.js");
-  });
-  T("pages.yml : tests bloquants avant déploiement", function () {
-    var y = fs.readFileSync(__dirname + "/../.github/workflows/pages.yml", "utf8");
-    A(y.indexOf("node tools/test.js") > -1, "harnais dans le pipeline");
-    A(y.indexOf("node tools/validate-data.js") > -1, "validation data");
-    A(y.indexOf("needs: test") > -1, "deploy dépend de test");
+    A(!fs.existsSync(__dirname + "/../insiders-core.js"), "insiders-core.js");
+    A(!fs.existsSync(__dirname + "/../test-insiders.js"), "test-insiders.js");
   });
 })();
 
-// ---------- tests asynchrones : pipeline réel avec fetch injecté (pas de réseau) ----------
-var FI = require("./fetch-insiders.js");
+// ---------- tests asynchrones : pipeline réel avec fetch injecté (SÉRIALISÉS, pas de réseau) ----------
+// v3.3 : le TA de la v3.1.1 faisait « return p » sans appeler p — les tests async passaient
+// sans jamais s'exécuter. Ici chaque test est réellement appelé, en chaîne (un stub fetch
+// à la fois : pas de collision entre tests).
 var asyncTests = [];
-function TA(name, p) {
-  asyncTests.push(Promise.resolve().then(function () { return p; }).then(function () {
+var seq = Promise.resolve();
+function TA(name, fn) {
+  seq = seq.then(function () { return fn(); }).then(function () {
     passed++; console.log("ok  [async] " + name);
   }, function (e) {
     failed++; console.log("ÉCHEC [" + name + "] : " + (e && e.message));
-  }));
+  });
+  asyncTests.push(seq);
 }
 (function () {
   var FTS = fs.readFileSync(__dirname + "/fixtures/fts-sample.json", "utf8"); // 3 hits, accessions distinctes
   var okRes = function (txt) { return { ok: true, status: 200, headers: { get: function () { return null; } }, text: function () { return Promise.resolve(txt); } }; };
   var errRes = function (status, ra) { return { ok: false, status: status, headers: { get: function (k) { return k === "retry-after" ? (ra || null) : null; } }, text: function () { return Promise.resolve(""); } }; };
+  // XML de succès v3.3 : achat P+A de 1 k$ + VENTE DURE de 66 746 $ (sans plan 10b5-1, sans code M)
   var XML_OK = "<ownershipDocument><rptOwnerName>Testeur I</rptOwnerName><officerTitle>CEO</officerTitle>" +
-    "<aff10b5One>1</aff10b5One>" +
-    "<derivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
-    "<transactionCoding><transactionCode>M</transactionCode></transactionCoding>" +
-    "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
-    "<transactionAmounts><transactionShares><value>100</value></transactionShares></transactionAmounts>" +
-    "</derivativeTransaction>" +
     "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
     "<transactionCoding><transactionCode>P</transactionCode></transactionCoding>" +
     "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
@@ -645,53 +806,192 @@ function TA(name, p) {
     "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
     "<transactionCoding><transactionCode>S</transactionCode></transactionCoding>" +
     "<transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>" +
+    "<transactionAmounts><transactionShares><value>2000</value></transactionShares>" +
+    "<transactionPricePerShare><value>33.373</value></transactionPricePerShare></transactionAmounts>" +
+    "</nonDerivativeTransaction></ownershipDocument>";
+  // XML avec une vente SOUS le seuil 50 k$ (3 k$) : ne doit pas être collectée
+  var XML_LOW_SELL = "<ownershipDocument><rptOwnerName>Testeur I</rptOwnerName><officerTitle>CEO</officerTitle>" +
+    "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
+    "<transactionCoding><transactionCode>S</transactionCode></transactionCoding>" +
+    "<transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>" +
     "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
     "<transactionPricePerShare><value>30</value></transactionPricePerShare></transactionAmounts>" +
     "</nonDerivativeTransaction></ownershipDocument>";
-  var NOW2 = Date.parse("2026-11-09T12:00:00Z");
 
-  TA("fetchUs : XML en 500 ⇒ accession NON marquée (retentée au run suivant)", function () {
+  TA("fetchUs : XML en 500 ⇒ accessions NON marquées (retentées au run suivant), errRatio exposé", function () {
     FI.setFetchForTests(function (url) {
       if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
       return Promise.resolve(errRes(500)); // les 3 XML échouent
     });
-    var state = { v: 3, processedUs: [] };
-    return FI.fetchUs(NOW2, state, [], []).then(function (r) {
+    var state = { v: 4, processedUs: [] };
+    return FI.fetchUs(NOW, state, [], []).then(function (r) {
       A(r.errors === 3, "3 erreurs attendues, got " + r.errors);
       A(r.fetched === 0, "0 XML exploité");
+      A(r.attempted === 3 && r.errRatio === 1, "ratio d'échec exposé au main (usOk=false si ≥ 5 tentées et > 30 %)");
       A(state.processedUs.length === 0, "AUCUNE accession marquée traitée (le bug v3 les perdait définitivement)");
     });
   });
 
-  TA("fetchUs : succès ⇒ accessions marquées, achats ET ventes tagués 10b5-1/levée", function () {
+  TA("fetchUs v3.3 : réponse 200 SANS <ownershipDocument> (page HTML de limitation) ⇒ erreur, NON marquée", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      return Promise.resolve(okRes("<html><body>SEC rate limit page</body></html>")); // 200 mais pas un Form 4
+    });
+    var state = { v: 4, processedUs: [] };
+    return FI.fetchUs(NOW, state, [], []).then(function (r) {
+      A(r.errors === 3, "3 réponses invalides comptées comme erreurs, got " + r.errors);
+      A(r.fetched === 0, "0 XML valide");
+      A(state.processedUs.length === 0, "accessions invalides non marquées (le bug v3.1.1 les perdait à jamais)");
+    });
+  });
+
+  TA("fetchUs v3.3 : disjoncteur — 5 erreurs XML consécutives ⇒ run abandonné, attempted=5, errRatio=1", function () {
+    var hits8 = [];
+    for (var i = 0; i < 8; i++) {
+      hits8.push({ _id: "acc-brk-" + i + ":ownership.xml", _source: { ciks: ["0001234567"], file_date: "2026-11-08",
+        display_names: ["John Doe ()", "Acme Corp (ACME) (CIK 0001234567)"] } });
+    }
+    var FTS8 = JSON.stringify({ hits: { hits: hits8 } });
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS8));
+      return Promise.resolve(errRes(403)); // panne SEC totale
+    });
+    var state = { v: 4, processedUs: [] };
+    return FI.fetchUs(NOW, state, [], []).then(function (r) {
+      A(r.errors === 5, "le disjoncteur coupe à 5 erreurs consécutives, got " + r.errors);
+      A(r.attempted === 5 && r.errRatio === 1, "5 tentées, 100 % KO -> usOk=false côté main (une panne totale ne passe plus pour un succès)");
+      A(state.processedUs.length === 0, "rien de marqué : tout sera retenté au prochain run");
+    });
+  });
+
+  TA("fetchUs : succès ⇒ achats ET ventes dures extraites, accessions marquées avec la date du jour", function () {
     FI.setFetchForTests(function (url) {
       if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
       return Promise.resolve(okRes(XML_OK));
     });
-    var state = { v: 3, processedUs: [] };
-    return FI.fetchUs(NOW2, state, [], []).then(function (r) {
+    var state = { v: 4, processedUs: [] };
+    return FI.fetchUs(NOW, state, [], []).then(function (r) {
       A(r.errors === 0 && r.fetched === 3, "3 XML téléchargés");
-      A(r.nBuys === 3 && r.nSells === 3, "3 achats + 3 ventes extraits, got " + r.nBuys + "/" + r.nSells);
+      A(r.nBuys === 3 && r.nSells === 3, "3 achats + 3 ventes DURES (66 746 $ ≥ 50 k$, sans plan ni levée), got " + r.nBuys + "/" + r.nSells);
       A(state.processedUs.length === 3, "3 accessions marquées");
       state.processedUs.forEach(function (e) {
-        A(e.slice(-12) === "|2026-11-09", "entrée datée du jour : " + e);
+        A(e.slice(-11) === "|2026-11-09", "entrée datée du jour : " + e);
       });
-      var lastSell = r.sells[r.sells.length - 1];
-      A(lastSell.p10b5 === true, "vente taguée 10b5-1");
-      A(lastSell.opt === true, "vente taguée levée d'options");
-      var lastBuy = r.buys[r.buys.length - 1];
-      A(lastBuy.side === "buy" && lastBuy.montant === 1000, "achat P+A retenu");
+      var sell = r.sells[r.sells.length - 1];
+      A(sell.side === "sell" && sell.montant === 66746, "vente dure 66 746 $ extraite");
+      A(sell.p10b5 === false && sell.opt === false, "ni plan ni levée");
+      var buy = r.buys[r.buys.length - 1];
+      A(buy.side === "buy" && buy.montant === 1000, "achat P+A retenu");
     });
   });
 
-  TA("fetchFr : déclarations brutes présentes mais 0 parsée ⇒ canari (échec, pas de 0 silencieux)", function () {
-    FI.setFetchForTests(function () {
+  TA("fetchUs : date d'ORIGINE des accessions conservée d'un run à l'autre (le bug v3.1.1 redatait tout)", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      return Promise.resolve(okRes(XML_OK));
+    });
+    var state = { v: 4, processedUs: ["acc-old|2026-10-05"] }; // déjà traitée il y a 35 j
+    return FI.fetchUs(NOW, state, [], []).then(function (r) {
+      A(state.processedUs.length === 4, "3 nouvelles + l'ancienne conservée, got " + state.processedUs.length);
+      A(state.processedUs.indexOf("acc-old|2026-10-05") > -1, "l'entrée ancienne garde SA date (elle expirera à 40 j, pas jamais)");
+      A(r.skipped >= 0, "run sain");
+    });
+  });
+
+  TA("fetchUs v3.3 : vente US < 50 k$ NON collectée", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      return Promise.resolve(okRes(XML_LOW_SELL)); // vente de 3 k$
+    });
+    return FI.fetchUs(NOW, { v: 4, processedUs: [] }, [], []).then(function (r) {
+      A(r.nBuys === 0 && r.nSells === 0, "aucune ligne extraite (la vente de 3 k$ est filtrée), got " + r.nBuys + "/" + r.nSells);
+      A(r.sells.length === 0, "aucune vente dans la liste");
+    });
+  });
+
+  TA("fetchUs v3.3 : migration v4 — ventes < 50 k$ purgées, anciens ids de la fenêtre 3 j re-téléchargés", function () {
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      return Promise.resolve(errRes(403)); // on teste la migration, pas le téléchargement
+    });
+    var oldId = "acc1|own|P|2026-11-07|100"; // 5 segments = ancien format v3
+    var prevBuys = [
+      { id: oldId, source: "US", side: "buy", societe: "A CORP", ticker: "A", auteur: "X", dateOp: "2026-11-07", datePub: "2026-11-08", volume: 100, prix: 10, montant: 1000 },
+      { id: "acc2|own|P|2026-08-01|100", source: "US", side: "buy", societe: "B CORP", ticker: "B", auteur: "Y", dateOp: "2026-08-01", datePub: "2026-09-01", volume: 100, prix: 10, montant: 1000 }
+    ];
+    var prevSells = [
+      { id: "acc3|own|S|2026-11-07|100", source: "US", side: "sell", societe: "A CORP", ticker: "A", auteur: "X", dateOp: "2026-11-07", datePub: "2026-11-08", volume: 100, prix: 10, montant: 66746 },
+      { id: "acc4|own|S|2026-10-01|100", source: "US", side: "sell", societe: "C CORP", ticker: "C", auteur: "Z", dateOp: "2026-10-01", datePub: "2026-10-02", volume: 100, prix: 10, montant: 30000 },
+      { id: "acc5|own|S|2026-08-01|100", source: "US", side: "sell", societe: "D CORP", ticker: "D", auteur: "W", dateOp: "2026-08-01", datePub: "2026-09-01", volume: 100, prix: 10, montant: 60000 }
+    ];
+    var state = { v: 3, processedUs: ["acc-legacy-1"] };
+    return FI.fetchUs(NOW, state, prevBuys, prevSells).then(function (r) {
+      EQ(state.v, 4, "état migré en v4 (une seule fois)");
+      EQ(state.processedUs.length, 0, "mémoire US réinitialisée : la fenêtre 3 j sera re-téléchargée avec les nouveaux ids");
+      A(r.buys.some(function (x) { return x.id === oldId; }) === false, "ligne ancien id DANS la fenêtre 3 j supprimée (re-téléchargée, pas dupliquée)");
+      A(r.buys.some(function (x) { return x.societe === "B CORP"; }), "ligne ancien id HORS fenêtre conservée (expire avec KEEP_DAYS)");
+      EQ(r.sells.length, 1, "il ne reste que la vente dure ≥ 50 k$ hors fenêtre, got " + r.sells.length);
+      A(r.sells[0].societe === "D CORP", "vente ≥ 50 k$ conservée");
+      A(r.sells.some(function (x) { return x.montant === 30000; }) === false, "vente < 50 k$ purgée (dette v3.1.1)");
+    });
+  });
+
+  TA("fetchUs v3.3 : Retry-After honoré sur les XML (429 puis 200)", function () {
+    var seen = {};
+    FI.setFetchForTests(function (url) {
+      if (url.indexOf("efts.sec.gov") > -1) return Promise.resolve(okRes(FTS));
+      seen[url] = (seen[url] || 0) + 1;
+      if (seen[url] === 1) return Promise.resolve(errRes(429, "1")); // la SEC demande 1 s de pause
+      return Promise.resolve(okRes(XML_OK));
+    });
+    var t0 = Date.now();
+    return FI.fetchUs(NOW, { v: 4, processedUs: [] }, [], []).then(function (r) {
+      A(r.fetched === 3 && r.errors === 0, "3 XML au bout du compte, 0 erreur définitive");
+      var xmlCalls = Object.keys(seen).map(function (k) { return seen[k]; }).reduce(function (a, b) { return a + b; }, 0);
+      EQ(xmlCalls, 6, "chaque XML a bien été retenté (retry(fn, 2) — la v3.1.1 ne faisait qu'une tentative)");
+      A(Date.now() - t0 >= 2900, "Retry-After de 1 s réellement attendu par XML");
+    });
+  });
+
+  TA("fetchUs v3.3 : canari du parseur — 400 XML téléchargés, 0 ligne ⇒ canary (pas de succès silencieux)", function () {
+    RI.CFG.US_RL_MS = 1; // test rapide (400 téléchargements simulés)
+    var mkFts = function (from) {
+      var hs = [];
+      for (var i = 0; i < 100; i++) {
+        var n = from + i;
+        hs.push({ _id: "acc-can-" + n + ":ownership.xml", _source: { ciks: ["0001234567"], file_date: "2026-11-08",
+          display_names: ["John Doe ()", "Acme Corp (ACME) (CIK 0001234567)"] } });
+      }
+      return JSON.stringify({ hits: { hits: hs } });
+    };
+    FI.setFetchForTests(function (url) {
+      var m = String(url).match(/from=(\d+)/);
+      if (m) return Promise.resolve(okRes(mkFts(parseInt(m[1], 10)))); // 6 pages × 100 hits
+      return Promise.resolve(okRes("<ownershipDocument></ownershipDocument>")); // Form 4 vide : 0 transaction
+    });
+    return FI.fetchUs(NOW, { v: 4, processedUs: [] }, [], []).then(function (r) {
+      RI.CFG.US_RL_MS = 180; // restauration pour la suite
+      A(r.fetched === 400, "400 XML téléchargés (budget), got " + r.fetched);
+      A(r.nBuys + r.nSells === 0, "0 ligne extraite");
+      A(r.canary === true, "canari déclenché : le main conserve les listes précédentes");
+      A(r.capped === true, "plafond 600 hits signalé (couverture partielle de la fenêtre 3 j)");
+      A(r.errRatio === 0, "pas d'erreurs réseau : la panne est côté parseur, pas côté SEC");
+    });
+  });
+
+  TA("fetchFr : canari — déclarations brutes présentes mais 0 parsée ⇒ échec ; requête bien Acquisition+Cession", function () {
+    var bodies = [];
+    FI.setFetchForTests(function (url, init) {
+      bodies.push(String((init && init.body) || ""));
       return Promise.resolve(okRes("<html><body>Déclaration n° 1 Déclaration n° 2 (structure changée, aucun tableau connu)</body></html>"));
     });
-    return FI.fetchFr(NOW2).then(function () {
+    return FI.fetchFr(NOW).then(function () {
       throw new Error("le canari aurait dû faire échouer fetchFr");
     }, function (e) {
       A(String(e.message).indexOf("CANARI") > -1, "message canari, got : " + e.message);
+      A(bodies.length >= 1 && bodies[0].indexOf("f_nature%5B%5D=Acquisition") > -1 && bodies[0].indexOf("f_nature%5B%5D=Cession") > -1,
+        "la requête FR demande bien les acquisitions ET les cessions : " + bodies[0]);
+      A(bodies[0].indexOf("f_montant_min=" + RI.CFG.FR_MIN_EUR) > -1, "montant min transmis au service");
     });
   });
 
@@ -722,7 +1022,7 @@ function TA(name, p) {
     });
   });
 
-  TA("v3.2 computePicks : cluster US + XBRL → piste écrite dans data.picks", function () {
+  TA("computePicks v3.3 : clusters US + FR → data.picks { us: [...], fr: [...] }", function () {
     FI.setFetchForTests(function (url) {
       if (url.indexOf("company_tickers") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/company_tickers-sample.json", "utf8")));
       if (url.indexOf("RevenueFromContractWithCustomerExcludingAssessedTax") > -1) return Promise.resolve(errRes(404));
@@ -730,54 +1030,99 @@ function TA(name, p) {
       if (url.indexOf("NetIncomeLoss") > -1) return Promise.resolve(okRes(fs.readFileSync(__dirname + "/fixtures/xbrl-ni-sample.json", "utf8")));
       return Promise.resolve(errRes(404));
     });
-    var mk = function (id, a) {
-      return { id: id, source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: a,
-        montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" };
+    var mkUs = function (id, auteur, volume, k) {
+      return { id: id, source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: auteur, role: "CEO",
+        montant: volume * 10, volume: volume, prix: 10, dateOp: dayAt(k + 2), datePub: dayAt(k + 1) };
     };
-    var data = { us: [mk("s1", "Noor"), mk("s2", "Zang")], usS: [] };
+    var mkFr = function (id, auteur, volume, k) {
+      return { id: id, source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", isin: "FR0013344173", auteur: auteur, role: "Président",
+        montant: volume * 16, volume: volume, prix: 16, dateOp: dayAt(k + 2), datePub: dayAt(k + 1) };
+    };
+    var data = {
+      us: [mkUs("s1", "Noor", 5000, 1), mkUs("s2", "Zang", 6000, 0)], // volumes différents : pas de dédoublonnage
+      usS: [],
+      fr: [mkFr("f1", "Tamburi", 1400, 2), mkFr("f2", "Txr", 600, 1), mkFr("f3", "Tamburi", 500, 0)],
+      frS: []
+    };
     return FI.computePicks(data, function () { }).then(function () {
-      A(data.picks && data.picks.picks.length === 1, "1 piste, got " + (data.picks && data.picks.picks.length));
-      EQ(data.picks.picks[0].ticker, "SVIA");
-      EQ(data.picks.picks[0].fund.growth, 50);
-      EQ(data.picks.picks[0].fund.ni, 30000000);
-      A(data.picks.picks[0].score === 14.5, "score 5 (initiés) + 9.5 (fondamentaux) = 14.5/20, got " + data.picks.picks[0].score);
+      A(data.picks && data.picks.us.length === 1, "1 piste US, got " + (data.picks && data.picks.us.length));
+      EQ(data.picks.us[0].ticker, "SVIA");
+      A(data.picks.us[0].score === 14.5, "5 (initiés) + 9.5 (fondamentaux) = 14.5/20");
+      EQ(data.picks.us[0].fund.growth, 50);
+      EQ(data.picks.us[0].fund.ni, 30000000);
+      A(data.picks.fr.length === 1, "1 piste FR (signal initiés seul)");
+      EQ(data.picks.fr[0].societe, "ROCHE BOBOIS SA");
+      A(data.picks.fr[0].score === 6.5, "score initiés /10, pas de fondamentaux inventés");
+      A(data.picks.fr[0].fund === undefined, "pas de champ fund côté FR");
     });
   });
 
-  TA("v3.2 computePicks : XBRL injoignable → échec explicite, pistes précédentes conservées", function () {
+  TA("computePicks : XBRL injoignable ⇒ échec explicite, pistes précédentes conservées", function () {
     FI.setFetchForTests(function () { return Promise.resolve(errRes(403)); }); // même le registre tickers est bloqué
-    var data = { us: [{ id: "s1", source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: "Noor",
-      montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" },
-      { id: "s2", source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: "Zang",
-        montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" }],
-      usS: [], picks: { updated: "2026-11-09T08:00:00Z", picks: [{ ticker: "OLD", societe: "Old Corp", score: 5,
+    var mk = function (id, auteur, volume, k) {
+      return { id: id, source: "US", side: "buy", societe: "SILVIA, INC.", ticker: "SVIA", auteur: auteur,
+        montant: volume * 10, volume: volume, prix: 10, dateOp: dayAt(k + 2), datePub: dayAt(k + 1) };
+    };
+    var data = {
+      us: [mk("s1", "Noor", 5000, 1), mk("s2", "Zang", 6000, 0)],
+      usS: [], fr: [], frS: [],
+      picks: { updated: "2026-11-09T08:00:00Z", us: [{ ticker: "OLD", societe: "Old Corp", score: 5,
         insider: { score: 5, buys: 2, buyers: 2, level: 2, total: 100000, avgPx: 10, first: "2026-11-05", last: "2026-11-06" },
-        sells: { n: 0, hard: 0 }, fund: { score: 0, growth: 0, ni: 0, rev: 1, revEnd: "2024-12-31", margin: 0 } }] } };
+        sells: { n: 0, hard: 0 }, fund: { score: 0, growth: 0, ni: 0, rev: 1, revEnd: "2024-12-31", margin: 0 } }], fr: [] }
+    };
     return FI.computePicks(data, function () { }).then(function () {
       throw new Error("computePicks aurait dû échouer");
     }, function (e) {
       A(/403|XBRL|fondamental/.test(String(e.message)), "erreur explicite : " + e.message);
-      EQ(data.picks.picks[0].ticker, "OLD", "pistes précédentes conservées (pas de vidage silencieux)");
+      EQ(data.picks.us[0].ticker, "OLD", "pistes précédentes conservées (pas de vidage silencieux)");
     });
   });
 
-  TA("v3.2 computePicks : aucun cluster → pistes vidées honnêtement", function () {
-    FI.setFetchForTests(function () { return Promise.resolve(errRes(403)); }); // ne doit même pas être appelé
-    var data = { us: [{ id: "s1", source: "US", side: "buy", societe: "SOLO CORP", ticker: "SOLO", auteur: "Solo",
-      montant: 50000, volume: 5000, prix: 10, dateOp: "2026-11-05", datePub: "2026-11-06" }], usS: [] };
+  TA("computePicks : aucun cluster nettoyé (FR ni US) ⇒ pistes vidées honnêtement {us:[],fr:[]}", function () {
+    var calls = 0;
+    FI.setFetchForTests(function () { calls++; return Promise.resolve(errRes(403)); }); // ne doit pas être appelé
+    var data = {
+      us: [{ id: "s1", source: "US", side: "buy", societe: "SOLO CORP", ticker: "SOLO", auteur: "Solo",
+        montant: 50000, volume: 5000, prix: 10, dateOp: dayAt(2), datePub: dayAt(1) }],
+      usS: [],
+      fr: [{ id: "f1", source: "FR", side: "buy", societe: "SEUL SA", auteur: "Seul",
+        montant: 5000, volume: 500, prix: 10, dateOp: dayAt(2), datePub: dayAt(1) }],
+      frS: []
+    };
     return FI.computePicks(data, function () { }).then(function () {
-      A(data.picks && data.picks.picks.length === 0, "pistes vides (un achat isolé n'est pas une piste)");
+      A(data.picks && data.picks.us.length === 0, "pistes US vides (un achat isolé n'est pas une piste)");
+      A(data.picks.fr.length === 0, "pistes FR vides");
+      EQ(calls, 0, "aucune requête XBRL envoyée quand il n'y a rien à documenter");
+    });
+  });
+
+  TA("notifyNtfy : POST vers ntfy.sh/<topic> avec titre et messages ; topic vide ⇒ no-op", function () {
+    var calls = [];
+    FI.setFetchForTests(function (url, init) {
+      calls.push({ url: url, init: init });
+      return Promise.resolve({ ok: true });
+    });
+    return FI.notifyNtfy("topic-secret-123", ["🚨 message 1", "🚨 message 2"]).then(function (n) {
+      EQ(n, 2, "2 messages notifiés");
+      EQ(calls.length, 1, "1 requête POST");
+      EQ(calls[0].url, "https://ntfy.sh/topic-secret-123");
+      EQ(calls[0].init.method, "POST");
+      A(String(calls[0].init.body).indexOf("message 1") > -1, "body = les messages");
+      EQ(calls[0].init.headers.Title, "Sentinelle perso");
+      return FI.notifyNtfy("", ["x"]).then(function (n0) {
+        A(n0 === 0 && calls.length === 1, "topic vide (secret absent) ⇒ aucun envoi, le run continue");
+      });
     });
   });
 })();
 
 // ---------- simulation DOM (chargement complet de la page) ----------
 Promise.all(asyncTests).then(function () {
-require("./sim-dom.js")(function (simPassed, simFailed, notes) {
-  passed += simPassed; failed += simFailed;
-  (notes || []).forEach(function (n) { console.log("  sim: " + n); });
-  console.log("\nSentinelle perso — harnais : " + passed + "/" + (passed + failed) + " verts");
-  if (failed > 0) { console.log("ÉCHECS : " + failed); process.exit(1); }
-  process.exit(0);
-});
+  require("./sim-dom.js")(function (simPassed, simFailed, notes) {
+    passed += simPassed; failed += simFailed;
+    (notes || []).forEach(function (n) { console.log("  sim: " + n); });
+    console.log("\nSentinelle perso — harnais : " + passed + "/" + (passed + failed) + " verts");
+    if (failed > 0) { console.log("ÉCHECS : " + failed); process.exit(1); }
+    process.exit(0);
+  });
 }).catch(function (e) { console.error("ERREUR HARNAIS", e); process.exit(1); });

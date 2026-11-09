@@ -32,21 +32,44 @@ if (!/^\d{4}-\d{2}-\d{2}T/.test(data.updated || "")) fail("updated absent ou non
 ["reserve", "paliersDone", "phone", "email", "password"].forEach(function (k) {
   if (k in data) fail("clé interdite dans data.json : " + k);
 });
-// pistes v3.2 (facultatif — écrites par le workflow) : structure et cohérence
+// pistes v3.3 (facultatif — écrites par le workflow) : structure et cohérence.
+// Nouveau format : { updated, us: [...], fr: [...] } ; ancien { updated, picks: [...] } accepté.
 if (data.picks !== undefined) {
-  if (!data.picks || typeof data.picks !== "object" || !Array.isArray(data.picks.picks)) fail("picks : structure invalide");
+  if (!data.picks || typeof data.picks !== "object") fail("picks : structure invalide");
   if (!/^\d{4}-\d{2}-\d{2}T/.test(data.picks.updated || "")) fail("picks.updated absent ou non ISO : " + data.picks.updated);
-  data.picks.picks.forEach(function (p, i) {
-    var w = "picks[" + i + "] : ";
+  var validateUsPick = function (p, i, w) {
     if (!p.ticker) fail(w + "ticker manquant");
     if (!p.societe) fail(w + "societe manquante");
     if (!isFinite(p.score) || p.score < 0 || p.score > 20) fail(w + "score invalide : " + p.score);
     if (!p.insider || !isFinite(p.insider.score) || p.insider.score < 0 || p.insider.score > 10) fail(w + "score initiés invalide");
     if (!p.fund || !isFinite(p.fund.score) || p.fund.score < 0 || p.fund.score > 10) fail(w + "score fondamentaux invalide");
     if (!p.insider.buys || !p.insider.buyers) fail(w + "détail initiés incomplet");
-  });
-  for (var pk = 1; pk < data.picks.picks.length; pk++) {
-    if (data.picks.picks[pk - 1].score < data.picks.picks[pk].score) fail("picks : tri décroissant violé en " + pk);
+  };
+  var validateFrPick = function (p, i, w) {
+    if (!p.societe) fail(w + "societe manquante");
+    if (!isFinite(p.score) || p.score < 0 || p.score > 10) fail(w + "score invalide (/10) : " + p.score);
+    if (!p.insider || !isFinite(p.insider.score) || p.insider.score < 0 || p.insider.score > 10) fail(w + "score initiés invalide");
+    if (!p.insider.buys || !p.insider.buyers) fail(w + "détail initiés incomplet");
+  };
+  var checkSorted = function (list) {
+    for (var k = 1; k < list.length; k++) {
+      if (list[k - 1].score < list[k].score) fail("picks : tri décroissant violé en " + k);
+    }
+  };
+  if (Array.isArray(data.picks.picks)) { // ancien format v3.2
+    data.picks.picks.forEach(function (p, i) { validateUsPick(p, i, "picks[" + i + "] : "); });
+    checkSorted(data.picks.picks);
+  }
+  if (Array.isArray(data.picks.us)) {
+    data.picks.us.forEach(function (p, i) { validateUsPick(p, i, "picks.us[" + i + "] : "); });
+    checkSorted(data.picks.us);
+  }
+  if (Array.isArray(data.picks.fr)) {
+    data.picks.fr.forEach(function (p, i) { validateFrPick(p, i, "picks.fr[" + i + "] : "); });
+    checkSorted(data.picks.fr);
+  }
+  if (!Array.isArray(data.picks.us) && !Array.isArray(data.picks.picks) && !Array.isArray(data.picks.fr)) {
+    fail("picks : ni us ni fr ni picks (ancien) — structure inconnue");
   }
 }
 console.log("data.json OK : " + data.fr.length + " achats FR + " + data.us.length + " achats US + " +

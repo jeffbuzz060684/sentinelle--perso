@@ -33,14 +33,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Générer les icônes PNG
-        run: node tools/gen-icons.js
+      - name: Générer les icônes PNG + construire dist/
+        run: |
+          node tools/gen-icons.js
+          # v3.3 : Pages ne publie plus tout le dépôt (outils, workflows, state) —
+          # uniquement les fichiers de l'app, dans dist/
+          mkdir -p dist
+          cp index.html logic.js sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png data.json dist/
+          ls dist/
       - name: Valider data.json
         run: node tools/validate-data.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "dist"
       - name: Déployer
         id: deployment
         uses: actions/deploy-pages@v4

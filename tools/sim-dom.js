@@ -72,14 +72,19 @@ module.exports = function simDom(cb) {
       { id: "fs1", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "POUVANNEC PHILIPPE", role: "Directeur Général Adjoint", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 15000, prix: 64.9, montant: 973500, url: "https://bdif.amf-france.org/z" },
       { id: "fs2", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "SAUNIER BERTRAND", role: "Membre du Conseil d'Administration", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 2000, prix: 65, montant: 130000, url: "https://bdif.amf-france.org/w" }
     ],
-    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1000, prix: 30, montant: 30000, code: "S", p10b5: true, opt: true, url: "https://sec.gov/y" }],
+    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 2000, prix: 33.373, montant: 66746, code: "S", multi: true, url: "https://sec.gov/y" }],
     picks: {
       updated: "2026-11-09T08:07:00Z",
-      picks: [{
+      us: [{
         ticker: "ACM", societe: "ACME CORP", score: 14.5,
         insider: { score: 6.5, buys: 3, buyers: 2, level: 3, total: 90000, avgPx: 30, first: "2026-11-03", last: "2026-11-05" },
-        sells: { n: 1, hard: 0 },
+        sells: { n: 1, hard: 1 },
         fund: { score: 8, growth: 50, ni: 30000000, rev: 150000000, revEnd: "2024-12-31", margin: 20 }
+      }],
+      fr: [{
+        societe: "ROCHE BOBOIS SA", isin: "FR0000030823", score: 5,
+        insider: { score: 5, buys: 2, buyers: 2, level: 2, total: 31620, avgPx: 15.8, first: "2026-11-04", last: "2026-11-05" },
+        sells: { n: 0, hard: 0 }
       }]
     }
   };
@@ -164,24 +169,36 @@ module.exports = function simDom(cb) {
       A(h.indexOf("vente du") > -1, "lignes vente libellées « vente du »");
       A(h.indexOf("row fr sell") > -1, "ligne FR de vente (classe sell)");
       A(h.indexOf("row us sell") > -1, "ligne US de vente (classe sell)");
-      A(h.indexOf("10b5-1") > -1, "badge ⚙ 10b5-1 sur la vente US (plan déclaré)");
-      A(h.indexOf("levée") > -1, "badge 🪜 levée sur la vente US (code M dans le dépôt)");
+      A(h.indexOf("⚠ déclarants multiples") > -1, "badge ⚠ déclarants multiples (Form 4 multi-déclarants)");
+      A(h.indexOf("10b5-1") === -1, "plus de badge ⚙ 10b5-1 sur les lignes (ventes douces non collectées)");
+      A(h.indexOf("levée") === -1, "plus de badge 🪜 levée sur les lignes");
       A(h.indexOf('class="xs"') > -1, "badge ×N vente en rouge (classe xs)");
       A(h.indexOf("boursorama.com") > -1 && h.indexOf("google.com/finance") > -1, "liens cote FR + US");
+    });
+    T("pagination v3.3 : limit 100, pas de bouton « Afficher plus » sous 100 lignes", function () {
+      var h = elements["list"] && elements["list"].innerHTML || "";
+      A(h.indexOf("moreBtn") === -1, "6 lignes → pas de pagination");
+      A(html.indexOf("state.limit") > -1 && html.indexOf("LIMIT") > -1, "limit appliquée dans le rendu");
     });
     T("bandeau d'état des sources masqué quand tout va bien", function () {
       A(elements["srcBanner"] && elements["srcBanner"]._cls.has("hidden"), "srcBanner caché (frOk + usOk)");
     });
-    T("carte pistes 💡 rendue : score /20, chips fondamentaux, disclaimer", function () {
+    T("carte pistes 💡 rendue : piste US /20 + piste FR /10 + disclaimers", function () {
       var s = elements["picksList"] && elements["picksList"].innerHTML || "";
       A(elements["picksCard"] && !elements["picksCard"]._cls.has("hidden"), "carte visible");
-      A(s.indexOf("ACME CORP") > -1, "société présente");
-      A(s.indexOf("#1 · 14.5/20") > -1, "rang et score /20");
+      A(s.indexOf("ACME CORP") > -1, "société US présente");
+      A(s.indexOf("#1 · 14.5/20") > -1, "rang et score /20 (piste US)");
       A(s.indexOf("CA annuel +50 %") > -1, "chip croissance");
       A(s.indexOf("marge nette 20 %") > -1, "chip marge");
-      A(s.indexOf("1 vente sous plan 10b5-1/levée") > -1, "vente douce qualifiée (pas d'alerte dure)");
-      A(s.indexOf("google.com/finance") > -1, "lien cote");
+      A(s.indexOf("signal initiés 6.5/10") > -1, "détail score initiés US");
+      A(s.indexOf("1 vente dure sur la fenêtre") > -1, "vente dure signalée dans la piste US");
+      A(s.indexOf("google.com/finance") > -1, "lien cote US");
       A(s.indexOf("voir les déclarations") > -1, "lien vers les déclarations");
+      A(s.indexOf("🇫🇷 5/10") > -1, "piste FR sur /10 (pas de fondamentaux évalués)");
+      A(s.indexOf("ROCHE BOBOIS SA") > -1, "société FR présente dans les pistes");
+      A(s.indexOf("FR0000030823") > -1, "ISIN affiché pour la piste FR");
+      A(s.indexOf("total initié") > -1, "total initié affiché");
+      A(s.indexOf("boursorama.com") > -1, "lien cote FR (Boursorama)");
       A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer dans la page");
     });
     T("segment Achats+ventes câblé", function () {

@@ -199,22 +199,30 @@ function fetchFundamentals(cands, log) {
   });
 }
 function computePicks(data, log) {
-  var cands = RI.pickCandidates(data.us, data.usS, 15);
-  if (cands.length === 0) {
-    log("PICKS : aucun cluster d'achats US sur la fenêtre — pistes vidées (honnête)");
-    data.picks = { updated: new Date(Date.now()).toISOString(), picks: [] };
+  var since = RI.isoDay(new Date(Date.now() - CFG.SIGN_DAYS * 86400000));
+  // v3.3 : pistes FR — signal initiés nettoyé seul (/10), pas d'équivalent public gratuit du 10-K
+  var frPicks = RI.picksFromFr(data.fr, data.frS, { since: since, max: 5 });
+  var cands = RI.pickCandidates(data.us, data.usS, 15, { since: since });
+  if (cands.length === 0 && frPicks.length === 0) {
+    log("PICKS : aucun cluster nettoyé (FR ou US) sur la fenêtre " + CFG.SIGN_DAYS + " j — pistes vidées (honnête)");
+    data.picks = { updated: new Date(Date.now()).toISOString(), us: [], fr: [] };
     return Promise.resolve(null);
   }
-  log("PICKS : " + cands.length + " candidates (clusters initiés US) — consultation des comptes 10-K…");
+  log("PICKS : " + cands.length + " candidate(s) US + " + frPicks.length + " piste(s) FR — consultation des comptes 10-K…");
+  if (cands.length === 0) {
+    data.picks = { updated: new Date(Date.now()).toISOString(), us: [], fr: frPicks };
+    log("PICKS : 0 piste US, " + frPicks.length + " piste(s) FR écrite(s)");
+    return Promise.resolve(null);
+  }
   return fetchFundamentals(cands, log).then(function (funds) {
     if (Object.keys(funds).length === 0) {
       throw new Error("aucun fondamental récupéré — XBRL indisponible ?");
     }
-    var picks = RI.picksFrom(data.us, data.usS, funds, { max: 6 });
-    data.picks = { updated: new Date(Date.now()).toISOString(), picks: picks };
-    log("PICKS : " + picks.length + " piste(s) écrite(s)" +
+    var picks = RI.picksFrom(data.us, data.usS, funds, { max: 6, since: since });
+    data.picks = { updated: new Date(Date.now()).toISOString(), us: picks, fr: frPicks };
+    log("PICKS : " + picks.length + " piste(s) US écrite(s)" +
       (picks.length > 0 ? " — n°1 : " + picks[0].ticker + " " + picks[0].score + "/20" : "") +
-      " (clusters sans 10-K exploitable exclus)");
+      " + " + frPicks.length + " FR (clusters sans 10-K exploitable exclus, honnêtement)");
   });
 }
 
@@ -222,19 +230,30 @@ function fetchUs(now, state, prevBuys, prevSells) {
   var startdt = RI.isoDay(new Date(now - 3 * 86400000)); // fenêtre 3 jours, la dédup fait le reste
   var enddt = RI.isoDay(new Date(now));
   var today = RI.isoDay(new Date(now));
-  var processed = {};
-  // v3 : migration — les XML traités par l'ancien parseur n'ont pas leurs ventes extraites.
-  // On vide la mémoire US une seule fois : les accessions de la fenêtre 3 j sont re-téléchargées
-  // et re-parsées des deux côtés (l'historique US des ventes commence à cette date, honnêtement).
-  if (state.v !== 3) {
-    log("US : migration v3 (ventes) — mémoire des accessions réinitialisée");
+  var processed = {}; // accession -> date de PREMIÈRE réussite
+  // v4 : migration de la dette v3.1.1 — les anciennes lignes US ont des ids à 5 segments
+  // (sans prix) et aucun tag plan 10b5-1/levée. Les ventes < 50 k$ ne sont plus collectées ;
+  // les lignes à ancien id de la fenêtre 3 j vont être re-téléchargées avec le nouveau format
+  // (id complet + tags) : on supprime leurs anciennes lignes pour éviter les doublons.
+  // Les plus vieilles ne seront jamais re-vues (la fenêtre glisse) et expirent avec KEEP_DAYS.
+  if (state.v !== 4) {
+    log("US : migration v4 (ids complets + tags plan/levée + ventes ≥ 50 k$) — fenêtre 3 j re-téléchargée");
+    var isOldId = function (r) { return r && r.id && String(r.id).split("|").length <= 6; };
+    var inWin = function (r) { return r && String(r.datePub || "").slice(0, 10) >= startdt; };
+    prevBuys = (prevBuys || []).filter(function (r) { return !(isOldId(r) && inWin(r)); });
+    prevSells = (prevSells || []).filter(function (r) {
+      if (isOldId(r) && inWin(r)) return false; // re-téléchargée ce run avec le bon id
+      return !((r.montant || 0) < CFG.US_SELL_MIN_USD); // v3.3 : ventes US < 50 k$ purgées
+    });
     state.processedUs = [];
-    state.v = 3;
+    state.v = 4;
   }
-  // purge par date (STATE_DAYS) au lieu d'un plafond arbitraire ; entrées "accession|date"
+  // purge par date (STATE_DAYS) ; v3.3 : chaque entrée garde SA date d'origine —
+  // le bug v3.1.1 redatait toutes les accessions à chaque run, donc la purge ne purgeait rien
   var stored = purgeProcessed(state.processedUs || [], now, CFG.STATE_DAYS);
   var pkey = function (e) { var j = e.indexOf("|"); return j > 0 ? e.slice(0, j) : e; };
-  stored.forEach(function (e) { processed[pkey(e)] = 1; });
+  var pdate = function (e) { var j = e.indexOf("|"); return j > 0 ? e.slice(j + 1) : today; };
+  stored.forEach(function (e) { processed[pkey(e)] = pdate(e); });
   var hits = [];
   var capped = false;
   var run = function (from) {
@@ -248,9 +267,10 @@ function fetchUs(now, state, prevBuys, prevSells) {
   var buys = (prevBuys || []).slice();
   var sells = (prevSells || []).slice();
   var done = 0, skipped = 0, fetched = 0, errors = 0, nBuys = 0, nSells = 0;
+  var consecutive = 0, broken = false; // disjoncteur : une panne SEC totale ne doit pas boucler 400 fois
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   return run(0).then(function () {
-    if (capped) log("US : PLAFOND 600 hits atteint — couverture partielle de la fenêtre 3 j");
+    if (capped) log("US : PLAFOND 600 hits atteint — couverture partielle de la fenêtre 3 j (roadmap : curseur persistant)");
     var todo = [];
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i];
@@ -262,10 +282,18 @@ function fetchUs(now, state, prevBuys, prevSells) {
     var chain = Promise.resolve();
     todo.forEach(function (h) {
       chain = chain.then(function () {
+        if (broken) return null; // disjoncteur ouvert : on n'insiste pas, retenté au run suivant
         var url = RI.form4Url(h.cik, h.accession, h.file);
-        return retry(function () { return fetchText(url, null, 25000); }, 1)
+        // v3.3 : retry(fn, 2) — le Retry-After de la SEC est désormais honoré aussi sur les XML
+        return retry(function () { return fetchText(url, null, 25000); }, 2)
           .then(function (xml) {
+            // v3.3 : une réponse 200 qui n'est PAS un Form 4 (page HTML de limitation, XML
+            // tronqué) n'est pas un succès — sinon l'accession était perdue à jamais
+            if (xml.indexOf("<ownershipDocument") === -1) {
+              throw new Error("réponse 200 sans <ownershipDocument> — pas un Form 4");
+            }
             fetched++;
+            consecutive = 0;
             var f4 = RI.parseForm4(xml);
             var rows = RI.usRowsFrom(Object.assign({}, h, { url: url }), f4);
             rows.forEach(function (r) {
@@ -273,10 +301,18 @@ function fetchUs(now, state, prevBuys, prevSells) {
               else { buys.push(r); nBuys++; }
             });
             // marquée traitée UNIQUEMENT si téléchargée et parsée : un 429/503/500 de la SEC
-            // ne fait plus perdre le dépôt — il sera retéléchargé au run suivant
-            processed[h.accession] = 1;
+            // ne fait plus perdre le dépôt — il sera retéléchargé au run suivant.
+            // La date conservée est celle du PREMIER succès (v3.3), pas celle du run courant.
+            processed[h.accession] = today;
           })
-          .catch(function () { errors++; }) // un XML inaccessible n'arrête jamais le run, et n'est PAS marqué
+          .catch(function () { // un XML inaccessible ou invalide n'arrête jamais le run, et n'est PAS marqué
+            errors++;
+            consecutive++;
+            if (consecutive >= 5) {
+              broken = true;
+              log("US : DISJONCTEUR — 5 erreurs XML consécutives, le reste du run est abandonné (retenté au prochain)");
+            }
+          })
           .then(function () {
             done++;
             if (done % 20 === 0) log("US " + done + "/" + todo.length);
@@ -285,54 +321,140 @@ function fetchUs(now, state, prevBuys, prevSells) {
       });
     });
     return chain.then(function () {
+      if (broken) log("US : " + (todo.length - done) + " XML non tentés (disjoncteur)");
       if (errors > 0) log("US : " + errors + " XML en erreur — NON marqués traités, retentés au prochain run");
       // canari du parseur US : des XML téléchargés mais zéro ligne extraite → structure changée ?
       var canary = (fetched > 100 && nBuys + nSells === 0);
       if (canary) log("US : CANARI — " + fetched + " XML téléchargés, 0 ligne extraite (achats comme ventes) — parseur cassé ?");
-      var list = Object.keys(processed).map(function (a) { return a + "|" + today; });
+      // v3.3 : une panne SEC massive ne passe plus pour un succès — ratio d'échec sur les
+      // XML réellement tentés (au-delà de ~30 %, la source est marquée KO côté main)
+      var attempted = fetched + errors;
+      var errRatio = attempted > 0 ? errors / attempted : 0;
+      if (attempted >= 5 && errRatio > 0.3) {
+        log("US : " + Math.round(errRatio * 100) + " % des XML tentés en erreur — source marquée KO (usOk=false)");
+      }
+      var list = Object.keys(processed).map(function (a) { return a + "|" + processed[a]; });
       state.processedUs = purgeProcessed(list, now, CFG.STATE_DAYS);
-      return { buys: buys, sells: sells, nBuys: nBuys, nSells: nSells, hits: hits.length, fetched: fetched, skipped: skipped, errors: errors, capped: capped, canary: canary };
+      return { buys: buys, sells: sells, nBuys: nBuys, nSells: nSells, hits: hits.length,
+        fetched: fetched, skipped: skipped, errors: errors, capped: capped, canary: canary,
+        errRatio: errRatio, attempted: attempted };
     });
   });
 }
 
+// ---------- v3.3 : garde anti-effondrement, SÉPARÉE de la rétention ----------
+// La v3.1.1 comparait prev (90 j) et next (90 j purgé) : après une longue interruption,
+// l'expiration naturelle des vieilles lignes ressemblait à une panne et faisait conserver
+// des données périmées. On ne compare désormais que les lignes précédentes ENCORE DANS la
+// fenêtre de conservation : si elles disparaissent, c'est une vraie panne.
+function collapseGuard(prev, next, what, nowMs, logFn) {
+  var cutoff = RI.isoDay(new Date(nowMs - CFG.KEEP_DAYS * 86400000));
+  var fresh = (prev || []).filter(function (r) {
+    return r && String(r.datePub || "").slice(0, 10) >= cutoff;
+  });
+  if (fresh.length >= 20 && (next || []).length < fresh.length * 0.5) {
+    (logFn || log)("CRITIQUE " + what + " : " + fresh.length + " → " + next.length + " lignes (-" +
+      Math.round(100 - (100 * (next || []).length) / fresh.length) + " %) — version précédente conservée");
+    return { keep: true, rows: prev };
+  }
+  return { keep: false, rows: next };
+}
+
+// ---------- v3.3 : notifications — la sentinelle prévient, pas seulement affiche ----------
+// Diff avant/après du run. Alerte si : (1) un NOUVEAU cluster nettoyé 🔥🔥 apparaît
+// (≥ 2 initiés DISTINCTS — personnes physiques, véhicules regroupés — sur 30 j) ;
+// (2) un achat ≥ 100 k (€ ou $) par un dirigeant/administrateur (pas un fonds 10 %).
+// La comparaison utilise des clés NATURELLES (société|auteur|date|volume|prix), pas les ids
+// techniques : la migration v4 (nouveaux ids) ne re-notifie pas les anciennes lignes.
+function computeAlerts(prevData, newData, logFn) {
+  var since = RI.isoDay(new Date(Date.now() - CFG.SIGN_DAYS * 86400000));
+  var allPrev = (((prevData || {}).fr) || []).concat(((prevData || {}).us) || []);
+  var allNew = ((newData || {}).fr || []).concat(((newData || {}).us) || []);
+  if (allPrev.length === 0) return []; // tout premier run : pas de spam, rien de comparable
+  var before = {};
+  RI.signalsFrom(RI.pickBuyRows(allPrev), { since: since }).forEach(function (s) {
+    if (s.level >= 3) before[s.key] = s;
+  });
+  var msgs = [];
+  RI.signalsFrom(RI.pickBuyRows(allNew), { since: since }).forEach(function (s) {
+    if (s.level >= 3 && !before[s.key]) {
+      msgs.push((s.source === "US" ? "🇺🇸 [" + s.ticker + "] " : "🇫🇷 ") + s.societe +
+        " : NOUVEAU cluster 🔥🔥 — " + s.buys + " achats, " + s.buyers + " initié(s) distinct(s), total " +
+        (s.source === "US" ? RI.fmtUSD(s.total) : RI.fmtEUR(s.total)) + " sur 30 j");
+    }
+  });
+  var seen = {};
+  var natKey = function (r) {
+    return (r.source || "") + "|" + (r.societe || "") + "|" + (r.auteur || "") + "|" +
+      (r.dateOp || "") + "|" + (r.volume || "") + "|" + (r.prix || "");
+  };
+  allPrev.forEach(function (r) { seen[natKey(r)] = 1; });
+  allNew.forEach(function (r) {
+    if (!r || r.side !== "buy" || (r.montant || 0) < 100000) return;
+    var role = String(r.role || "");
+    // fonds / propriétaires 10 % : pas un dirigeant — le signal « gros achat » ne compte pas
+    if (!role || /10\s*%|propri[ée]taire/i.test(role)) return;
+    if (seen[natKey(r)]) return;
+    msgs.push((r.source === "US" ? "🇺🇸 [" + (r.ticker || "") + "] " : "🇫🇷 ") + r.societe + " : " +
+      RI.fmtMontant(r) + " achetés par " + r.auteur + " (" + role + ")");
+  });
+  return msgs;
+}
+// ntfy.sh : topic en secret GitHub (NTFYY topic = canal privé, le dépôt est public).
+// N'importe quel client ntfy peut s'abonner : https://ntfy.sh/<ton-topic>.
+function notifyNtfy(topic, msgs) {
+  if (!topic || !msgs || msgs.length === 0 || !FETCH_IMPL) return Promise.resolve(0);
+  var body = msgs.slice(0, 5).join("\n\n") + (msgs.length > 5 ? "\n\n… +" + (msgs.length - 5) + " autre(s)" : "");
+  return FETCH_IMPL("https://ntfy.sh/" + encodeURIComponent(topic), {
+    method: "POST",
+    headers: { "Title": "Sentinelle perso", "Priority": "high", "Tags": "chart_with_upwards_trend" },
+    body: body
+  }).then(function () { return msgs.length; }, function () { return 0; }); // jamais faire échouer le run
+}
+
 // ---------- main ----------
+function readJsonOrDie(path, fallback) {
+  if (!fs.existsSync(path)) return fallback;
+  try {
+    return JSON.parse(fs.readFileSync(path, "utf8"));
+  } catch (e) {
+    // v3.3 : un data.json/state.json corrompu doit FAIRE ÉCHOUER le run — sinon des tableaux
+    // vides par défaut remplaçaient silencieusement les données précédentes
+    throw new Error(path + " présent mais illisible — run arrêté pour ne rien écraser : " + e.message);
+  }
+}
 function main() {
   var now = Date.now();
-  var data = { updated: new Date(now).toISOString(), fr: [], us: [], frS: [], usS: [] };
-  var state = { processedUs: [] };
-  try { data = JSON.parse(fs.readFileSync("data.json", "utf8")); } catch (e) { }
-  try { state = JSON.parse(fs.readFileSync("state.json", "utf8")); } catch (e) { }
-  if (!data.fr) data.fr = [];
-  if (!data.us) data.us = [];
-  if (!data.frS) data.frS = [];
-  if (!data.usS) data.usS = [];
+  var data = readJsonOrDie("data.json", { fr: [], us: [], frS: [], usS: [] });
+  var state = readJsonOrDie("state.json", { processedUs: [] });
+  if (!Array.isArray(data.fr)) data.fr = [];
+  if (!Array.isArray(data.us)) data.us = [];
+  if (!Array.isArray(data.frS)) data.frS = [];
+  if (!Array.isArray(data.usS)) data.usS = [];
+  if (!state.processedUs) state.processedUs = [];
   var frOk = true, usOk = true;
-  var usNew = 0; // lignes US nouvelles ce run → recalcul des pistes si besoin
-  // détection d'effondrement : une liste qui perd > 50 % en un run (2 h) alors qu'elle
-  // était fournie = source ou parseur cassé → on garde la version précédente
-  var guard = function (prev, next, what) {
-    if (prev.length >= 20 && next.length < prev.length * 0.5) {
-      log("CRITIQUE " + what + " : " + prev.length + " → " + next.length + " lignes (-" +
-        Math.round(100 - (100 * next.length) / prev.length) + " %) — version précédente conservée");
-      return { keep: true, rows: prev };
-    }
-    return { keep: false, rows: next };
-  };
+  var usNew = 0, frNew = 0; // lignes nouvelles ce run → recalcul des pistes si besoin
   var prevFr = data.fr.slice(), prevFrS = data.frS.slice(), prevUs = data.us.slice(), prevUsS = data.usS.slice();
+  var prevSnapshot = { fr: prevFr, us: prevUs, frS: prevFrS, usS: prevUsS }; // pour les alertes
 
-  log("== Sentinelle perso — relevé du " + new Date(now).toISOString() + " ==");
+  log("== Sentinelle perso v" + RI.VERSION + " — relevé du " + new Date(now).toISOString() + " ==");
   return fetchFr(now).then(function (frRows) {
     var frBuys = RI.rowsOfSide(frRows, "buy");
     var frSells = RI.rowsOfSide(frRows, "sell");
     log("FR : " + frBuys.length + " acquisitions + " + frSells.length + " cessions sur la fenêtre de " + CFG.FR_DAYS + " j");
     var mB = RI.mergeRows(prevFr, frBuys, CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
     var mS = RI.mergeRows(prevFrS, frSells, CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
-    var gB = guard(prevFr, mB, "FR achats"), gS = guard(prevFrS, mS, "FR ventes");
+    var gB = collapseGuard(prevFr, mB, "FR achats", now, log);
+    var gS = collapseGuard(prevFrS, mS, "FR ventes", now, log);
     if (gB.keep || gS.keep) frOk = false;
     data.fr = gB.rows;
     data.frS = gS.rows;
-    data.frUpdated = new Date(Date.now()).toISOString();
+    // v3.3 : frUpdated n'est rafraîchi QUE si le relevé a réussi ET que les nouvelles lignes
+    // ont été retenues (avant : la garde conservait les anciennes lignes mais rafraîchissait l'horodatage)
+    if (frOk && !gB.keep && !gS.keep) data.frUpdated = new Date(Date.now()).toISOString();
+    var prevIds = {};
+    prevFr.concat(prevFrS).forEach(function (r) { prevIds[r.id] = 1; });
+    frNew = data.fr.concat(data.frS).filter(function (r) { return !prevIds[r.id]; }).length;
     log("FR total consolidé : " + data.fr.length + " achats + " + data.frS.length + " cessions");
   }).catch(function (e) {
     frOk = false;
@@ -342,7 +464,10 @@ function main() {
   }).then(function (usRes) {
     var mB = RI.mergeRows(usRes.buys, [], CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
     var mS = RI.mergeRows(usRes.sells, [], CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
-    var gB = guard(prevUs, mB, "US achats"), gS = guard(prevUsS, mS, "US ventes");
+    var gB = collapseGuard(prevUs, mB, "US achats", now, log);
+    var gS = collapseGuard(prevUsS, mS, "US ventes", now, log);
+    // v3.3 : une panne SEC partielle/massive ne passe plus pour un succès
+    if (usRes.attempted >= 5 && usRes.errRatio > 0.3) usOk = false;
     // canari parseur US : garder la version précédente plutôt que vider les listes
     if (usRes.canary && (prevUs.length > 0 || prevUsS.length > 0)) {
       usOk = false;
@@ -353,25 +478,46 @@ function main() {
       if (gB.keep || gS.keep) usOk = false;
       data.us = gB.rows;
       data.usS = gS.rows;
-      data.usUpdated = new Date(Date.now()).toISOString();
+      if (usOk) data.usUpdated = new Date(Date.now()).toISOString();
     }
     log("US : " + usRes.hits + " Form 4 vus, " + usRes.fetched + " XML téléchargés, " +
-      usRes.skipped + " déjà traités, " + usRes.errors + " erreurs (retentées), " + usRes.nBuys + " achats + " + usRes.nSells + " ventes extraits" + (usRes.capped ? " [PLAFOND]" : ""));
+      usRes.skipped + " déjà traités, " + usRes.errors + " erreurs (retentées)" +
+      (usRes.attempted >= 5 && usRes.errRatio > 0.3 ? " [" + Math.round(usRes.errRatio * 100) + " % KO → usOk=false]" : "") +
+      ", " + usRes.nBuys + " achats + " + usRes.nSells + " ventes (dures ≥ " + CFG.US_SELL_MIN_USD + " $) extraits" +
+      (usRes.capped ? " [PLAFOND]" : ""));
     log("US total consolidé : " + data.us.length + " achats + " + data.usS.length + " ventes");
     usNew = usRes.nBuys + usRes.nSells;
   }).catch(function (e) {
     usOk = false;
     log("US : ECHEC source (" + e.message + ") — données précédentes conservées");
   }).then(function () {
-    // pistes : recalculées si les listes US ont bougé ce run, sinon une fois par jour
+    // pistes : recalculées si une liste a bougé ce run, sinon une fois par jour
     var today = RI.isoDay(new Date(now));
-    if (data.picks && data.picks.picks && data.picks.picks.length > 0 && usNew === 0 && state.picksDay === today) {
-      log("PICKS : listes US inchangées et pistes déjà calculées aujourd'hui — pas de recalcul");
+    var hasPicks = data.picks && (data.picks.us || data.picks.picks);
+    if (hasPicks && state.picksDay === today && usNew === 0 && frNew === 0) {
+      log("PICKS : listes FR/US inchangées et pistes déjà calculées aujourd'hui — pas de recalcul");
       return null;
     }
     return computePicks(data, log).then(function () { state.picksDay = today; });
   }).catch(function (e) {
     log("PICKS : échec (" + e.message + ") — pistes précédentes conservées");
+  }).then(function () {
+    // sentinelle : notifier les vraies nouveautés (clusters nets, gros achats de dirigeants)
+    var alerts = [];
+    try {
+      alerts = computeAlerts(prevSnapshot, data, log);
+    } catch (e) {
+      log("ALERTES : échec du calcul (" + e.message + ") — run non impacté");
+    }
+    if (alerts.length === 0) return null;
+    var topic = String(process.env.NTFY_TOPIC || "").trim();
+    if (!topic) {
+      log("ALERTES : " + alerts.length + " nouvelle(s) — NTFY_TOPIC non défini (secret GitHub), pas d'envoi");
+      return null;
+    }
+    return notifyNtfy(topic, alerts).then(function (n) {
+      log("ALERTES : " + n + "/" + alerts.length + " notification(s) envoyée(s) via ntfy");
+    });
   }).then(function () {
     data.updated = new Date(Date.now()).toISOString();
     data.frOk = frOk;
@@ -383,7 +529,7 @@ function main() {
     log("data.json écrit : " + data.fr.length + " achats FR + " + data.us.length + " achats US + " +
       data.frS.length + " ventes FR + " + data.usS.length + " ventes US" +
       (frOk && usOk ? "" : " [échec source : " + (frOk ? "US" : (usOk ? "FR" : "FR+US")) + "]"));
-    log("Fréquence : toutes les 2 h en jours ouvrés (workflow insiders.yml)");
+    log("Fréquence : toutes les 2 h en jours ouvrés + 02:07 UTC mar-sam (workflow insiders.yml)");
   });
 }
 
@@ -394,4 +540,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { fetchFr: fetchFr, fetchUs: fetchUs, main: main, UA: UA, setFetchForTests: setFetchForTests, purgeProcessed: purgeProcessed, computePicks: computePicks, fetchFundamentals: fetchFundamentals };
+module.exports = { fetchFr: fetchFr, fetchUs: fetchUs, main: main, UA: UA, setFetchForTests: setFetchForTests,
+  purgeProcessed: purgeProcessed, computePicks: computePicks, fetchFundamentals: fetchFundamentals,
+  collapseGuard: collapseGuard, computeAlerts: computeAlerts, notifyNtfy: notifyNtfy };

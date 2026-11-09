@@ -4,10 +4,14 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
+  var VERSION = "3.3";   // version unique de l'app (badge + footer la lisent ici — v3.1.1 la collait à 4 endroits)
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
+    US_SELL_MIN_USD: 50000, // v3.3 : montant min des VENTES US collectées — les petites ventes noient
+                            // les listes (plafond 600) et ne sont pas des signaux
     FR_DAYS: 10,           // fenêtre de requête FR (jours de publication)
+    SIGN_DAYS: 30,          // v3.3 : fenêtre des cartes signal (90 j = bruit ; 30 j = conviction récente)
     KEEP_DAYS: 90,          // conservation des lignes dans data.json
     MAX_ROWS: 600,          // max lignes par source dans data.json
     US_FETCH_BUDGET: 400,   // max téléchargements de Form 4 XML par run
@@ -176,11 +180,21 @@ var RI = (function () {
     var isDir = /^\s*(?:<value>\s*)?1/.test(g(/<isDirector>((?:(?!<\/isDirector>)[\s\S])*)/) || "0");
     var is10 = /^\s*(?:<value>\s*)?1/.test(g(/<isTenPercentOwner>((?:(?!<\/isTenPercentOwner>)[\s\S])*)/) || "0");
     if (!role) role = isDir ? "Directeur" : (is10 ? "Propriétaire 10 %" : "Initié");
+    // v3.3 : un même dépôt peut mentionner PLUSIEURS déclarants (formulaires multi-reporting,
+    // prévus par les instructions SEC du Form 4). On les extrait tous : le premier reste la
+    // référence (compat), mais l'attribution est signalée comme incertaine (multiOwner).
+    var ownerTags = x.match(/<rptOwnerName>([^<]*)<\/rptOwnerName>/g) || [];
+    var owners = [];
+    for (var oi = 0; oi < ownerTags.length; oi++) {
+      var nm = ownerTags[oi].replace(/<[^>]*>/g, "").trim();
+      if (nm) owners.push(nm);
+    }
     // 10b5-1 : plan de vente programmé déclaré (case à cocher depuis 2023, <aff10b5One>1</aff10b5One>)
     var p10 = x.match(/<aff10b5One>\s*([^<]*)/);
     var plan10b5 = p10 ? /^\s*1/.test(p10[1]) : null; // null = balise absente (ancien dépôt)
-    // levée d'options dans le même dépôt (code M, table dérivée ou non) : une vente S qui suit une levée
-    // n'est pas un signal baissier autonome
+    // code M (levée d'options) dans le même dépôt : une vente S qui suit une levée
+    // n'est pas un signal baissier autonome. ⚠ Constat au niveau du DÉPÔT, pas de la
+    // transaction : le XML ne prouve pas le lien S↔M ligne à ligne.
     var hasM = /<transactionCode>\s*M\s*<\/transactionCode>/.test(x);
     var blocks = x.match(/<nonDerivativeTransaction>[\s\S]*?<\/nonDerivativeTransaction>/g) || [];
     var txs = [];
@@ -199,7 +213,9 @@ var RI = (function () {
     return {
       issuer: g(/<issuerName>([^<]*)/),
       ticker: g(/<issuerTradingSymbol>([^<]*)/),
-      owner: g(/<rptOwnerName>([^<]*)/),
+      owner: owners.length > 0 ? owners[0] : g(/<rptOwnerName>([^<]*)/),
+      owners: owners,
+      multiOwner: owners.length > 1,
       role: role,
       plan10b5: plan10b5,
       hasM: hasM,
@@ -221,7 +237,12 @@ var RI = (function () {
       if (!isBuy && !isSell) continue;
       if (!isFinite(t.shares) || !isFinite(t.price) || t.shares <= 0 || t.price <= 0) continue;
       var montant = t.shares * t.price;
-      if (montant < CFG.US_MIN_USD) continue;
+      if (isBuy && montant < CFG.US_MIN_USD) continue;
+      // v3.3 : côté ventes US, on ne collecte que les ventes « dures » ≥ 50 k$ —
+      // hors plan 10b5-1 déclaré et hors dépôt contenant une levée (code M) : ce sont des
+      // liquidations programmées/neutres, pas des signaux baissiers, et elles noyaient les
+      // listes (380 ventes en 1 journée = fenêtre réelle de ~2 j pour un affichage « 90 j »).
+      if (isSell && (montant < CFG.US_SELL_MIN_USD || f4.plan10b5 === true || f4.hasM === true)) continue;
       rows.push({
         // id anti-collision : deux tranches du même dépôt peuvent partager date + quantité
         // (prix différents) — l'index et le prix les distinguent, sinon la 2e est écrasée
@@ -242,8 +263,9 @@ var RI = (function () {
         montant: Math.round(montant * 100) / 100,
         code: t.code,
         cik: hit.cik || "",                    // CIK SEC — sert aux fondamentaux XBRL (v3.2)
-        p10b5: f4.plan10b5 === true,            // plan de vente programmé 10b5-1 déclaré
-        opt: isSell && f4.hasM === true,        // vente accompagnant une levée d'options (code M)
+        p10b5: f4.plan10b5 === true,           // champ conservé pour le scoring (toujours false après le filtre ci-dessus)
+        opt: isSell && f4.hasM === true,       // idem : les ventes « levée » ne sont plus collectées
+        multi: f4.multiOwner === true,         // v3.3 : dépôt multi-déclarants — attribution au 1er, incertaine
         url: hit.url || ""
       });
     }
@@ -352,6 +374,12 @@ var RI = (function () {
   //   niveau 2 (🔥)   : >= 3 achats (même initié qui rachète) OU >= 2 initiés OU total >= 1 M
   //   niveau 1 (×)    : 2 achats d'un même initié — à nuancer
   //   < 2 achats      : pas un signal (reste dans la liste brute)
+  // v3.3 — nettoyage des faux clusters (revue qualité du signal) :
+  //   1. « personne morale liée à X » : le véhicule déclare, l'INITIÉ est X. Deux holdings
+  //      liées à la même personne = 1 initié, pas 2 (cas réel KLEA : 20 achats, « 2 initiés » faux).
+  //   2. opérations identiques (société + date + volume + prix) déclarées sous deux accessions
+  //      = UNE opération (cas réel Silynxcom : 4 achats déclarés pour 2 réels).
+  //   3. fenêtre 30 j (option since) au lieu de 90 : une accumulation ancienne n'est plus un signal.
   function normName(s) {
     return String(s == null ? "" : s).toUpperCase()
       .replace(/[\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5]/g, "A").replace(/[\u00c8\u00c9\u00ca\u00cb]/g, "E")
@@ -366,25 +394,38 @@ var RI = (function () {
     if (r.source === "US") return "US|" + ((r.ticker && normName(r.ticker)) || normName(r.societe));
     return "FR|" + (normName(r.societe) || String(r.isin || "").trim());
   }
-  function signalsFrom(rows) {
+  // initié réel derrière le déclarant : « FONCIERE DE L'ESPLANADE personne morale liée à
+  // RAPHAEL SMILA » → l'initié est RAPHAEL SMILA (53/116 lignes FR réelles sont des véhicules)
+  function personKey(s) {
+    var t = String(s == null ? "" : s);
+    var m = t.match(/personne morale li[eé]e?\s+à\s+(.+)$/i);
+    return normName(m ? m[1] : t) || "\u2014";
+  }
+  function signalsFrom(rows, opts) {
+    var o = opts || {};
     var map = {};
+    var seenOp = {}; // dédoublonnage des opérations identiques (plusieurs déclarants)
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       if (!r || !r.id || !r.datePub) continue;
       if (r.montant == null || !isFinite(r.montant) || r.montant < 0) continue;
       if (!isFinite(r.volume) || r.volume <= 0 || !isFinite(r.prix) || r.prix <= 0) continue;
+      var pub = String(r.datePub).slice(0, 10);
+      if (o.since && pub < o.since) continue; // fenêtre 30 j du signal
       var k = sigKey(r);
+      var opKey = k + "|" + String(r.dateOp || "") + "|" + r.volume + "|" + r.prix;
+      if (seenOp[opKey]) continue; // même opération re-déclarée : comptée UNE fois
+      seenOp[opKey] = 1;
       var g = map[k];
       if (!g) {
         g = map[k] = { key: k, source: r.source, societe: r.societe, ticker: r.ticker || "", isin: r.isin || "",
           buys: 0, total: 0, volume: 0, buyers: {}, first: null, last: null };
       }
       g.buys++; g.total += r.montant; g.volume += r.volume;
-      var bk = normName(r.auteur) || "\u2014";
+      var bk = personKey(r.auteur);
       g.buyers[bk] = (g.buyers[bk] || 0) + 1;
-      var d = String(r.datePub).slice(0, 10);
-      if (!g.first || d < g.first) g.first = d;
-      if (!g.last || d > g.last) g.last = d;
+      if (!g.first || pub < g.first) g.first = pub;
+      if (!g.last || pub > g.last) g.last = pub;
     }
     var out = [];
     for (var k2 in map) {
@@ -404,8 +445,12 @@ var RI = (function () {
         level: (nBuyers >= 2 && m.buys >= 3) ? 3 : ((m.buys >= 3 || nBuyers >= 2 || m.total >= 1000000) ? 2 : 1)
       });
     }
+    // tri : niveau d'abord, puis RÉCENCE du dernier achat, puis total (v3.3 : le cluster
+    // tout frais prime sur le gros cluster ancien)
     out.sort(function (a, b) {
       if (b.level !== a.level) return b.level - a.level;
+      var d = String(b.last).localeCompare(String(a.last));
+      if (d !== 0) return d;
       return b.total - a.total;
     });
     return out;
@@ -500,8 +545,8 @@ var RI = (function () {
     return out;
   }
   // sociétés US avec un vrai signal initiés, triées, capées — celles qu'on va documenter
-  function pickCandidates(buys, sells, max) {
-    var sigs = signalsFrom(pickBuyRows(buys));
+  function pickCandidates(buys, sells, max, opts) {
+    var sigs = signalsFrom(pickBuyRows(buys), opts || {});
     var ss = sellStatsByKey(sells);
     var out = [];
     for (var i = 0; i < sigs.length; i++) {
@@ -517,7 +562,7 @@ var RI = (function () {
   // croisement final : candidates × fondamentaux → pistes triées par score /20
   function picksFrom(buys, sells, funds, opts) {
     var o = opts || {};
-    var cands = pickCandidates(buys, sells, 15);
+    var cands = pickCandidates(buys, sells, 15, o);
     var out = [];
     for (var i = 0; i < cands.length; i++) {
       var c = cands[i];
@@ -541,6 +586,32 @@ var RI = (function () {
     out.sort(function (a, b) { return b.score - a.score; });
     return out.slice(0, o.max || 6);
   }
+  // v3.3 : pistes FR — signal initiés NETTOYÉ seul, sur /10. Pas d'équivalent public et
+  // gratuit des comptes 10-K SEC pour les sociétés cotées françaises : les fondamentaux
+  // ne sont PAS évalués, c'est dit honnêtement dans la carte. Clusters 30 j dédoublonnés,
+  // initiés regroupés par personne physique (véhicules « liée à X » = 1 initié).
+  function picksFromFr(buys, sells, opts) {
+    var o = opts || {};
+    var sigs = signalsFrom(pickBuyRows(buys), o);
+    var ss = sellStatsByKey(sells);
+    var out = [];
+    for (var i = 0; i < sigs.length; i++) {
+      var s = sigs[i];
+      if (s.source !== "FR") continue;
+      var ins = insiderScoreFor(s, ss[s.key]);
+      if (ins < 4) continue; // même exigence que côté US : un vrai cluster, pas un achat isolé
+      out.push({
+        societe: s.societe, isin: s.isin, score: ins,
+        insider: {
+          score: ins, buys: s.buys, buyers: s.buyers, level: s.level,
+          total: s.total, avgPx: s.avgPx, first: s.first, last: s.last
+        },
+        sells: ss[s.key] ? { n: ss[s.key].sells, hard: ss[s.key].hardSells } : { n: 0, hard: 0 }
+      });
+    }
+    out.sort(function (a, b) { return b.score - a.score || b.insider.total - a.insider.total; });
+    return out.slice(0, o.max || 5);
+  }
 
   // lien cote en 1 tap — pas d'API marché (fragile, CORS) : on renvoie vers la recherche
   function quoteUrl(r) {
@@ -556,6 +627,7 @@ var RI = (function () {
   }
 
   return {
+    VERSION: VERSION,
     CFG: CFG,
     esc: esc, decodeEntities: decodeEntities, stripTags: stripTags,
     frNum: frNum, ddmmyyyyToIso: ddmmyyyyToIso, isoToDmY: isoToDmY, frDate: frDate, isoDay: isoDay, daysBetween: daysBetween,
@@ -565,10 +637,11 @@ var RI = (function () {
     mergeRows: mergeRows,
     filterRows: filterRows, sortRows: sortRows,
     fmtEUR: fmtEUR, fmtUSD: fmtUSD, fmtNum: fmtNum, fmtMontant: fmtMontant, lagLabel: lagLabel, freshness: freshness,
-    normName: normName, sigKey: sigKey, signalsFrom: signalsFrom, signalCountByKey: signalCountByKey, quoteUrl: quoteUrl, fmtPx: fmtPx,
+    normName: normName, sigKey: sigKey, personKey: personKey, signalsFrom: signalsFrom, signalCountByKey: signalCountByKey, quoteUrl: quoteUrl, fmtPx: fmtPx,
     rowsOfSide: rowsOfSide,
+    pickBuyRows: pickBuyRows,
     sellStatsByKey: sellStatsByKey, insiderScoreFor: insiderScoreFor, fundScore: fundScore,
-    xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom
+    xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom, picksFromFr: picksFromFr
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

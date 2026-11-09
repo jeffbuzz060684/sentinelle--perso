@@ -4,6 +4,9 @@ on:
     # 05:07-23:07 UTC du lundi au vendredi, toutes les 2 h
     # (Paris : 6h07-0h07/+1 selon la saison ; le dernier run couvre les dépôts US de fin de journée ET)
     - cron: "7 5-23/2 * * 1-5"
+    # v3.3 : 02:07 UTC du mardi au samedi — couvre les dépôts US de 18 h à 22 h ET de la veille
+    # (le dernier run existant s'arrête à 18:07-19:07 ET, selon la saison)
+    - cron: "7 2 * * 2-6"
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,11 +23,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Contact SEC défini ? (exigé par la SEC dans le User-Agent)
+        run: |
+          if [ -z "$RI_SEC_CONTACT" ]; then
+            echo "::warning::RI_SEC_CONTACT non défini — le User-Agent utilise l'adresse noreply de repli, que personne ne lit si la SEC veut signaler un abus. Crée le secret avec une adresse que tu lis."
+          else
+            echo "RI_SEC_CONTACT défini."
+          fi
+        env:
+          RI_SEC_CONTACT: ${{ secrets.RI_SEC_CONTACT }}
       - name: Relevé FR (AMF) + US (SEC)
         run: node tools/fetch-insiders.js
         env:
           # contact réel exigé par la SEC dans le User-Agent (facultatif : repli GitHub noreply)
           RI_SEC_CONTACT: ${{ secrets.RI_SEC_CONTACT }}
+          # topic ntfy.sh des notifications (clusters 🔥🔥, achats ≥ 100 k par un dirigeant) —
+          # en secret car le dépôt est public ; absent = pas d'envoi, run normal
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
       - name: Validation des données
         run: node tools/validate-data.js
       - name: Commit si changé
@@ -41,10 +56,13 @@ jobs:
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Redéployer Pages seulement si les listes ont changé
+      - name: Redéployer Pages si les listes OU les statuts de source ont changé
         if: steps.changed.outputs.changed == 'true'
         run: |
-          if git diff HEAD~1 --unified=0 -- data.json | grep -E '^[+-]' | grep -vE '^[+-]{3}|"(updated|frUpdated|usUpdated|frOk|usOk|counts)":' | grep -q .; then
+          # Le diff exclut les horodateurs (updated/frUpdated/usUpdated/counts) mais PAS
+          # frOk/usOk : un changement de statut de source (panne ou retour à la normale)
+          # DOIT atteindre l'app statique, sinon le bandeau d'erreur ne s'affiche jamais.
+          if git diff HEAD~1 --unified=0 -- data.json | grep -E '^[+-]' | grep -vE '^[+-]{3}|"(updated|frUpdated|usUpdated|counts)":' | grep -q .; then
             gh workflow run pages.yml --ref main
           else
             echo "data.json : seuls les horodateurs ont changé — pas de redéploiement"
