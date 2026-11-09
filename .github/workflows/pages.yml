@@ -36,6 +36,16 @@ jobs:
       - name: Générer les icônes PNG + construire dist/
         run: |
           node tools/gen-icons.js
+          # v4.0 : secours cotations — si le cron quotes.yml est retardé ou sauté
+          # (charge GitHub Actions : les schedules peuvent l'être), chaque déploiement
+          # tente un relevé frais depuis le runner. Non bloquant : en cas d'échec,
+          # le quotes.json du dernier commit (cron) est servi tel quel.
+          if node tools/fetch-quotes.js && node tools/validate-quotes.js; then
+            echo "cotes fraîches générées pour ce déploiement"
+          else
+            git checkout -- quotes.json 2>/dev/null || rm -f quotes.json
+            echo "::warning::Relevé des cotes en échec (ou invalide) — quotes.json du dernier commit servi s'il existe"
+          fi
           # v3.3 : Pages ne publie plus tout le dépôt (outils, workflows, state) —
           # uniquement les fichiers de l'app, dans dist/
           # v4.0 : quotes.json/sbf120.json copiés s'ils existent (tolérant tant que
