@@ -26,7 +26,7 @@ async function rawFetch(url, opts) {
 // ---------- cookie + crumb Yahoo ----------
 
 async function yahooSession(maxAttempts) {
-  var attempts = maxAttempts || 5;
+  var attempts = maxAttempts || 8;
   var cookie = "", crumb = "";
   var lastErr = null;
   for (var a = 1; a <= attempts; a++) {
@@ -38,8 +38,11 @@ async function yahooSession(maxAttempts) {
       else if (r1.headers && r1.headers.get("set-cookie")) setCookies = String(r1.headers.get("set-cookie")).split(/,(?=[^;]+=)/);
       cookie = setCookies.map(function (c) { return c.split(";")[0]; }).filter(Boolean).join("; ");
       // 2) crumb — un 429 renvoie un CORPS texte (« Too Many Requests ») qui se glisserait en crumb :
-      //    on exige un statut 200, sinon on retente.
-      var r2 = await rawFetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
+      //    on exige un statut 200, sinon on retente. Les 429 de Yahoo vont par rafales : on alterne
+      //    query1/query2 et on patiente (backoff ~2,5 s × n° de tentative, jusqu'à ~70 s au total —
+      //    le cron a 10 min, mieux vaut patienter que publier un relevé vide).
+      var host = (a % 2 === 0) ? "query2" : "query1";
+      var r2 = await rawFetch("https://" + host + ".finance.yahoo.com/v1/test/getcrumb", {
         headers: { "User-Agent": UA, "Accept": "*/*", "Cookie": cookie }
       });
       if (r2.status !== 200) throw new Error("getcrumb HTTP " + r2.status);
@@ -47,7 +50,7 @@ async function yahooSession(maxAttempts) {
       if (crumb && cookie && crumb.length < 32 && /^[\w-]+$/.test(crumb)) return { cookie: cookie, crumb: crumb };
       lastErr = new Error("crumb/cookie inattendus (crumb=" + JSON.stringify(crumb.slice(0, 40)) + ")");
     } catch (e) { lastErr = e; }
-    await sleep(1500 * a);
+    await sleep(2500 * a);
   }
   throw new Error("session Yahoo impossible : " + (lastErr ? lastErr.message : "?"));
 }
@@ -55,12 +58,13 @@ async function yahooSession(maxAttempts) {
 // ---------- cotations ----------
 
 async function quotesBatch(symbols, sess, maxAttempts) {
-  var attempts = maxAttempts || 5;
-  var url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + encodeURIComponent(symbols.join(",")) +
-    "&crumb=" + encodeURIComponent(sess.crumb);
+  var attempts = maxAttempts || 6;
   var lastErr = null;
   for (var a = 1; a <= attempts; a++) {
     try {
+      var host = (a % 2 === 0) ? "query2" : "query1"; // alternance : les 429 de Yahoo vont par rafales
+      var url = "https://" + host + ".finance.yahoo.com/v7/finance/quote?symbols=" + encodeURIComponent(symbols.join(",")) +
+        "&crumb=" + encodeURIComponent(sess.crumb);
       var r = await rawFetch(url, { headers: { "User-Agent": UA, "Accept": "application/json", "Cookie": sess.cookie } });
       if (r.status === 429 || r.status >= 500) { await sleep(2000 * a); continue; }
       if (r.status !== 200) throw new Error("HTTP " + r.status + " sur v7/quote");
