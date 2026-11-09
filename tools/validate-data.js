@@ -72,6 +72,15 @@ if (data.picks !== undefined) {
     fail("picks : ni us ni fr ni picks (ancien) — structure inconnue");
   }
 }
+// v4.0.2 : l'ancien message lisait data.picks.picks.length et crashait (TypeError) sur le
+// nouveau format { updated, us, fr } écrit par fetch-insiders.js → validation KO → pas de commit.
+// Comptage robuste : nouveau format (us + fr) ET ancien format (picks) acceptés.
+var nbPistes = 0;
+if (data.picks) {
+  nbPistes = (Array.isArray(data.picks.picks) ? data.picks.picks.length : 0) +
+    (Array.isArray(data.picks.us) ? data.picks.us.length : 0) +
+    (Array.isArray(data.picks.fr) ? data.picks.fr.length : 0);
+}
 console.log("data.json OK : " + data.fr.length + " achats FR + " + data.us.length + " achats US + " +
   (data.frS ? data.frS.length : 0) + " ventes FR + " + (data.usS ? data.usS.length : 0) + " ventes US, relevé " + data.updated +
-  (data.picks ? " + " + data.picks.picks.length + " piste(s)" : ""));
+  (data.picks ? " + " + nbPistes + " piste(s)" : ""));
