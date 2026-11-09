@@ -27,21 +27,39 @@ jobs:
         run: node tools/fetch-quotes.js --max-age-targets-min=720
         # Échec (moins de 90 % de réponses, session Yahoo impossible) -> exit 1,
         # quotes.json précédent conservé, pas de commit : l'UI garde ses cotes anciennes.
+        # v4.0.8 : avant l'exit, le script met à jour ops.json et envoie l'alerte de panne ntfy.
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          HEALTHCHECKS_URL: ${{ secrets.HEALTHCHECKS_URL }}
       - name: Validation
         run: node tools/validate-quotes.js
+      - name: Journal quotidien des scores (validation 3/6/12 mois, 1 ligne/jour)
+        continue-on-error: true # un pépin de journal ne doit jamais bloquer les cotes
+        run: node tools/journal-scores.js
       - name: Commit si changé
         id: changed
         run: |
           if ! git diff --quiet; then
             git config user.name "sentinelle-bot"
             git config user.email "actions@github.com"
-            git add quotes.json
+            git add quotes.json journal-scores.jsonl ops.json
             git commit -m "quotes: SBF 120 $(date -u '+%Y-%m-%d %Hh%M UTC')"
             git pull --rebase origin main
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Conserver ops.json même en échec (mémoire des pannes)
+        if: failure()
+        run: |
+          if ! git diff --quiet -- ops.json; then
+            git config user.name "sentinelle-bot"
+            git config user.email "actions@github.com"
+            git add ops.json
+            git commit -m "ops: panne cotations $(date -u '+%Y-%m-%d %Hh%M UTC')"
+            git pull --rebase origin main
+            git push
           fi
       - name: Redéployer Pages si les cotations ont changé
         if: steps.changed.outputs.changed == 'true'

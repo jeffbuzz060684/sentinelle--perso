@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.7";   // version unique de l'app (badge + footer la lisent) — v4.0.7 : vue 💎 Opportunité (qualité ROE/marge/croissance/dette × valorisation × point bas 52 s.), bornes 52 s. sur les 2 sources
+  var VERSION = "4.0.8";   // version unique de l'app (badge + footer la lisent) — v4.0.8 : revue du score 💎 (point bas retiré du score → 57/43, qualité par secteur, ex æquo, capitaux propres négatifs, 3/4 métriques, ⚠️ fper>per, journal de validation)
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -709,23 +709,26 @@ var RI = (function () {
     });
   }
 
-  // ---------- v4.0.7 : qualité + point bas 52 semaines → score 💎 Opportunité ----------
-  // La demande : « investir sur les meilleures actions, meilleur bénéfice/risque, de qualité,
-  // lorsqu'il y a eu un point bas, long terme ». Trois briques mesurables, assemblées en une
-  // HEURISTIQUE DE TRI honnête (jamais validée sur historique indépendant, pas un conseil) :
-  //   qualité 40 %  — ROE 35 % (haut mieux) + marge op. 25 % (haut mieux) + croissance CA 20 %
-  //                    (haut mieux, les négatifs PARTICIPENT) + dette/CP 20 % (bas mieux).
-  //                    Les données viennent du module Yahoo financialData (v4.0.6) : sans
-  //                    fondamentaux, pas de score qualité — on n'invente rien.
-  //   valorisation 30 % — le score 📐 v4.0.5 (percentiles PER/rendement/P/B, par secteur).
-  //   point bas 30 % — position du cours dans la fourchette 52 s. : au plus bas = 100,
-  //                    au plus haut = 0. Disponible sur les DEUX sources (Yahoo v7 et TV).
-  // Un « point bas » n'est pas un plancher : une valeur peut rester en bas de fourchette parce
-  // que le marché a raison de la déprimer (cf. Teleperformance). Le score croise justement
-  // qualité + valorisation pour écarter ce que la baisse punit à tort — sans le garantir.
+  // ---------- v4.0.8 : score 💎 Opportunité = qualité 57 % + valorisation 43 % ----------
+  // Revue du 09/11 (2 lectures croisées du code v4.0.7) : le point bas 52 s. N'ENTRE PLUS
+  // dans le score. George & Hwang (2004) : les titres proches de leur PLUS HAUT 52 s.
+  // surperforment (ancrage momentum) — rien ne justifie d'acheter « au plus bas » comme un
+  // signal. La position 52 s. reste une ÉTIQUETTE d'information (📉 bas de fourchette),
+  // jamais une composante du score ; elle ne reviendra dans le calcul que si le journal
+  // de validation (tools/journal-scores.js) démontre un jour qu'elle ajoute quelque chose.
+  // Score = qualité 57 % + valorisation 43 % (mêmes proportions que le 40/30 initial).
+  //   qualité — ROE 35 % + marge op. 25 % + croissance CA 20 % + dette/CP 20 %, percentile
+  //              PAR SECTEUR comme la valorisation (≥ 8 pairs, repli vs indice) : ROE,
+  //              marge et dette sont structurels par secteur (luxe ≠ distribution ≠ banque).
+  //              ≥ 3 métriques sur 4 EXIGÉES (sinon pas d'avis), capitaux propres négatifs
+  //              (P/B ≤ 0) → ROE et D/E non mesurables, D/E négatif → null, ex æquo →
+  //              rang moyen. fper > per → ⚠️ bénéfices attendus en baisse (piège à valeur).
+  //   valorisation — le score 📐 v4.0.5 (percentiles PER/rendement/P/B, par secteur).
+  // Toujours une heuristique de tri honnête (jamais validée sur historique, pas un conseil).
 
   // percentile générique pour la qualité : TOUTE valeur finie participe (contrairement à
   // rankPct qui exclut les non positifs — bon pour PER/PB, faux pour une croissance à -3 %).
+  // v4.0.8 : ex æquo → RANG MOYEN (mi-partage des égalités) ; toutes égales → 50, pas 0.
   function rankPctAny(list, field, lowerIsBetter) {
     var vals = {}, n = 0;
     for (var i = 0; i < list.length; i++) {
@@ -736,14 +739,30 @@ var RI = (function () {
     var pcts = {};
     for (var a in vals) {
       if (!Object.prototype.hasOwnProperty.call(vals, a)) continue;
-      var less = 0;
+      var beaten = 0, tied = 0;
       for (var b in vals) {
         if (!Object.prototype.hasOwnProperty.call(vals, b) || b === a) continue;
-        if (lowerIsBetter ? (vals[b] > vals[a]) : (vals[b] < vals[a])) less++;
+        if (lowerIsBetter ? (vals[b] > vals[a]) : (vals[b] < vals[a])) beaten++;
+        else if (vals[b] === vals[a]) tied++;
       }
-      pcts[a] = n > 1 ? Math.round((less / (n - 1)) * 100) : 50;
+      pcts[a] = n > 1 ? Math.round(((beaten + tied / 2) / (n - 1)) * 100) : 50;
     }
     return pcts;
+  }
+
+  // v4.0.8 : garde-fous financiers avant tout percentile qualité. Avec des capitaux propres
+  // NÉGATIFS (P/B ≤ 0), le ROE et le D/E changent de signe et deviennent « bons » pour un
+  // classement naïf (perte ÷ fonds propres négatifs = ROE positif) : non mesurables → null.
+  // Un D/E négatif (fonds propres négatifs) est traité pareil. Les marges et croissances
+  // NÉGATIVES restent des faits : elles participent (au bas du classement).
+  function qMetricOf(e) {
+    var bad = (e.pb != null && isFinite(e.pb) && e.pb <= 0); // fonds propres négatifs
+    return {
+      roe: (!bad && e.roe != null && isFinite(e.roe)) ? e.roe : null,
+      mOp: (e.mOp != null && isFinite(e.mOp)) ? e.mOp : null,
+      gRev: (e.gRev != null && isFinite(e.gRev)) ? e.gRev : null,
+      de: (!bad && e.de != null && isFinite(e.de) && e.de >= 0) ? e.de : null
+    };
   }
 
   // position dans la fourchette 52 s. : 0 = au plus bas, 100 = au plus haut (bornée).
@@ -756,14 +775,40 @@ var RI = (function () {
     return { pos: Math.round(pos), gapLo: Math.round((px / lo - 1) * 1000) / 10, dd: Math.round((px / hi - 1) * 1000) / 10 };
   }
 
-  // enrichit la sortie de valScores : qScore (qualité), pos52/gapLo/dd52, oScore (💎).
-  // qScore exigé (≥ 2 métriques) + score 📐 exigé ; pos52 absent → renormalisation 40/30.
+  // enrichit la sortie de valScores : qScore (qualité, PAR SECTEUR, ≥ 3/4 métriques),
+  // pos52/gapLo/dd52 (étiquette d'information, HORS score), earnWarn, oScore (💎 57/43).
   function oppScores(list) {
     var W = { roe: 0.35, mOp: 0.25, gRev: 0.2, de: 0.2 };
-    var pRoe = rankPctAny(list, "roe", false);
-    var pOp = rankPctAny(list, "mOp", false);
-    var pRev = rankPctAny(list, "gRev", false);
-    var pDe = rankPctAny(list, "de", true);
+    var MIN_SEC = 8; // même seuil que la valorisation : mêmes référentiels, même transparence
+    var clean = list.map(qMetricOf); // métriques nettoyées des non-sens financiers
+    // regroupement sectoriel identique à valScores : secteurs ≥ 8 pairs → classement interne ;
+    // le reste (secteur absent ou trop petit) → percentiles « vs indice » sur TOUTE la liste
+    // nettoyée, comme le fait valScores pour ses propres métriques.
+    var bySec = {}, done = {};
+    for (var i = 0; i < list.length; i++) {
+      var sec = (typeof list[i].sec === "string" && list[i].sec) ? list[i].sec : null;
+      if (!sec) continue;
+      (bySec[sec] = bySec[sec] || []).push(i);
+    }
+    var groups = [];
+    for (var s in bySec) {
+      if (!Object.prototype.hasOwnProperty.call(bySec, s) || bySec[s].length < MIN_SEC) continue;
+      groups.push(bySec[s]);
+      bySec[s].forEach(function (j) { done[j] = 1; });
+    }
+    function secPct(field, lowerIsBetter) {
+      var out = {};
+      var full = rankPctAny(clean, field, lowerIsBetter); // référentiel « vs indice »
+      for (var j = 0; j < list.length; j++) out[j] = full[j] != null ? full[j] : null;
+      groups.forEach(function (g) {
+        var sub = g.map(function (j) { return clean[j]; });
+        var p = rankPctAny(sub, field, lowerIsBetter);
+        g.forEach(function (j, k) { out[j] = p[k] != null ? p[k] : null; });
+      });
+      return out;
+    }
+    var pRoe = secPct("roe", false), pOp = secPct("mOp", false),
+        pRev = secPct("gRev", false), pDe = secPct("de", true);
     return list.map(function (e, i) {
       var o = {};
       for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
@@ -778,15 +823,15 @@ var RI = (function () {
       o.pRev = pRev[i] != null ? pRev[i] : null;
       o.pDe = pDe[i] != null ? pDe[i] : null;
       o.qBase = used;
-      o.qScore = (used >= 2 && w > 0) ? Math.round(s / w) : null; // < 2 métriques = pas un avis
+      o.qMode = done[i] ? "sector" : "index";
+      o.qScore = (used >= 3 && w > 0) ? Math.round(s / w) : null; // v4.0.8 : 3/4 métriques exigées — 2/4 = données trop partielles, pas un avis
+      // piège à valeur : PER prévisionnel AU-DESSUS du PER passé = bénéfices attendus en baisse
+      // (le « pas cher » d'aujourd'hui est peut-être un effondrement des bénéfices de demain)
+      o.earnWarn = (e.fper != null && e.per != null && e.fper > e.per) ? true : undefined;
       var p52 = pos52Of(e);
-      o.pos52 = p52.pos; o.gapLo = p52.gapLo; o.dd52 = p52.dd;
-      // composite 💎 : qualité 40 % + valorisation 30 % + (100 - pos52) 30 %
-      var os = 0, ow = 0;
-      if (o.qScore != null) { os += 0.4 * o.qScore; ow += 0.4; }
-      if (e.score != null) { os += 0.3 * e.score; ow += 0.3; }
-      if (o.pos52 != null) { os += 0.3 * (100 - o.pos52); ow += 0.3; }
-      o.oScore = (o.qScore != null && e.score != null && ow > 0) ? Math.round(os / ow) : null;
+      o.pos52 = p52.pos; o.gapLo = p52.gapLo; o.dd52 = p52.dd; // INFO, hors score (v4.0.8)
+      // composite 💎 : qualité 57 % + valorisation 43 % — point bas 52 s. exclu (cf. George & Hwang)
+      o.oScore = (o.qScore != null && e.score != null) ? Math.round(0.57 * o.qScore + 0.43 * e.score) : null;
       return o;
     });
   }
@@ -902,7 +947,7 @@ var RI = (function () {
     pickBuyRows: pickBuyRows,
     sellStatsByKey: sellStatsByKey, insiderScoreFor: insiderScoreFor, fundScore: fundScore,
     xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom, picksFromFr: picksFromFr,
-    rankPct: rankPct, valScores: valScores, oppScores: oppScores, rankPctAny: rankPctAny, pos52Of: pos52Of, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct
+    rankPct: rankPct, valScores: valScores, oppScores: oppScores, rankPctAny: rankPctAny, pos52Of: pos52Of, qMetricOf: qMetricOf, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

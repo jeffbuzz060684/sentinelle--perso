@@ -8,6 +8,7 @@
 
 var fs = require("fs");
 var RI = require("../logic.js");
+var OPS = require("./ops.js");
 var CFG = RI.CFG;
 
 // La SEC exige un contact réel dans le User-Agent (format "Nom contact@domaine") ;
@@ -409,7 +410,14 @@ function notifyNtfy(topic, msgs) {
     method: "POST",
     headers: { "Title": "Sentinelle perso", "Priority": "high", "Tags": "chart_with_upwards_trend" },
     body: body
-  }).then(function () { return msgs.length; }, function () { return 0; }); // jamais faire échouer le run
+  }).then(function (r) {
+    // v4.0.8 : une alerte n'est "envoyée" que sur un 2xx — un 4xx/5xx de ntfy n'est plus un succès muet
+    if (r && typeof r.status === "number" && !(r.status >= 200 && r.status < 300)) {
+      log("NTFY : réponse HTTP " + r.status + " — notification NON délivrée");
+      return 0;
+    }
+    return msgs.length;
+  }, function () { return 0; }); // jamais faire échouer le run
 }
 
 // ---------- main ----------
@@ -530,6 +538,21 @@ function main() {
       data.frS.length + " ventes FR + " + data.usS.length + " ventes US" +
       (frOk && usOk ? "" : " [échec source : " + (frOk ? "US" : (usOk ? "FR" : "FR+US")) + "]"));
     log("Fréquence : toutes les 2 h en jours ouvrés + 02:07 UTC mar-sam (workflow insiders.yml)");
+    // ---------- v4.0.8 : mémoire ops + alertes de PANNE (transitions frOk/usOk) + dead man ----------
+    var opsPrev = OPS.loadOps();
+    var rOps = OPS.nextInsiders(opsPrev, frOk, usOk);
+    OPS.saveOps(rOps.ops);
+    var topicOps = String(process.env.NTFY_TOPIC || "").trim();
+    var pAlerts = (rOps.alerts.length && topicOps)
+      ? notifyNtfy(topicOps, rOps.alerts).then(function (n) { log("OPS : " + n + "/" + rOps.alerts.length + " alerte(s) de panne envoyée(s)"); })
+      : Promise.resolve().then(function () {
+          if (rOps.alerts.length) log("OPS : " + rOps.alerts.length + " changement(s) d'état de source — NTFY_TOPIC non défini, pas d'envoi");
+        });
+    return pAlerts.then(function () {
+      return OPS.pingHealth(String(process.env.HEALTHCHECKS_URL || "").trim());
+    }).then(function (okPing) {
+      log("DEAD MAN : " + (okPing ? "ping envoyé (run allé au bout)" : "ping NON envoyé — HEALTHCHECKS_URL absent/en échec, le service de surveillance ne verra rien"));
+    });
   });
 }
 

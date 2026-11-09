@@ -41,6 +41,8 @@ jobs:
           # topic ntfy.sh des notifications (clusters 🔥🔥, achats ≥ 100 k par un dirigeant) —
           # en secret car le dépôt est public ; absent = pas d'envoi, run normal
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # v4.0.8 : dead man's switch — ping healthchecks.io après chaque run qui va au bout
+          HEALTHCHECKS_URL: ${{ secrets.HEALTHCHECKS_URL }}
       - name: Validation des données
         run: node tools/validate-data.js
       - name: Commit si changé
@@ -49,13 +51,24 @@ jobs:
           if ! git diff --quiet; then
             git config user.name "sentinelle-bot"
             git config user.email "actions@github.com"
-            git add data.json state.json
+            git add data.json state.json ops.json
             git commit -m "scan: initiés $(date -u '+%Y-%m-%d %Hh UTC')"
             git pull --rebase origin main
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Conserver ops.json même en échec (mémoire des pannes)
+        if: failure()
+        run: |
+          if ! git diff --quiet -- ops.json; then
+            git config user.name "sentinelle-bot"
+            git config user.email "actions@github.com"
+            git add ops.json
+            git commit -m "ops: panne initiés $(date -u '+%Y-%m-%d %Hh UTC')"
+            git pull --rebase origin main
+            git push
           fi
       - name: Redéployer Pages si les listes OU les statuts de source ont changé
         if: steps.changed.outputs.changed == 'true'

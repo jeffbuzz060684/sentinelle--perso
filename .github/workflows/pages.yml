@@ -76,6 +76,11 @@ jobs:
           test -f quotes.json && cp quotes.json dist/ || echo "  note : quotes.json absent du dépôt"
           test -f sbf120.json && cp sbf120.json dist/ || echo "  note : sbf120.json absent du dépôt"
           ls dist/
+        # v4.0.8 : le secours cotations met à jour ops.json (mémoire des pannes) et peut
+        # envoyer l'alerte de transition / le ping dead man comme le cron dédié.
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          HEALTHCHECKS_URL: ${{ secrets.HEALTHCHECKS_URL }}
       - name: Valider data.json
         run: node tools/validate-data.js
       - name: Valider quotes.json + sbf120.json

@@ -10,7 +10,8 @@
 
 var fs = require("fs");
 var path = require("path");
-
+var OPS = require("./ops.js");
+var INS = require("./fetch-insiders.js"); // notifyNtfy (v4.0.8 : alertes de panne des cotes)
 
 var UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 var FETCH_IMPL = (typeof fetch === "function") ? fetch : null;
@@ -305,6 +306,12 @@ async function fetchQuotesTv(sb, opts) {
   if (list.length / sb.list.length < (opts.minRatio || 0.9)) {
     throw new Error("trop peu de réponses TradingView : " + list.length + "/" + sb.list.length + " — quotes.json précédent conservé");
   }
+  // v4.0.8 : contrôle de schéma — les bornes 52 s. sont en FIN de tableau (d[9]/d[10], d[0] = name) ;
+  // si le scanner renvoyait moins de 11 colonnes, w52 serait silencieusement null partout : on prévient.
+  var withW52 = list.filter(function (r) { return r.w52lo != null; }).length;
+  if (list.length >= 20 && withW52 < list.length * 0.5) {
+    log("::warning::[quotes/TV] schéma suspect : bornes 52 s. présentes sur " + withW52 + "/" + list.length + " lignes seulement — colonnes décalées ?");
+  }
   // indice : SBF 120 absent du scanner → repli CAC 40, explicitement nommé (idx.name affiché par l'UI).
   // Règle v4.0.4 : un relevé de repli SANS indice est REJETÉ (avant écriture) — le validateur
   // exige idx.px, on ne publie jamais un quotes.json destiné à être invalidé. 2 tentatives,
@@ -361,6 +368,27 @@ function ageMinutesOf(updatedIso) {
   return Math.max(0, Math.round((Date.now() - t) / 60000));
 }
 
+// v4.0.8 : alertes de panne ntfy pour les cotes (topic en secret, jamais en dur dans un dépôt public)
+async function alertOps(alerts) {
+  var topic = String(process.env.NTFY_TOPIC || "").trim();
+  if (!topic) { log("[ops] NTFY_TOPIC non défini — " + alerts.length + " alerte(s) de panne NON envoyée(s)"); return; }
+  var n = await INS.notifyNtfy(topic, alerts);
+  log("[ops] " + n + "/" + alerts.length + " alerte(s) de panne envoyée(s)");
+}
+
+// v4.0.8 : mémoire ops + alertes de transition + dead man's switch. Jamais bloquant : une
+// erreur ici ne doit jamais empêcher un relevé de cotes d'être commité.
+async function opsSuccess() {
+  try {
+    var prev = OPS.loadOps();
+    var r = OPS.nextQuotes(prev, true);
+    OPS.saveOps(r.ops);
+    if (r.alerts.length) await alertOps(r.alerts);
+    var okPing = await OPS.pingHealth(String(process.env.HEALTHCHECKS_URL || "").trim());
+    log("[ops] cotes OK ; dead man : " + (okPing ? "ping envoyé (run allé au bout)" : "pas de ping (HEALTHCHECKS_URL absent ou en échec)"));
+  } catch (eOps) { log("[ops] étape non bloquante en échec : " + eOps.message); }
+}
+
 async function main() {
   var dest = path.join(__dirname, "..", "quotes.json");
   // v4.0.4 anti-double collecte : --max-age-min=N (utilisé par le secours de pages.yml) —
@@ -390,8 +418,8 @@ async function main() {
         log("[quotes] relevé précédent frais (" + age + " min < " + maxAge + ") — pas de nouvelle collecte (anti-doublon)");
         // les cotes sont fraîches mais les objectifs peuvent être périmés : étape ciblée,
         // on ne touche à RIEN d'autre du fichier (cotes, indice, composition d'origine).
-        if (targetsFresh()) { log("[targets] objectifs précédents frais — rien à faire"); return; }
-        if (!prev.list || !prev.list.length) return;
+        if (targetsFresh()) { log("[targets] objectifs précédents frais — rien à faire"); await opsSuccess(); return; }
+        if (!prev.list || !prev.list.length) { await opsSuccess(); return; }
         try {
           var t0 = await fetchTargetsAuto(prev.list.map(function (e) { return e.y; }), {});
           if (t0.got > 0) {
@@ -400,6 +428,7 @@ async function main() {
             log("[targets] écrit : " + t0.got + " objectifs (relevé des cotes inchangé)");
           } else log("[targets] aucun objectif récupéré — fichier inchangé");
         } catch (eT) { log("[targets] étape en échec (non bloquant) : " + eT.message); }
+        await opsSuccess();
         return;
       }
     }
@@ -425,8 +454,16 @@ async function main() {
     }
     fs.writeFileSync(dest, JSON.stringify(out));
     log("[quotes] écrit : " + out.n + " valeurs" + (out.missing.length ? " (manquantes : " + out.missing.join(", ") + ")" : "") + " -> " + dest);
+    await opsSuccess();
   } catch (e) {
     console.error("[quotes] ÉCHEC — quotes.json précédent conservé : " + e.message);
+    // v4.0.8 : panne de cotes → mémoire ops + alerte (flip ok→panne, et 2 échecs de suite)
+    try {
+      var prevOps = OPS.loadOps();
+      var rOps = OPS.nextQuotes(prevOps, false);
+      OPS.saveOps(rOps.ops);
+      await alertOps(rOps.alerts);
+    } catch (eOps) { console.error("[ops] étape en échec : " + eOps.message); }
     process.exit(1);
   }
 }

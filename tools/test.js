@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.7");
+  EQ(RI.VERSION, "4.0.8");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -808,9 +808,15 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
     A(h.indexOf('data-v="obj"') > -1 && h.indexOf("🎯 Objectifs") > -1, "segment 🎯 Objectifs");
     A(h.indexOf('data-v="opp"') > -1 && h.indexOf("💎 Opportunité") > -1, "segment 💎 Opportunité");
-    A(h.indexOf("🟢 point bas") > -1, "badge point bas 52 s.");
-    A(h.indexOf("qualité 40 %") > -1 && h.indexOf("point bas 30 %") > -1, "note méthodo 💎 : pondérations affichées");
-    A(h.indexOf("Un point bas n’est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
+    A(h.indexOf("📉 bas de fourchette 52 s.") > -1, "badge position 52 s. neutre (info, pas un signal d'achat)");
+    A(h.indexOf("qualité 57 %") > -1 && h.indexOf("valorisation 43 %") > -1, "note méthodo 💎 : pondérations 57/43 affichées");
+    A(h.indexOf("n'entre PAS dans le score") > -1 || h.indexOf("n’entre PAS dans le score") > -1, "point bas explicitement HORS score");
+    A(h.indexOf("George &amp; Hwang") > -1 || h.indexOf("George & Hwang") > -1, "référence littérature momentum citée");
+    A(h.indexOf("Un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n’est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
+    A(h.indexOf("⚠️ bénef. attendus en baisse") > -1, "garde-fou piège à valeur (fper > per) affiché");
+    A(h.indexOf('id="sbQ"') > -1, "stat couverture qualité (v4.0.8)");
+    A(h.indexOf("journal-scores.jsonl") > -1, "journal de validation mentionné dans l'aide");
+    A(h.indexOf("3 métriques sur 4") > -1 || h.indexOf("3 métriques qualité") > -1, "exigence 3/4 expliquée");
     A(h.indexOf("objectif de consensus des analystes") > -1, "note méthodo : consensus ≠ score maison");
     A(h.indexOf("potentiel vs l'objectif") > -1 || h.indexOf("Potentiel vs objectif") > -1, "potentiel vs objectif expliqué");
     A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
@@ -1511,7 +1517,7 @@ function TA(name, fn) {
     var f = fs.readFileSync(__dirname + "/../tools/fetch-quotes.js", "utf8");
     A(f.indexOf("approx: e.approx === true ? true : undefined") > -1, "relevés quotes.json gardent approx (Yahoo + TV)");
   });
-  T("v4.0.7 rankPctAny : les négatifs PARTICIPENT (≠ rankPct), tout fini est classé", function () {
+  T("v4.0.7/4.0.8 rankPctAny : négatifs PARTICIPENT, ex æquo → rang moyen, toutes égales → 50", function () {
     var l = [{ gRev: 0.05 }, { gRev: -0.02 }, { gRev: 0.01 }];
     var p = RI.rankPctAny(l, "gRev", false);
     EQ(p[0], 100, "croissance 5 % = la meilleure");
@@ -1519,6 +1525,23 @@ function TA(name, fn) {
     EQ(p[2], 50, "croissance 1 % au milieu");
     var d = RI.rankPctAny([{ de: 30 }, { de: 60 }], "de", true);
     EQ(d[0], 100, "dette 30 % < 60 % → 100 (bas mieux)");
+    // v4.0.8 : ex æquo → rang moyen (mi-partage des égalités), plus de « toute égale = 0 »
+    var t = RI.rankPctAny([{ de: 30 }, { de: 30 }, { de: 60 }], "de", true);
+    EQ(t[0], 75, "ex æquo à 30 : battu 1, à égalité 1 → (1+0,5)/2 = 75");
+    EQ(t[1], 75, "l'autre 30 reçoit le même rang moyen");
+    EQ(t[2], 0, "le 60 reste dernier");
+    var all = RI.rankPctAny([{ gRev: 1 }, { gRev: 1 }, { gRev: 1 }], "gRev", false);
+    EQ(all[0], 50, "toutes égales → 50 (rang neutre), pas 0");
+    EQ(all[2], 50, "rang neutre sur toute la liste");
+  });
+  T("v4.0.8 qMetricOf : capitaux propres négatifs (P/B ≤ 0) → ROE et D/E non mesurables ; marge/croissance négatives = faits", function () {
+    var m = RI.qMetricOf({ pb: -0.5, roe: 0.25, mOp: 0.1, gRev: -0.02, de: 20 });
+    A(m.roe === null && m.de === null, "fonds propres négatifs → ROE et D/E null (perte ÷ négatif n'est pas un « bon ROE »)");
+    EQ(m.mOp, 0.1, "la marge reste mesurable");
+    EQ(m.gRev, -0.02, "la croissance négative participe (fait, pas absence)");
+    var m2 = RI.qMetricOf({ pb: 1.2, roe: 0.12, de: -40 });
+    EQ(m2.roe, 0.12, "P/B sain : ROE conservé");
+    A(m2.de === null, "D/E négatif → null, plus jamais un « meilleur » rang");
   });
   T("v4.0.7 pos52Of : position fourchette 52 s., bornée, écart au plus bas/plus haut", function () {
     var r = RI.pos52Of({ px: 10, w52lo: 9.5, w52hi: 20 });
@@ -1529,28 +1552,70 @@ function TA(name, fn) {
     A(RI.pos52Of({ px: 10, w52lo: null, w52hi: 20 }).pos === null, "bornes absentes → null");
     A(RI.pos52Of({ px: 10, w52lo: 20, w52hi: 20 }).pos === null, "fourchette vide (lo = hi) → null");
   });
-  T("v4.0.7 oppScores : qualité × valorisation × point bas ; exigences et renormalisation", function () {
+  T("v4.0.8 oppScores : qualité 57 % + valorisation 43 %, point bas HORS score ; 3/4 métriques exigées", function () {
+    // attendus recalculés À LA MAIN (piège des percentiles : beaten = valeurs en-dessous pour
+    // higherIsBetter, au-dessus pour lowerIsBetter — se tromper 2 fois en v4.0.7, on ne recommence pas)
     var l = [
-      { n: "A", mn: "A", y: "A.PA", g: "cac40", per: 10, dY: 3, pb: 1, px: 10, w52lo: 9.5, w52hi: 20, roe: 0.2, mOp: 0.15, gRev: 0.05, de: 30 },
-      { n: "B", mn: "B", y: "B.PA", g: "cac40", per: 20, dY: 1, pb: 2, px: 15, w52lo: 10, w52hi: 16, roe: 0.1, mOp: 0.1, gRev: -0.02, de: 60 },
-      { n: "C", mn: "C", y: "C.PA", g: "cac40", per: 15, dY: 2, pb: 1.5, px: 12, w52lo: 11, w52hi: 14 }, // sans fondamentaux
-      { n: "D", mn: "D", y: "D.PA", g: "cac40", px: 5, roe: 0.12 }, // 1 seule métrique qualité, pas de PER
-      { n: "E", mn: "E", y: "E.PA", g: "cac40", per: 12, dY: 2, pb: 1.5, px: 13, roe: 0.18, mOp: 0.12 } // pas de 52 s.
+      { n: "A", mn: "A", y: "A.PA", g: "cac40", per: 10, dY: 3, pb: 1, px: 10, w52lo: 9.5, w52hi: 20, roe: 0.2, mOp: 0.15, gRev: 0.05, de: 30, fper: 9 },
+      { n: "B", mn: "B", y: "B.PA", g: "cac40", per: 20, dY: 1, pb: 2, px: 15, w52lo: 10, w52hi: 16, roe: 0.1, mOp: 0.1, gRev: -0.02, de: 60, fper: 25 },
+      { n: "C", mn: "C", y: "C.PA", g: "cac40", per: 15, dY: 2.5, pb: 1.5, px: 12, w52lo: 11, w52hi: 14 }, // sans fondamentaux
+      { n: "D", mn: "D", y: "D.PA", g: "cac40", px: 5, pb: 1.2, roe: 0.12, de: -40 }, // D/E négatif → null ; 1 seule métrique utile, pas de PER
+      { n: "E", mn: "E", y: "E.PA", g: "cac40", per: 11, dY: 1.5, pb: -0.5, px: 13, roe: 0.25, mOp: 0.11, gRev: 0.03, de: 20 }, // fonds propres négatifs → roe/de null → 2/4
+      { n: "F", mn: "F", y: "F.PA", g: "cac40", per: 12, dY: 2, pb: 1.4, px: 13, roe: 0.18, mOp: 0.12, gRev: 0.01, de: 45 }
     ];
     var val = RI.oppScores(RI.valScores(l));
-    EQ(val[0].qScore, 100, "A : meilleure à tout (ROE, marge, croissance, dette) → qualité 100");
+    EQ(val[0].qScore, 100, "A : meilleure à tout → qualité 100");
     EQ(val[0].qBase, 4, "base 4/4");
+    EQ(val[0].qMode, "index", "sans secteur → vs indice");
+    EQ(val[0].score, 100, "A : valorisation 100");
+    EQ(val[0].oScore, 100, "A : 0,57×100 + 0,43×100 = 100");
+    EQ(val[0].pos52, 5, "A : pos52 5 — étiquette d'info, toujours calculée");
+    A(val[0].earnWarn !== true, "A : fper 9 < per 10 → pas d'avertissement");
     EQ(val[1].qScore, 0, "B : pire à tout → qualité 0");
-    EQ(val[0].score, 100, "A : valorisation 100 (PER/rendt/P/B tous meilleurs)");
-    EQ(val[0].pos52, 5, "A : bas de fourchette 52 s.");
-    EQ(val[0].oScore, 99, "A : 0,4×100 + 0,3×100 + 0,3×(100-5) = 98,5 → 99");
-    EQ(val[1].pos52, 83, "B : (15-10)/(16-10) = 83 % de la fourchette");
-    EQ(val[1].oScore, 5, "B : 0 + 0 + 0,3×(100-83) = 5,1 → 5");
+    EQ(val[1].oScore, 0, "B : 0,57×0 + 0,43×0 = 0");
+    EQ(val[1].pos52, 83, "B : (15-10)/(16-10) = 83 % de la fourchette (info seule, ne pèse plus 30 %)");
+    A(val[1].earnWarn === true, "B : fper 25 > per 20 → bénéfices attendus en baisse");
     A(val[2].oScore === null, "C : pas de fondamentaux → pas de score 💎 (on n'invente rien)");
-    A(val[3].qScore === null, "D : 1 seule métrique qualité → qScore null (pas un avis)");
-    EQ(val[4].qScore, 60, "E : ROE 67 (2 des 3 autres en dessous) + marge 50 → (0,35×67+0,25×50)/0,6 = 59,9 → 60");
-    EQ(val[4].oScore, 56, "E sans 52 s. : (0,4×60 + 0,3×50)/0,7 = 55,7 → 56 (renormalisé)");
-    EQ(RI.sbfSort(val, "opp").map(function (e) { return e.n; }).slice(0, 3), ["A", "E", "B"], "vue 💎 : A puis E puis B, nulls en fin");
+    A(val[3].qScore === null, "D : roe seul (D/E négatif nullifié) → 1/4 métriques → null");
+    A(val[3].pDe === null, "D : percentile dette null (le D/E négatif n'a PAS été classé premier)");
+    A(val[4].qScore === null, "E : roe et de nullifiés (fonds propres négatifs) → 2/4 métriques → null (v4.0.8 : 3/4 exigés)");
+    A(val[4].pRoe === null, "E : le ROE 0,25 sur fonds propres négatifs n'entre PAS dans le classement");
+    // F : roe 67 (battu B 0,1 et D 0,12 sur 3 autres : 2/3) · mOp 67 (battu B 0,1 et E 0,11 : 2/3)
+    //     gRev 33 (battu B -0,02 seul : 1/3) · de 50 (battu B 60 seul : 1/2)
+    //     qScore = (0,35×67 + 0,25×67 + 0,2×33 + 0,2×50) = 56,8 → 57
+    EQ(val[5].qScore, 57, "F : qualité 57");
+    //     valorisation F : per 50 (battu B 20 et C 15 sur 4) · dY 50 (battu B 1 et E 1,5 sur 4)
+    //     · pb 50 (battu B 2 et C 1,5 sur 4 — D 1,2 est SOUS F, E -0,5 exclu)
+    //     score = 0,5×50 + 0,3×50 + 0,2×50 = 50
+    EQ(val[5].score, 50, "F : valorisation 50");
+    EQ(val[5].oScore, 54, "F : 0,57×57 + 0,43×50 = 53,99 → 54 (plus de renormalisation : une seule formule)");;
+    EQ(RI.sbfSort(val, "opp").map(function (e) { return e.n; }).slice(0, 3), ["A", "F", "B"], "vue 💎 : A puis F puis B, nulls en fin");
+  });
+  T("v4.0.8 oppScores : qualité PAR SECTEUR (≥ 8 pairs), repli vs indice — ROE/marge/dette comparés aux pairs", function () {
+    var l2 = [];
+    for (var k = 0; k < 8; k++) {
+      l2.push({ n: "Bk" + k, mn: "Bk" + k, y: "B" + k + ".PA", g: "cac40", sec: "Finance", per: 10 + k, dY: 1, pb: 1, px: 10 + k,
+        roe: 0.05 + 0.01 * k, gRev: 0.01 * k, de: 20 + 10 * k }); // banques : pas de marge op. → 3/4 métriques quand même
+    }
+    l2.push({ n: "X", mn: "X", y: "X.PA", g: "cac40", per: 10, dY: 3, pb: 1, px: 20, roe: 0.2, gRev: 0.1, de: 15 }); // hors secteur → vs indice
+    var val2 = RI.oppScores(RI.valScores(l2));
+    EQ(val2[3].qMode, "sector", "secteur Finance ≥ 8 pairs → classement interne");
+    EQ(val2[3].qBase, 3, "banque sans marge op. : 3/4 métriques → score autorisé");
+    // Bk3 : roe 0,08 → battu 3/7 = 43 · gRev 0,03 → 43 · de 50 → battu 4/7 = 57
+    // qScore = (0,35×43 + 0,2×43 + 0,2×57)/0,75 = 46,73 → 47
+    EQ(val2[3].qScore, 47, "Bk3 : qualité sectorielle 47");
+    // Bk0 : roe 0 · gRev 0 · de 100 → (0 + 0 + 0,2×100)/0,75 = 26,67 → 27
+    EQ(val2[0].qScore, 27, "Bk0 : qualité sectorielle 27");
+    EQ(val2[8].qMode, "index", "sans secteur → vs indice");
+    // X : roe/gRev/de battent les 8 autres → 100/100/100 → (0,35+0,2+0,2)×100/0,75 = 100
+    EQ(val2[8].qScore, 100, "X : qualité 100 vs indice");
+    // oScore de Bk3 : valorisation sectorielle per 57 (battu 4/7) · dY 0 (ex æquo, rankPct strict) · pb 0 → 29
+    // oScore = 0,57×47 + 0,43×29 = 39,26 → 39
+    EQ(val2[3].oScore, 39, "Bk3 : composite 💎 39");
+    // X : per à égalité avec Bk0 (10) → rang strict 88 (battu 7/8) · dY 100 (battu 8/8) · pb 0
+    //     (ex æquo avec les 8 banques, rankPct strict) → score = 0,5×88 + 0,3×100 + 0,2×0 = 74
+    // oScore = 0,57×100 + 0,43×74 = 88,82 → 89
+    EQ(val2[8].oScore, 89, "X : composite 💎 89");
   });
   T("v4.0.7 quoteRow : bornes 52 s. Yahoo rapportées (fiftyTwoWeekLow/High)", function () {
     var r = FQ.quoteRow({ symbol: "MC.PA", shortname: "LVMH", regularMarketPrice: 402.45, regularMarketChangePercent: -0.5,
@@ -1576,6 +1641,79 @@ function TA(name, fn) {
       EQ(q.list[0].w52hi, 61.9, "plus haut 52 s. TradingView");
       EQ(q.list[0].sec, "Finance", "secteur toujours là");
     });
+  });
+  T("v4.0.8 journal-scores : entrée du jour (top triés + cours des 120 = pas de biais du survivant), anti-doublon par date", function () {
+    var J = require("./journal-scores.js");
+    var q = {
+      updated: "2026-11-09T17:42:36Z", source: "TradingView (repli)", idx: { px: 8229.14 },
+      list: [
+        { n: "A", mn: "A", y: "A.PA", g: "cac40", per: 10, dY: 3, pb: 1, px: 10, roe: 0.2, mOp: 0.15, gRev: 0.05, de: 30 },
+        { n: "B", mn: "B", y: "B.PA", g: "cac40", per: 20, dY: 1, pb: 2, px: 15, roe: 0.1, mOp: 0.1, gRev: -0.02, de: 60 },
+        { n: "C", mn: "C", y: "C.PA", g: "cac40", px: 12 } // ni score ni qualité — mais le cours est journalisé
+      ]
+    };
+    var e = J.buildJournalEntry(q);
+    EQ(e.date, "2026-11-09", "date = jour du relevé (UTC)");
+    EQ(e.idx, 8229.14, "indice journalisé (benchmark intégré à chaque ligne)");
+    EQ(e.opp.length, 2, "top 💎 = valeurs avec oScore non null");
+    EQ(e.opp[0].y, "A.PA", "meilleur 💎 en tête");
+    EQ(e.val.length, 2, "top 📐 = valeurs avec score non null");
+    EQ(e.px["C.PA"], 12, "TOUTES les valeurs journalisées (même sans score) — rendements futurs sans biais du survivant");
+    A(J.shouldAppend("", "2026-11-09"), "journal vide → on écrit");
+    A(J.shouldAppend('{"date":"2026-11-08"}\n', "2026-11-09"), "dernière ligne d'un autre jour → on écrit");
+    A(!J.shouldAppend('{"date":"2026-11-09"}\n', "2026-11-09"), "ligne du jour déjà là → pas de doublon");
+    A(!J.shouldAppend('{"date":"2026-11-08"}\n{"date":"2026-11-09"}\n', "2026-11-09"), "doublon caché au milieu → détecté");
+  });
+  T("v4.0.8 ops : transitions d'état → alertes ntfy ; échecs cotes ×2 de suite → alerte dédiée", function () {
+    var OPS = require("./ops.js");
+    var ok = { frOk: true, usOk: true, quotesOk: true, quotesFailStreak: 0 };
+    var r1 = OPS.nextQuotes(ok, false);
+    EQ(r1.alerts.length, 1, "ok → panne : alerte flip");
+    A(r1.alerts[0].indexOf("ÉCHEC") > -1, "message de panne cotations");
+    EQ(r1.ops.quotesFailStreak, 1, "1er échec : compteur à 1, pas d'alerte double échec");
+    var r2 = OPS.nextQuotes(r1.ops, false);
+    EQ(r2.ops.quotesFailStreak, 2, "2e échec consécutif : compteur à 2");
+    EQ(r2.alerts.length, 1, "alerte du 2e échec de suite (le flip a déjà été signalé au 1er)");
+    A(r2.alerts[0].indexOf("2 runs de suite") > -1, "message double échec explicite");
+    var r3 = OPS.nextQuotes(r2.ops, true);
+    EQ(r3.ops.quotesFailStreak, 0, "retour OK : compteur remis à zéro");
+    EQ(r3.alerts.length, 1, "alerte de rétablissement");
+    A(r3.alerts[0].indexOf("rétablies") > -1, "message rétablissement");
+    var ri = OPS.nextInsiders(ok, false, true);
+    EQ(ri.alerts.length, 1, "frOk → false : alerte panne FR");
+    A(ri.alerts[0].indexOf("FR") > -1, "la panne FR est identifiée");
+    var ri2 = OPS.nextInsiders(ri.ops, true, true);
+    EQ(ri2.alerts.length, 1, "rétablissement FR → alerte");
+    A(ri2.alerts[0].indexOf("rétablie") > -1, "message rétablissement FR");
+    var ri3 = OPS.nextInsiders(ri2.ops, true, true);
+    EQ(ri3.alerts.length, 0, "aucun changement → aucun spam ntfy");
+  });
+  TA("v4.0.8 ops : dead man's switch — ping 2xx = true, échec = false, jamais de throw", function () {
+    var OPS = require("./ops.js");
+    OPS.setFetchForTests(function () { return Promise.resolve({ status: 200 }); });
+    return OPS.pingHealth("https://hc.example/xyz").then(function (ok) {
+      A(ok === true, "2xx → ping délivré");
+      OPS.setFetchForTests(function () { return Promise.reject(new Error("network down")); });
+      return OPS.pingHealth("https://hc.example/xyz");
+    }).then(function (ok2) {
+      A(ok2 === false, "échec réseau → false (le run continue)");
+      OPS.setFetchForTests((typeof fetch === "function") ? fetch : null);
+    });
+  });
+  T("v4.0.8 fetch-quotes/fetch-insiders : intégration ops (alertes panne + dead man) branchée dans les mains", function () {
+    var fq = fs.readFileSync(__dirname + "/../tools/fetch-quotes.js", "utf8");
+    A(fq.indexOf("opsSuccess") > -1, "fetch-quotes : succès → ops + ping");
+    A(fq.indexOf("nextQuotes(prevOps, false)") > -1, "fetch-quotes : échec → compteur + alertes");
+    A(fq.indexOf("schéma suspect") > -1, "fetch-quotes : contrôle de schéma TV (bornes 52 s. massivement absentes → warning)");
+    var fi = fs.readFileSync(__dirname + "/../tools/fetch-insiders.js", "utf8");
+    A(fi.indexOf("nextInsiders") > -1, "fetch-insiders : transitions frOk/usOk → alertes");
+    A(fi.indexOf("HTTP \" + r.status") > -1, "notifyNtfy : un statut non-2xx n'est plus compté comme envoyé");
+    var wq = fs.readFileSync(__dirname + "/../.github/workflows/quotes.yml", "utf8");
+    A(wq.indexOf("journal-scores.js") > -1, "workflow cotes : journal quotidien branché");
+    A(wq.indexOf("ops.json") > -1, "workflow cotes : ops.json committé (même en échec)");
+    A(wq.indexOf("HEALTHCHECKS_URL") > -1, "workflow cotes : dead man's switch câblé");
+    var wi = fs.readFileSync(__dirname + "/../.github/workflows/insiders.yml", "utf8");
+    A(wi.indexOf("ops.json") > -1 && wi.indexOf("HEALTHCHECKS_URL") > -1, "workflow initiés : ops + dead man câblés");
   });
   TA("v4.0.6 fetchTargets : URL v10 financialData + objectifs/éléments parsés ; 429 → arrêt immédiat, partiel conservé", function () {
     var calls = 0;
