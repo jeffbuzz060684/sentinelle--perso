@@ -44,6 +44,10 @@ function buildJournalEntry(q, data) {
     updated: q.updated || null,
     source: q.source || null,
     idx: (q.idx && isFinite(q.idx.px)) ? Math.round(q.idx.px * 100) / 100 : null,
+    // v4.0.12 (audit) : l'IDENTITÉ du benchmark est conservée dans chaque ligne — comparer un
+    // relevé SBF 120 (Yahoo) à un repli CAC 40 (TradingView) n'est pas une comparaison.
+    idxName: (q.idx && typeof q.idx.name === "string" && q.idx.name) ? q.idx.name : null,
+    cov: Array.isArray(q.list) ? q.list.length : 0, // couverture du jour (titres dans le relevé)
     px: px,
     lt: ltTop.map(function (e) {
       return { y: e.y, ltScore: e.ltScore, qScore: e.qScore, score: e.score, ins: e.ins || 0, pos52: e.pos52 != null ? e.pos52 : null };
@@ -52,7 +56,9 @@ function buildJournalEntry(q, data) {
   };
 }
 
-// une ligne par jour : le relevé de 14 h et celui de 16 h ne doivent pas doubler la ligne
+// une ligne par jour : le relevé de 14 h et celui de 16 h ne doivent pas doubler la ligne.
+// v4.0.12 (audit) : le relevé LE PLUS RÉCENT du jour REMPLACE la ligne du jour — le snapshot
+// de 14 h ne survit pas à celui de 16 h ; toujours 1 ligne par date, mais la plus fraîche.
 function shouldAppend(text, date) {
   if (!text || !text.trim()) return true;
   var lines = text.trim().split("\n");
@@ -65,15 +71,27 @@ function shouldAppend(text, date) {
   return true;
 }
 
+// v4.0.12 : fusion texte + entrée — remplace la ligne du même jour s'il y en a une, sinon ajoute.
+// Pure : testable sans toucher au fichier. Renvoie { text, replaced }.
+function upsertEntry(prev, entry) {
+  var lines = (prev && prev.trim()) ? prev.trim().split("\n") : [];
+  for (var i = lines.length - 1; i >= 0; i--) {
+    var same = false;
+    try { var last = JSON.parse(lines[i]); same = !!(last && last.date === entry.date); } catch (e) { same = false; }
+    if (same) {
+      return { text: lines.slice(0, i).concat([JSON.stringify(entry)]).concat(lines.slice(i + 1)).join("\n") + "\n", replaced: true };
+    }
+  }
+  return { text: (prev || "") + (prev && !prev.endsWith("\n") ? "\n" : "") + JSON.stringify(entry) + "\n", replaced: false };
+}
+
 function appendEntry(entry) {
   var prev = fs.existsSync(JOURNAL_PATH) ? fs.readFileSync(JOURNAL_PATH, "utf8") : "";
-  if (!shouldAppend(prev, entry.date)) {
-    console.log("[journal] ligne du " + entry.date + " déjà présente — pas de doublon");
-    return false;
-  }
-  fs.writeFileSync(JOURNAL_PATH, prev + (prev && !prev.endsWith("\n") ? "\n" : "") + JSON.stringify(entry) + "\n");
-  console.log("[journal] " + entry.date + " : top " + entry.lt.length + " 🏆 + top " + entry.val.length + " 📐, " +
-    Object.keys(entry.px).length + " cours, indice " + entry.idx);
+  var r = upsertEntry(prev, entry);
+  fs.writeFileSync(JOURNAL_PATH, r.text);
+  console.log("[journal] " + entry.date + (r.replaced ? " : ligne du jour REMPLACÉE par le relevé le plus récent — " : " : ") +
+    "top " + entry.lt.length + " 🏆 + top " + entry.val.length + " 📐, " +
+    Object.keys(entry.px).length + " cours, indice " + entry.idx + (entry.idxName ? " (" + entry.idxName + ")" : ""));
   return true;
 }
 
@@ -107,15 +125,23 @@ function report() {
         if (Date.parse(lines[j].date) >= t + h[1] * 86400000) { later = lines[j]; break; }
       }
       if (!later) return;
+      // v4.0.12 (audit) : ne comparer que des périodes utilisant le MÊME indice — un relevé
+      // SBF 120 (Yahoo) face à un repli CAC 40 (TradingView) n'est pas une comparaison.
+      // Les lignes sans idxName (ancien format) restent comparées : on ne peut pas les identifier.
+      if (l.idxName && later.idxName && l.idxName !== later.idxName) {
+        console.log("[journal] " + l.date + " +" + h[0] + " : benchmark différent (" + l.idxName + " → " + later.idxName + ") — comparaison ignorée");
+        return;
+      }
       var bench = later.idx / l.idx - 1;
+      var dur = Math.round((Date.parse(later.date) - t) / 86400000); // durée réellement observée
       var px0 = l.px || {};
       var top = function (arr) { return arr.slice(0, 5).map(function (t2) { return { y: t2.y, px: px0[t2.y] }; }); };
       var o = l.lt || l.opp; // v4.0.10 : clé "lt" (lignes anciennes : "opp")
       var oF = o && o.length ? fwd(top(o), later.px || {}, bench) : null;
       var v = l.val && l.val.length ? fwd(top(l.val), later.px || {}, bench) : null;
-      console.log("[journal] " + l.date + " +" + h[0] + " : " +
-        (oF == null ? "🏆 n/a" : "🏆 top 5 : " + (oF.mean * 100).toFixed(1) + " % (n=" + oF.n + ") vs indice " + (bench * 100).toFixed(1) + " % → " + ((oF.mean - bench) * 100).toFixed(1) + " pt") +
-        (v == null ? "" : " | 📐 top 5 : " + (v.mean * 100).toFixed(1) + " % → " + ((v.mean - bench) * 100).toFixed(1) + " pt"));
+      console.log("[journal] " + l.date + " +" + h[0] + " (observé " + dur + " j, benchmark " + (l.idxName || "indice non identifié (ancien format)") + ", couverture " + (l.cov || "?") + " titres) : " +
+        (oF == null ? "🏆 n/a" : "🏆 top 5 : " + (oF.mean * 100).toFixed(1) + " % (couverts " + oF.n + "/5) vs " + (bench * 100).toFixed(1) + " % → " + ((oF.mean - bench) * 100).toFixed(1) + " pt") +
+        (v == null ? "" : " | 📐 top 5 : " + (v.mean * 100).toFixed(1) + " % (couverts " + v.n + "/5) → " + ((v.mean - bench) * 100).toFixed(1) + " pt"));
       n++;
     });
     if (!n) console.log("[journal] +" + h[0] + " : aucune ligne assez ancienne (journal démarré " + (lines[0] && lines[0].date) + ")");
@@ -135,4 +161,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { buildJournalEntry: buildJournalEntry, shouldAppend: shouldAppend, appendEntry: appendEntry, report: report, JOURNAL_PATH: JOURNAL_PATH };
+module.exports = { buildJournalEntry: buildJournalEntry, shouldAppend: shouldAppend, upsertEntry: upsertEntry, appendEntry: appendEntry, report: report, JOURNAL_PATH: JOURNAL_PATH };

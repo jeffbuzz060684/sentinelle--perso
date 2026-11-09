@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.11";   // version unique de l'app (badge + footer la lisent) — v4.0.11 : UN SEUL classement 🏆 Long terme (qualité 55 + point d'entrée 35 + initiés 10) — les vues 📐 🔀 🎯 n'existent plus
+  var VERSION = "4.0.12";   // version unique de l'app (badge + footer la lisent) — v4.0.12 (audit) : initiés NEUTRES à 50 sans signal, percentiles sectoriels par MÉTRIQUE (≥ 8 pairs ET ≥ 5 observations), composantes visibles, « point d'entrée » → « valorisation relative », 52 s. hors bornes signalée, journal benchmark
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -655,46 +655,49 @@ var RI = (function () {
   // une seule métrique n'a pas la même fiabilité qu'un score sur les trois.
   function valScores(list) {
     var W = { per: 0.5, dY: 0.3, pb: 0.2 };
-    var MIN_SEC = 8;
+    // v4.0.12 (audit) : le mode sectoriel d'une métrique exige ≥ 8 valeurs dans le secteur
+    // ET ≥ 5 observations VALIDES de cette métrique dans le pool — un percentile sectoriel
+    // calculé sur 2 observations est un bruit, pas un rang. Sinon la métrique se compare
+    // à l'indice. vMode devient "sector" / "index" / "mix" (une partie des métriques de la
+    // ligne est sectorisée, l'autre non) — l'UI affiche la base de chaque score.
+    var MIN_SEC = 8, MIN_MET = 5;
     var bySec = {};
     for (var i = 0; i < list.length; i++) {
       var sec = (typeof list[i].sec === "string" && list[i].sec) ? list[i].sec : null;
       if (sec) (bySec[sec] = bySec[sec] || []).push(i);
     }
-    var res = []; // res[i] = { pPer, pDY, pPb, mode }
-    for (var r0 = 0; r0 < list.length; r0++) res[r0] = null;
-    function pctsOf(sub) {
-      return { pPer: rankPct(sub, "per", true), pDY: rankPct(sub, "dY", false), pPb: rankPct(sub, "pb", true) };
+    var METS = [["per", "pPer", true], ["dY", "pDY", false], ["pb", "pPb", true]];
+    var res = [];
+    for (var r0 = 0; r0 < list.length; r0++) res[r0] = { pPer: null, pDY: null, pPb: null, mPer: "index", mDY: "index", mPb: "index" };
+    // référentiel « vs indice » : une passe sur toute la liste, clés = index dans la liste
+    var full = { pPer: rankPct(list, "per", true), pDY: rankPct(list, "dY", false), pPb: rankPct(list, "pb", true) };
+    for (var i1 = 0; i1 < list.length; i1++) {
+      res[i1].pPer = full.pPer[i1] != null ? full.pPer[i1] : null;
+      res[i1].pDY = full.pDY[i1] != null ? full.pDY[i1] : null;
+      res[i1].pPb = full.pPb[i1] != null ? full.pPb[i1] : null;
     }
-    // secteurs assez peuplés → classement interne au secteur
-    var sectorDone = {};
+    // observations valides d'une métrique dans un sous-ensemble (même filtre que rankPct)
+    function validCount(sub, field) {
+      var n = 0;
+      for (var k = 0; k < sub.length; k++) {
+        var v = sub[k][field];
+        if (v == null || !isFinite(v)) continue;
+        if (field !== "dY" && v <= 0) continue;
+        n++;
+      }
+      return n;
+    }
+    // secteurs assez peuplés → classement interne au secteur, MÉTRIQUE PAR MÉTRIQUE
     for (var s2 in bySec) {
       if (!Object.prototype.hasOwnProperty.call(bySec, s2)) continue;
       if (bySec[s2].length < MIN_SEC) continue;
       var sub = bySec[s2].map(function (j) { return list[j]; });
-      var p = pctsOf(sub);
-      bySec[s2].forEach(function (j, k) {
-        res[j] = {
-          pPer: p.pPer[k] != null ? p.pPer[k] : null,
-          pDY: p.pDY[k] != null ? p.pDY[k] : null,
-          pPb: p.pPb[k] != null ? p.pPb[k] : null,
-          mode: "sector"
-        };
-        sectorDone[j] = 1;
-      });
-    }
-    // les autres (secteur absent ou trop petit) → « vs indice » : percentiles sur toute la liste
-    var idxRows = [];
-    for (var i2 = 0; i2 < list.length; i2++) if (!sectorDone[i2]) idxRows.push(i2);
-    if (idxRows.length) {
-      var full = pctsOf(list); // clés = index dans la liste complète
-      idxRows.forEach(function (j) {
-        res[j] = {
-          pPer: full.pPer[j] != null ? full.pPer[j] : null,
-          pDY: full.pDY[j] != null ? full.pDY[j] : null,
-          pPb: full.pPb[j] != null ? full.pPb[j] : null,
-          mode: "index"
-        };
+      METS.forEach(function (m) {
+        if (validCount(sub, m[0]) < MIN_MET) return; // métrique trop peu couverte dans le secteur → vs indice
+        var p = rankPct(sub, m[0], m[2]);
+        bySec[s2].forEach(function (j, k) {
+          if (p[k] != null) { res[j][m[1]] = p[k]; res[j]["m" + m[1].slice(1)] = "sector"; }
+        });
       });
     }
     return list.map(function (e, i) {
@@ -710,7 +713,13 @@ var RI = (function () {
       o.pPb = p.pPb != null ? p.pPb : null;
       o.score = (p.pPer != null && w > 0) ? Math.round(s / w) : null;
       o.vBase = p.pPer != null ? ((p.pPer != null ? 1 : 0) + (p.pDY != null ? 1 : 0) + (p.pPb != null ? 1 : 0)) : 0;
-      o.vMode = p.mode;
+      var modes = [];
+      if (p.pPer != null) modes.push(p.mPer);
+      if (p.pDY != null) modes.push(p.mDY);
+      if (p.pPb != null) modes.push(p.mPb);
+      o.vMode = modes.length === 0 ? "index"
+        : (modes.every(function (m) { return m === "sector"; }) ? "sector"
+        : (modes.every(function (m) { return m === "index"; }) ? "index" : "mix"));
       return o;
     });
   }
@@ -772,13 +781,16 @@ var RI = (function () {
   }
 
   // position dans la fourchette 52 s. : 0 = au plus bas, 100 = au plus haut (bornée).
-  // gapLo = écart au plus bas en % (ce que lit l'investisseur : « à +3 % de son plus bas »),
-  // dd52 = écart au plus haut en % (le risque déjà pris).
+  // gapLo = écart SIGNÉ au plus bas en % (négatif si le cours est SOUS la borne fournie),
+  // dd52 = écart signé au plus haut en %. v4.0.12 (audit) : un cours HORS des bornes fournies
+  // est signalé (out = -1 sous la fourchette, +1 au-dessus) au lieu d'être confondu avec une
+  // position à l'extrémité — des bornes périmées ou un décrochage ne se lisent pas « au plus bas ».
   function pos52Of(e) {
     var lo = e.w52lo, hi = e.w52hi, px = e.px;
-    if (lo == null || hi == null || !(hi > lo) || !(px > 0)) return { pos: null, gapLo: null, dd: null };
+    if (lo == null || hi == null || !(hi > lo) || !(px > 0)) return { pos: null, gapLo: null, dd: null, out: 0 };
     var pos = Math.max(0, Math.min(100, ((px - lo) / (hi - lo)) * 100));
-    return { pos: Math.round(pos), gapLo: Math.round((px / lo - 1) * 1000) / 10, dd: Math.round((px / hi - 1) * 1000) / 10 };
+    var out = px < lo ? -1 : (px > hi ? 1 : 0);
+    return { pos: Math.round(pos), gapLo: Math.round((px / lo - 1) * 1000) / 10, dd: Math.round((px / hi - 1) * 1000) / 10, out: out };
   }
 
   // enrichit la sortie de valScores : qScore (qualité, PAR SECTEUR, ≥ 3/4 métriques),
@@ -786,11 +798,12 @@ var RI = (function () {
   function oppScores(list) {
     var W = { roe: 0.35, mOp: 0.25, gRev: 0.2, de: 0.2 };
     var MIN_SEC = 8; // même seuil que la valorisation : mêmes référentiels, même transparence
+    var MIN_MET = 5; // v4.0.12 (audit) : une métrique est sectorisée seulement si ≥ 5 observations valides dans le pool
     var clean = list.map(qMetricOf); // métriques nettoyées des non-sens financiers
     // regroupement sectoriel identique à valScores : secteurs ≥ 8 pairs → classement interne ;
     // le reste (secteur absent ou trop petit) → percentiles « vs indice » sur TOUTE la liste
     // nettoyée, comme le fait valScores pour ses propres métriques.
-    var bySec = {}, done = {};
+    var bySec = {};
     for (var i = 0; i < list.length; i++) {
       var sec = (typeof list[i].sec === "string" && list[i].sec) ? list[i].sec : null;
       if (!sec) continue;
@@ -800,21 +813,28 @@ var RI = (function () {
     for (var s in bySec) {
       if (!Object.prototype.hasOwnProperty.call(bySec, s) || bySec[s].length < MIN_SEC) continue;
       groups.push(bySec[s]);
-      bySec[s].forEach(function (j) { done[j] = 1; });
     }
-    function secPct(field, lowerIsBetter) {
+    function secPct(field, lowerIsBetter, modeOut) {
       var out = {};
       var full = rankPctAny(clean, field, lowerIsBetter); // référentiel « vs indice »
-      for (var j = 0; j < list.length; j++) out[j] = full[j] != null ? full[j] : null;
+      for (var j = 0; j < list.length; j++) { out[j] = full[j] != null ? full[j] : null; if (modeOut) modeOut[j] = "index"; }
       groups.forEach(function (g) {
         var sub = g.map(function (j) { return clean[j]; });
+        // v4.0.12 : percentile sectoriel seulement si la métrique est assez couverte dans le secteur
+        var n = 0;
+        for (var k = 0; k < sub.length; k++) if (sub[k][field] != null) n++;
+        if (n < MIN_MET) return; // trop peu d'observations → la métrique reste comparée à l'indice
         var p = rankPctAny(sub, field, lowerIsBetter);
-        g.forEach(function (j, k) { out[j] = p[k] != null ? p[k] : null; });
+        g.forEach(function (j, k) {
+          out[j] = p[k] != null ? p[k] : null;
+          if (modeOut && p[k] != null) modeOut[j] = "sector";
+        });
       });
       return out;
     }
-    var pRoe = secPct("roe", false), pOp = secPct("mOp", false),
-        pRev = secPct("gRev", false), pDe = secPct("de", true);
+    var mRoe = {}, mOp = {}, mRev = {}, mDe = {};
+    var pRoe = secPct("roe", false, mRoe), pOp = secPct("mOp", false, mOp),
+        pRev = secPct("gRev", false, mRev), pDe = secPct("de", true, mDe);
     return list.map(function (e, i) {
       var o = {};
       for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
@@ -829,13 +849,23 @@ var RI = (function () {
       o.pRev = pRev[i] != null ? pRev[i] : null;
       o.pDe = pDe[i] != null ? pDe[i] : null;
       o.qBase = used;
-      o.qMode = done[i] ? "sector" : "index";
+      // v4.0.12 : le mode dépend des métriques EFFECTIVEMENT utilisées — « mix » quand une
+      // partie est sectorisée (pool assez couvert) et l'autre comparée à l'indice
+      var qModes = [];
+      if (pRoe[i] != null) qModes.push(mRoe[i]);
+      if (pOp[i] != null) qModes.push(mOp[i]);
+      if (pRev[i] != null) qModes.push(mRev[i]);
+      if (pDe[i] != null) qModes.push(mDe[i]);
+      o.qMode = qModes.length === 0 ? "index"
+        : (qModes.every(function (m) { return m === "sector"; }) ? "sector"
+        : (qModes.every(function (m) { return m === "index"; }) ? "index" : "mix"));
       o.qScore = (used >= 3 && w > 0) ? Math.round(s / w) : null; // v4.0.8 : 3/4 métriques exigées — 2/4 = données trop partielles, pas un avis
       // piège à valeur : PER prévisionnel AU-DESSUS du PER passé = bénéfices attendus en baisse
       // (le « pas cher » d'aujourd'hui est peut-être un effondrement des bénéfices de demain)
       o.earnWarn = (e.fper != null && e.per != null && e.fper > e.per) ? true : undefined;
       var p52 = pos52Of(e);
       o.pos52 = p52.pos; o.gapLo = p52.gapLo; o.dd52 = p52.dd; // INFO, hors score (v4.0.8)
+      o.out52 = p52.out || 0; // v4.0.12 : -1 = cours SOUS la fourchette fournie, +1 = AU-DESSUS, 0 = dedans
       // composite 💎 : qualité 57 % + valorisation 43 % — point bas 52 s. exclu (cf. George & Hwang)
       o.oScore = (o.qScore != null && e.score != null) ? Math.round(0.57 * o.qScore + 0.43 * e.score) : null;
       return o;
@@ -889,19 +919,25 @@ var RI = (function () {
       for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
       o.ins = hit ? hit.b : 0;
       o.insLvl = hit ? hit.level : 0;
+      // v4.0.12 (audit) : la composante initiés est NEUTRE (50/100) sans cluster d'achats —
+      // l'ancienne formule (ins/15×100) donnait 0 à l'absence de signal, soit une pénalité
+      // implicite de 5 points sur le score global, en contradiction avec « jamais de malus ».
+      // Un cluster monte jusqu'à 100 : +15 → 100, +10 → 83, +4 → 63.
+      o.insSc = Math.round(50 + (Math.max(0, Math.min(o.ins, 15)) / 15) * 50);
       o.xScore = o.score == null ? null : (o.score + o.ins);
       // v4.0.10 : LA liste unique 🏆 Long terme — demande de Jade : « une seule liste des
       // meilleures entreprises pour le long terme avec un point d'entrée intéressant et
       // justifiable ». Composition assumée (heuristique de tri, jamais validée sur historique) :
-      //   qualité 55 %   → les meilleures entreprises : ROE/marge op./croissance/dette, PAR SECTEUR
-      //                    (le long terme, c'est la qualité de l'affaire)
-      //   entrée 35 %    → le point d'entrée : PER/rendement/P/B vs pairs (entrer pas cher)
-      //   initiés 10 %   → la conviction des dirigeants : bonus FR 30 j, 0-100 (15→100), jamais de malus
+      //   qualité 55 %                → les meilleures entreprises : ROE/marge op./croissance/dette, PAR SECTEUR
+      //   valorisation relative 35 %  → PER/rendement/P/B vs pairs (v4.0.12 : « point d'entrée » renommé —
+      //                                 PER, rendement et P/B décrivent un écart de prix vs les pairs,
+      //                                 pas le bon moment d'acheter)
+      //   initiés FR 10 %            → la conviction des dirigeants : 50 NEUTRE sans signal, jusqu'à 100
       // Le contexte d'entrée est AFFICHÉ sans entrer dans le score : 📉 position 52 s. (info,
       // George & Hwang : momentum au plus HAUT), 🎯 potentiel consensus (avis du marché),
       // ⚠️ bénéfices attendus en baisse. oScore null (qualité ou valorisation manquante) → pas d'avis.
       o.ltScore = o.oScore == null ? null
-        : Math.round(0.55 * o.qScore + 0.35 * o.score + 0.10 * ((o.ins / 15) * 100));
+        : Math.round(0.55 * o.qScore + 0.35 * o.score + 0.10 * o.insSc);
       // v4.0.6 : potentiel vs objectif de consensus (upside) — la carte 🎯 trie là-dessus.
       o.upX = (e.tp != null && e.px > 0 && isFinite(e.tp) && isFinite(e.px)) ? Math.round((e.tp / e.px - 1) * 1000) / 10 : null;
       return o;

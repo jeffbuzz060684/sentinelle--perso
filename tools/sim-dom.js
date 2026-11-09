@@ -324,7 +324,7 @@ module.exports = function simDom(cb) {
       A(!seg || !seg.listeners || !seg.listeners.click || !seg.listeners.click[0], "plus de handler de vue — un seul classement, rien à basculer");
       var s = elements["sbList"].innerHTML || "";
       A(s.indexOf("score + initiés") === -1, "l'ancienne vue croisée n'existe plus");
-      A(s.indexOf("qualité+entrée+initiés") > -1, "libellé du classement unique (qualité+entrée+initiés)");
+      A(s.indexOf("qualité+valorisation+initiés") > -1, "libellé du classement unique à composantes incomplètes (v4.0.12 : valorisation relative)");
       A(s.indexOf("+10 initiés") > -1, "détail du bonus initiés affiché quand il existe");
       var p = store["sentinelle-perso-prefs-v1"] || "";
       A(p.indexOf("xins") === -1 && p.indexOf("sbView") === -1, "plus de vue mémorisée : " + p);

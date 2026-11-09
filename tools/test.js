@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.11");
+  EQ(RI.VERSION, "4.0.12");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -812,7 +812,11 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
     A(h.indexOf("UNE SEULE liste 🏆 Long terme") > -1, "v4.0.11 : note méthodo = un seul classement, vues séparées supprimées");
     A(h.indexOf("📉 bas de fourchette 52 s.") > -1, "badge position 52 s. neutre (info, pas un signal d'achat)");
-    A(h.indexOf("qualité 55 %") > -1 && h.indexOf("point d'entrée 35 %") > -1 && h.indexOf("initiés FR 10 %") > -1, "note méthodo 🏆 : 55/35/10 affichés");
+    A(h.indexOf("qualité 55 %") > -1 && h.indexOf("valorisation relative 35 %") > -1 && h.indexOf("initiés FR 10 %") > -1, "note méthodo 🏆 : 55/35/10 affichés (v4.0.12 : « point d'entrée » renommé « valorisation relative »)");
+    A(h.indexOf("NEUTRE à 50/100") > -1, "v4.0.12 : initiés neutres à 50 sans signal expliqués (plus de pénalité d'absence)");
+    A(h.indexOf("≥ 5 observations valides") > -1 && h.indexOf("bases mixtes") > -1, "v4.0.12 : percentile sectoriel par métrique (≥ 8 pairs ET ≥ 5 observations), cas mixtes affichés");
+    A(h.indexOf("SOUS la fourchette 52 s.") > -1 && h.indexOf("AU-DESSUS de la fourchette 52 s.") > -1, "v4.0.12 : cours hors bornes 52 s. signalé, pas confondu avec une extrémité");
+    A(h.indexOf("trois composantes et leur couverture") > -1, "v4.0.12 : composantes + couverture affichées sur les cartes");
     A(h.indexOf("affiché sans être noté") > -1, "v4.0.10 : contexte d'entrée (52 s., consensus 🎯) affiché mais hors score");
     A(h.indexOf("George &amp; Hwang") > -1 || h.indexOf("George & Hwang") > -1, "référence littérature momentum citée");
     A(h.indexOf("Un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n'est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
@@ -1552,6 +1556,15 @@ function TA(name, fn) {
     EQ(r.gapLo, 5.3, "+5,3 % au-dessus du plus bas");
     EQ(r.dd, -50, "-50 % du plus haut");
     EQ(RI.pos52Of({ px: 25, w52lo: 9.5, w52hi: 20 }).pos, 100, "cours au-dessus du plus haut → borné à 100");
+    // v4.0.12 (audit) : un cours HORS des bornes fournies est SIGNALÉ, pas confondu avec une
+    // position à l'extrémité — bornes périmées ou décrochage ne se lisent pas « au plus bas ».
+    var under = RI.pos52Of({ px: 9, w52lo: 9.5, w52hi: 20 });
+    EQ(under.out, -1, "cours sous la borne basse → out = -1 (SOUS la fourchette)");
+    EQ(under.gapLo, -5.3, "écart au plus bas SIGNÉ : -5,3 % (le cours est sous la borne)");
+    var over = RI.pos52Of({ px: 25, w52lo: 9.5, w52hi: 20 });
+    EQ(over.out, 1, "cours au-dessus de la borne haute → out = +1 (AU-DESSUS de la fourchette)");
+    EQ(over.dd, 25, "écart au plus haut SIGNÉ : +25 % (au-dessus)");
+    EQ(RI.pos52Of({ px: 10, w52lo: 9.5, w52hi: 20 }).out, 0, "cours dans la fourchette → out = 0");
     A(RI.pos52Of({ px: 10, w52lo: null, w52hi: 20 }).pos === null, "bornes absentes → null");
     A(RI.pos52Of({ px: 10, w52lo: 20, w52hi: 20 }).pos === null, "fourchette vide (lo = hi) → null");
   });
@@ -1622,6 +1635,47 @@ function TA(name, fn) {
     //     → score = 0,5×94 + 0,3×100 + 0,2×50 = 87
     // oScore = 0,57×100 + 0,43×87 = 94,41 → 94
     EQ(val2[8].oScore, 94, "X : composite 💎 94");
+  });
+  T("v4.0.12 valScores : percentile sectoriel PAR MÉTRIQUE — < 5 observations valides dans le secteur → la métrique retombe vs indice (mode mixte)", function () {
+    // 8 banques : 4 PER seulement (Bk4-Bk7 sans per) → per refusé en sectoriel (4 < 5), dY/pb sectorisés
+    var l = [];
+    for (var b = 0; b < 8; b++) l.push({ n: "Bk" + b, per: (b < 4 ? 10 + 10 * b : null), dY: 2, pb: 1, sec: "Banques" });
+    l.push({ n: "X", per: 5, dY: 1, pb: 2 });  // hors secteur → tout vs indice
+    l.push({ n: "Y", per: 50, dY: 1, pb: 2 }); // hors secteur → tout vs indice
+    var s = RI.valScores(l);
+    // per vs indice (pool : 10,20,30,40,5,50) : Bk0 (10) battu 4/5 → 80 — PAS 100 (le pool sectoriel des
+    // seuls PER existants le donnerait premier) ; dY/pb sectorisés (8 ex æquo → rang moyen 50)
+    EQ(s[0].pPer, 80, "Bk0 : per à 4 observations dans le secteur → REFUSÉ, percentile vs indice : 80");
+    EQ(s[0].pDY, 50, "dY : 8 observations dans le secteur → sectorisé, ex æquo → 50");
+    EQ(s[0].pPb, 50, "pb : idem → 50");
+    EQ(s[0].vMode, "mix", "v4.0.12 : per vs indice + dY/pb vs secteur → vMode MIXTE, pas un bloc sectoriel figé");
+    EQ(s[0].score, 65, "score = 0,5×80 + 0,3×50 + 0,2×50 = 65");
+    EQ(s[8].vMode, "index", "X sans secteur → vs indice");
+    // X : pPer 100 (per 5 le moins cher du pool indice) · pDY 6 (ex æquo avec Y à 1, rang moyen (0+0,5)/9)
+    // · pPb 6 (idem à 2) → 0,5×100 + 0,3×6 + 0,2×6 = 53
+    EQ(s[8].score, 53, "X : score vs indice 53 (attendus recalculés à la main, ex æquo inclus)");
+    // frontière exacte : 5 observations valides dans le secteur → sectorisé (5 = seuil, pas 6)
+    var l2 = [];
+    for (var c = 0; c < 8; c++) l2.push({ n: "C" + c, per: (c < 5 ? 10 + 10 * c : null), sec: "Banques" });
+    l2.push({ n: "Z", per: 5 });
+    var s2 = RI.valScores(l2);
+    EQ(s2[0].pPer, 100, "5 PER dans le secteur (= seuil) → sectorisé : C0 (10) premier DU SECTEUR → 100 (Z per 5 hors du pool)");
+  });
+  T("v4.0.12 oppScores : qualité PAR MÉTRIQUE aussi — roe à 4 observations dans un secteur de 8 → vs indice, gRev/de sectorisés (qMode mixte)", function () {
+    var l = [];
+    for (var k = 0; k < 8; k++) {
+      l.push({ n: "Bk" + k, roe: (k < 4 ? 0.05 + 0.01 * k : null), gRev: 0.01 * k, de: 20 + 10 * k, sec: "Finance" });
+    }
+    l.push({ n: "X", roe: 0.2, gRev: 0.1, de: 15 }); // hors secteur → vs indice
+    var val = RI.oppScores(l);
+    EQ(val[0].pRoe, 0, "Bk0 : roe à 4 observations dans le secteur → REFUSÉ, vs indice (dernier du pool 0,05-0,2)");
+    EQ(val[0].qMode, "mix", "roe vs indice + gRev/de vs secteur → qMode MIXTE");
+    // Bk0 : pRev 0 (gRev 0 le plus bas du secteur) · pDe 100 (dette 20 la plus basse) →
+    // (0,35×0 + 0,2×0 + 0,2×100)/0,75 = 26,67 → 27
+    EQ(val[0].qScore, 27, "Bk0 : qScore renormalisé sur les 3 métriques disponibles (mOp absent)");
+    EQ(val[0].qBase, 3, "3 métriques qualité utilisées (roe, gRev, de — pas de marge op.)");
+    EQ(val[8].qMode, "index", "X sans secteur → vs indice");
+    EQ(val[8].qScore, 100, "X : roe/gRev/de tous premiers du pool indice → 100");
   });
   T("v4.0.7 quoteRow : bornes 52 s. Yahoo rapportées (fiftyTwoWeekLow/High)", function () {
     var r = FQ.quoteRow({ symbol: "MC.PA", shortname: "LVMH", regularMarketPrice: 402.45, regularMarketChangePercent: -0.5,
@@ -1703,7 +1757,7 @@ function TA(name, fn) {
     var solo = RI.rankPct([{ per: 5 }, { per: -3 }], "per", true); // -3 exclu (non positif) → 1 seule valeur
     A(solo[0] === undefined, "valeur unique → ABSENT (pas de 50 qui ressemblerait à un rang neutre sans l'être)");
   });
-  T("v4.0.10 🏆 Long terme : ltScore = qualité 55 + point d'entrée 35 + initiés 10 (jamais de malus) ; LA liste unique", function () {
+  T("v4.0.12 🏆 Long terme : ltScore = qualité 55 + valorisation relative 35 + initiés 10 (50 NEUTRE sans signal — v4.0.12 : l'absence d'initiés n'est plus une pénalité)", function () {
     var bonus = { byName: {}, byIsin: { "FR0000120073": { b: 15, level: 3, buys: 9, societe: "TOTAL" } } };
     var l = [
       { n: "A", y: "A.PA", mn: "A", isin: "", qScore: 80, score: 60, oScore: 70 },
@@ -1711,15 +1765,21 @@ function TA(name, fn) {
       { n: "L", y: "L.PA", mn: "L", isin: "", qScore: null, score: null, oScore: null }
     ];
     var e = RI.sbfEnrich(l, bonus);
-    EQ(e[0].ltScore, 65, "A sans initiés : 0,55×80 + 0,35×60 + 0,10×0 = 65");
+    EQ(e[0].insSc, 50, "A sans initiés : composante NEUTRE à 50 (plus 0/100 = pénalité implicite de 5 points)");
+    EQ(e[1].insSc, 100, "B avec cluster +15 : composante à 100");
+    EQ(e[0].ltScore, 70, "A sans initiés : 0,55×80 + 0,35×60 + 0,10×50 = 70");
     EQ(e[1].ltScore, 75, "B avec initiés 🔥🔥 +15 : 44 + 21 + 0,10×100 = 75");
-    A(e[2].ltScore === null, "oScore null (qualité ou entrée non mesurable) → ltScore null, on n'invente rien");
+    A(e[2].ltScore === null, "oScore null (qualité ou valorisation non mesurable) → ltScore null, on n'invente rien");
     EQ(RI.sbfSort(e, "lt").map(function (r) { return r.n; }), ["B", "A", "L"], "vue 🏆 : B (conviction initiés) devant A, null en fin");
+    // v4.0.12 : bonus intermédiaires — +10 → 83, +4 → 63 (50 + bonus/15×50)
+    var e2 = RI.sbfEnrich([{ n: "C", y: "C.PA", mn: "C", isin: "", qScore: 80, score: 60, oScore: 70, ins: 0 }], { byName: {}, byIsin: {} });
+    EQ(e2[0].insSc, 50, "bonus vide : insSc 50, le plancher de la composante");
   });
   T("v4.0.8 journal-scores : entrée du jour (top triés + cours des 120 = pas de biais du survivant), anti-doublon par date", function () {
     var J = require("./journal-scores.js");
     var q = {
-      updated: "2026-11-09T17:42:36Z", source: "TradingView (repli)", idx: { px: 8229.14 },
+      updated: "2026-11-09T17:42:36Z", source: "TradingView (repli — Yahoo indisponible), Euronext en différé ~15 min",
+      idx: { px: 8229.14, name: "CAC 40 (repli — SBF 120 absent de TradingView)" },
       list: [
         { n: "A", mn: "A", y: "A.PA", g: "cac40", per: 10, dY: 3, pb: 1, px: 10, roe: 0.2, mOp: 0.15, gRev: 0.05, de: 30 },
         { n: "B", mn: "B", y: "B.PA", g: "cac40", per: 20, dY: 1, pb: 2, px: 15, roe: 0.1, mOp: 0.1, gRev: -0.02, de: 60 },
@@ -1729,9 +1789,11 @@ function TA(name, fn) {
     var e = J.buildJournalEntry(q);
     EQ(e.date, "2026-11-09", "date = jour du relevé (UTC)");
     EQ(e.idx, 8229.14, "indice journalisé (benchmark intégré à chaque ligne)");
+    EQ(e.idxName, "CAC 40 (repli — SBF 120 absent de TradingView)", "v4.0.12 : l'IDENTITÉ du benchmark est conservée — SBF 120 vs repli CAC 40 ne se comparent pas");
+    EQ(e.cov, 3, "v4.0.12 : couverture du jour journalisée (titres dans le relevé)");
     EQ(e.lt.length, 2, "top 🏆 = valeurs avec ltScore non null");
     EQ(e.lt[0].y, "A.PA", "meilleur 🏆 en tête");
-    EQ(e.lt[0].ltScore, 90, "🏆 = 0,55×100 (qualité) + 0,35×100 (entrée) + 0,10×0 (pas d'initiés dans le fixture)");
+    EQ(e.lt[0].ltScore, 95, "🏆 = 0,55×100 (qualité) + 0,35×100 (valorisation) + 0,10×50 (initiés NEUTRES sans signal, v4.0.12)");
     EQ(e.lt[0].ins, 0, "composante initiés journalisée (0 ici)");
     EQ(e.val.length, 2, "top 📐 = valeurs avec score non null");
     EQ(e.px["C.PA"], 12, "TOUTES les valeurs journalisées (même sans score) — rendements futurs sans biais du survivant");
@@ -1739,6 +1801,19 @@ function TA(name, fn) {
     A(J.shouldAppend('{"date":"2026-11-08"}\n', "2026-11-09"), "dernière ligne d'un autre jour → on écrit");
     A(!J.shouldAppend('{"date":"2026-11-09"}\n', "2026-11-09"), "ligne du jour déjà là → pas de doublon");
     A(!J.shouldAppend('{"date":"2026-11-08"}\n{"date":"2026-11-09"}\n', "2026-11-09"), "doublon caché au milieu → détecté");
+    // v4.0.12 : le relevé LE PLUS RÉCENT du jour REMPLACE la ligne du jour (l'audit : le
+    // snapshot de 14 h ne doit pas survivre à celui de 16 h) — toujours 1 ligne par date.
+    var prev = '{"date":"2026-11-09","updated":"2026-11-09T14:00:00Z","idx":8100,"px":{"A.PA":9}}\n{"date":"2026-11-08","idx":8050}\n';
+    var up = J.upsertEntry(prev, e);
+    A(up.replaced, "ligne du jour déjà présente → REMPLACÉE, pas de doublon");
+    var lines = up.text.trim().split("\n");
+    EQ(lines.length, 2, "toujours une ligne par date");
+    A(lines[0].indexOf('"updated":"2026-11-09T17:42:36Z"') > -1, "la ligne du jour porte le relevé le plus récent");
+    A(lines[0].indexOf('"idx":8229.14') > -1, "l'indice du relevé récent remplace l'ancien");
+    A(lines[1].indexOf('"date":"2026-11-08"') > -1, "les autres jours sont intacts");
+    var up2 = J.upsertEntry('{"date":"2026-11-08","idx":8050}\n', e);
+    A(!up2.replaced, "aucune ligne du jour → ajout en fin de fichier");
+    A(up2.text.trim().split("\n").length === 2, "2 lignes après ajout : 2026-11-08 + 2026-11-09");
   });
   T("v4.0.8 ops : transitions d'état → alertes ntfy ; échecs cotes ×2 de suite → alerte dédiée", function () {
     var OPS = require("./ops.js");
