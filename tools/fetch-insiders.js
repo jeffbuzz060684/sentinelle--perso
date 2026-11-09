@@ -23,7 +23,7 @@ const DRY = args.includes('--dry');
 const wIdx = args.indexOf('--window');
 const WINDOW = wIdx >= 0 ? Math.max(2, Math.min(30, parseInt(args[wIdx + 1], 10) || 8)) : C.JOURS_FENETRE_SCAN;
 const MAX_PAGES_SWAOO = 12;      // arrêt naturel à la 1re page vide (~7 pages sur 8 j)
-const MAX_FILINGS_US = 80;       // plafond de Form 4 traités par scan
+const MAX_FILINGS_US = 150;      /* plafond de Form 4 traités par scan */
 const MAX_SCANNED_KEEP = 1500;   // mémoire des dépôts US déjà traités
 
 function log(...a) { console.log('[sentinelle]', ...a); }
@@ -105,6 +105,38 @@ async function ftsForm4s(startdt, enddt) {
   }));
 }
 
+// Repli : index quotidiens EDGAR (form.YYYYMMDD.idx), voie conçue pour l'automatisation.
+async function idxForm4s(startdt, enddt) {
+  const out = [];
+  // dates décroissantes de enddt → startdt
+  const list = [];
+  let cur = enddt;
+  for (let i = 0; i < 10; i++) {
+    list.push(cur);
+    if (cur <= startdt) break;
+    cur = C.isoMinusDays(cur, 1);
+  }
+  const errors = [];
+  for (const day of list) {
+    const y = day.slice(0, 4);
+    const q = 'QTR' + (Math.floor((parseInt(day.slice(4, 6), 10) - 1) / 3) + 1);
+    const url = 'https://www.sec.gov/Archives/edgar/daily-index/' + y + '/' + q + '/form.' + day.replace(/-/g, '') + '.idx';
+    let txt;
+    try {
+      txt = await fetchText(url, UA_SEC);
+    } catch (e) {
+      errors.push(day + ': ' + e.message);
+      continue; // 404 = pas encore publié, 403 = bloqué
+    }
+    for (const f of C.parseFormIdx(txt)) out.push(f);
+    await sleep(160);
+  }
+  if (out.length === 0 && errors.length === list.length) {
+    throw new Error('index quotidiens inaccessibles — ' + errors[0]);
+  }
+  return out;
+}
+
 async function primaryDocUrl(adsh, cik) {
   const noDash = adsh.replace(/-/g, '');
   const cikDir = String(parseInt(cik, 10));
@@ -135,12 +167,21 @@ async function scanUs(nowIso, alreadyScanned, usBuysById) {
   const fresh = [];
   const scanned = [];
   let hits = [];
+  let how = '';
+  
   try {
     hits = await ftsForm4s(start, today);
+    how = 'fts';
     log('US FTS', start, '→', today, ':', hits.length, 'Form 4');
   } catch (e) {
     log('US FTS indisponible :', e.message);
-    return { buys: fresh, scanned, status: 'erreur', erreur: e.message };
+    try {
+      hits = await idxForm4s(start, today);
+      how = 'idx';
+      log('US index quotidien', start, '→', today, ':', hits.length, 'Form 4');
+    } catch (e2) {
+      return { buys: fresh, scanned, status: 'erreur', erreur: 'FTS: ' + e.message + ' | IDX: ' + e2.message };
+    }
   }
   let treated = 0;
   for (const hit of hits) {

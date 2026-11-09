@@ -369,6 +369,28 @@ function validateData(d) {
   return errs;
 }
 
+// ─── US : index quotidien EDGAR (form.YYYYMMDD.idx) ──────────────────────────
+// Lignes pipe-séparées : CIK |Company Name|Form Type|Date Filed|Filename
+function parseFormIdx(txt) {
+  const out = [];
+  if (!txt || txt.indexOf('|') < 0) return out;
+  for (const line of String(txt).split('\n')) {
+    if (line.indexOf('|') < 0) continue;
+    const p = line.split('|').map(s => s.trim());
+    if (p.length < 5) continue;
+    if (!/^4(\/A)?$/.test(p[2])) continue;
+    const mAdsh = p[4].match(/(\d{10})-(\d{2})-(\d{6})/) || p[4].match(/(\d{18})/);
+    if (!mAdsh) continue;
+    const adsh = mAdsh.length === 4
+      ? (mAdsh[1] + '-' + mAdsh[2] + '-' + mAdsh[3])
+      : (mAdsh[1].slice(0, 10) + '-' + mAdsh[1].slice(10, 12) + '-' + mAdsh[1].slice(12));
+    const cik = String(parseInt(p[0], 10));
+    if (!cik || cik === 'NaN') continue;
+    out.push({ adsh, fileDate: p[3] || null, ciks: [cik], names: [p[1] || ''] });
+  }
+  return out;
+}
+
 // ─── Exports (Node) ──────────────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -376,7 +398,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseNumFr, parseNumUs, parseDateFr, todayIso, isoMinusDays, daysBetween, isRealDate,
     decodeEntities, stripTags,
     parseSwaooPage, parseBdifRss, bdifNotInSwaoo,
-    parseForm4Xml, form4ToEntry,
+    parseForm4Xml, form4ToEntry, parseFormIdx,
     mergeBuys, newSince, isBig, statsOf, validateData
   };
 }

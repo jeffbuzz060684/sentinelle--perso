@@ -117,6 +117,20 @@ t('stats : gros', st.gros === 1, st.gros);
 t('stats : fr/us', st.fr === 1 && st.us === 1);
 t('stats : à vérifier', st.aVerifier === 1, st.aVerifier);
 
+// ─── index quotidien EDGAR (parseFormIdx) ─────────────────────────────────────
+const idxTxt = FIX('form-idx.txt');
+const idx = C.parseFormIdx(idxTxt);
+t('parseFormIdx : 4 Form 4 retenus (4 + 4/A + noDash)', idx.length === 4, idx.length);
+t('parseFormIdx : Apple dashed', idx[0].adsh === '0000320193-26-000123' && idx[0].ciks[0] === '320193');
+t('parseFormIdx : 4/A accepté', idx[1].adsh === '0001493152-26-000456');
+t('parseFormIdx : dashed 10-2-6', idx[2].adsh === '0000001067-26-000001', idx[2]);
+t('parseFormIdx : 18 chiffres → dashed', idx[3].adsh === '0000950170-26-100456', idx[3]);
+t('parseFormIdx : S-1 rejeté', !idx.some(f => f.names[0] === 'OTHER CORP'));
+t('parseFormIdx : dateFiled', idx[0].fileDate === '2026-11-06');
+t('parseFormIdx : sans accession ignoré', !idx.some(f => f.names[0] === 'EMPTY FILENAME INC'));
+t('parseFormIdx : vide', C.parseFormIdx('').length === 0);
+t('parseFormIdx : pas de pipes', C.parseFormIdx('pas de pipe ici').length === 0);
+
 // ─── validation ──────────────────────────────────────────────────────────────
 t('validate : ok', C.validateData({ buys: [b1, b2] }).length === 0);
 t('validate : id dupliqué', C.validateData({ buys: [b1, { ...b1 }] }).length > 0);

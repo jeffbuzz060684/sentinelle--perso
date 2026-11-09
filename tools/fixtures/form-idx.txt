@@ -1,0 +1,13 @@
+Description:           Daily Index of EDGAR Dissemination
+Last Data Received:    November 06, 2026
+Comments:              webmaster@sec.gov
+ASC Sequence Number:   20261106
+------------------------
+CIK        |Company Name                    |Form Type  |Date Filed |Filename
+--------------------------------------------------------------------------------
+0000320193 |Apple Inc.                      |4          |2026-11-06|edgar/data/320193/0000320193-26-000123.txt
+0001493152 |DOE JOHN                        |4/A        |2026-11-06|edgar/data/1493152/000149315226000456.txt
+0001067  |TEST CORP                        |4          |2026-11-06|edgar/data/1067/0000001067-26-000001.txt
+00012345 |OTHER CORP                       |S-1        |2026-11-06|edgar/data/12345/00012345-26-000099.txt
+000065984 |EMPTY FILENAME INC               |4          |2026-11-06|edgar/data/65984/
+0001676030 |AEP TEXAS TRANSMISSION          |4          |2026-11-06|edgar/data/1676030/000095017026100456.txt
