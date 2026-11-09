@@ -82,7 +82,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 <div class="wrap">
   <header>
     <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v3.1</span>
+    <span class="badge" id="ver">v3.1.1</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
 
@@ -343,8 +343,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     var cnt = RI.signalCountByKey(buys);
     var cntS = RI.signalCountByKey(sells);
 
-    var all = state.prefs.side === "buy" ? buys : (state.prefs.side === "sell" ? sells : buys.concat(sells));
-    var rows = RI.filterRows(all, { source: state.prefs.src, minMontant: state.prefs.m, q: state.prefs.q });
+    // une recherche est une consultation ponctuelle : elle ignore le filtre Achats/Ventes
+    // (sinon chercher une société qui n'a que des ventes en mode 🟢 Achats => « aucune ligne » trompeur)
+    var qTxt = String(state.prefs.q || "").trim();
+    var all = qTxt ? buys.concat(sells) : (state.prefs.side === "buy" ? buys : (state.prefs.side === "sell" ? sells : buys.concat(sells)));
+    var rows = RI.filterRows(all, { source: state.prefs.src, minMontant: state.prefs.m, q: qTxt });
     if (state.prefs.new) {
       rows = rows.filter(function (r) { return state.newIds[r.id]; });
     }
@@ -352,7 +355,9 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
     var el = $("list");
     if (rows.length === 0) {
-      el.innerHTML = '<div class="empty">Aucune ligne avec ces filtres.</div>';
+      el.innerHTML = qTxt
+        ? '<div class="empty">Aucune ligne pour « ' + esc(qTxt) + ' » sur la fenêtre 90 j — vérifie l\'orthographe, ou elle n\'a aucune déclaration d\'initié (AMF/SEC) dans les seuils suivis.</div>'
+        : '<div class="empty">Aucune ligne avec ces filtres.</div>';
       return;
     }
     var html = [];

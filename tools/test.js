@@ -455,12 +455,12 @@ T("fetch-insiders.js compile", function () {
   });
   T("sw.js : cache versionné + réseau d'abord + clé sans ?v=", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf('sentinelle-perso-v3.1') > -1, "cache v3.1 (les téléphones v1/v2/v3 re-téléchargent le shell)");
-    A(sw.indexOf('sentinelle-perso-v3"') === -1, "plus de v3 comme nom de cache");
+    A(sw.indexOf('sentinelle-perso-v3.1.1') > -1, "cache v3.1.1 (les téléphones v1/v2/v3/v3.1 re-téléchargent le shell)");
+    A(sw.indexOf('sentinelle-perso-v3.1"') === -1, "plus de v3.1 comme nom de cache");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
   T("v3.1 : badge, éléments UI achats/ventes, fraîcheur par source, défaut Achats", function () {
-    A(html.indexOf('id="ver">v3.1<') > -1, "badge v3.1");
+    A(html.indexOf('id="ver">v3.1.1<') > -1, "badge v3.1.1");
     A(html.indexOf('id="segSide"') > -1, "segment Achats+ventes");
     A(html.indexOf('id="segSort"') > -1, "segment tri par id (plus par position — segSide est en dernier)");
     A(html.indexOf('id="sigCardSell"') > -1, "carte ventes");
@@ -476,6 +476,11 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf("signalsFrom") > -1, "signaux rendus");
     A(html.indexOf("quoteUrl") > -1, "liens cote");
     A(html.indexOf('data-side="buy"') > -1 && /data-side="buy"[^>]*class="[^"]*on"/.test(html.replace(/\n/g, " ")), "défaut 🟢 Achats actif");
+  });
+  T("v3.1.1 : recherche par société ignore le filtre Achats/Ventes", function () {
+    A(html.indexOf("var qTxt = String(state.prefs.q || \"\").trim();") > -1, "q trimé");
+    A(html.indexOf("qTxt ? buys.concat(sells)") > -1, "recherche => achats ET ventes (une société qui n'a que des ventes ne disparaît plus)");
+    A(html.indexOf("Aucune ligne pour « ") > -1, "message vide explicite quand une recherche ne trouve rien");
   });
   T("v3 : pipeline ventes — FR Acquisition+Cession, US P+A/S+D, migration state v3, data 4 listes", function () {
     var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");

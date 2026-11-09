@@ -202,6 +202,33 @@ module.exports = function simDom(cb) {
       A(l.indexOf("TOTALENERGIES SE") > -1, "ventes FR visibles");
       A(l.indexOf("ROCHE BOBOIS SA") === -1, "achats masqués en mode Ventes");
     });
+    T("recherche par société : ignore le filtre Achats/Ventes (v3.1.1)", function () {
+      // se mettre en mode 🟢 Achats (défaut production), puis chercher une société qui n'a que des ventes
+      var btnBuy = {
+        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
+        getAttribute: function (k) { return k === "data-side" ? "buy" : null; }
+      };
+      btnBuy.closest = function () { return btnBuy; };
+      elements["segSide"].listeners.click[0]({ target: btnBuy, preventDefault: function () { } });
+      var h = elements["list"] && elements["list"].innerHTML || "";
+      A(h.indexOf("TOTALENERGIES SE") === -1, "en mode Achats sans recherche, les ventes sont masquées");
+      var qEl = elements["q"];
+      var input = qEl && qEl.listeners.input && qEl.listeners.input[0];
+      A(!!input, "handler input recherche présent");
+      qEl.value = "TOTALENERGIES";
+      input({ target: qEl });
+      var l = elements["list"] && elements["list"].innerHTML || "";
+      A(l.indexOf("TOTALENERGIES SE") > -1, "la recherche TOTALENERGIES affiche ses VENTES même en mode 🟢 Achats");
+      A(l.indexOf("row fr sell") > -1, "lignes de vente rendues");
+      qEl.value = "Zzzzinexistant";
+      input({ target: qEl });
+      var l2 = elements["list"] && elements["list"].innerHTML || "";
+      A(l2.indexOf("Aucune ligne pour « Zzzzinexistant »") > -1, "message explicite quand la recherche ne trouve rien");
+      qEl.value = "";
+      input({ target: qEl });
+      var l3 = elements["list"] && elements["list"].innerHTML || "";
+      A(l3.indexOf("TOTALENERGIES SE") === -1, "recherche effacée => retour au filtre 🟢 Achats");
+    });
     cb(passed, failed, notes);
   }
   // laisser les promesses se résoudre (mock immediat -> 2 ticks suffisent)
