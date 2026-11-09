@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-09T09:46:32.528Z",
+ "updated": "2026-11-09T21:23:45.717Z",
  "fr": [
   {
    "id": "2026DD1148987",
@@ -2007,7 +2007,7 @@
   }
  ],
  "frOk": true,
- "usOk": true,
+ "usOk": false,
  "counts": {
   "fr": 63,
   "us": 49,
@@ -10138,5 +10138,6 @@
    "code": "S",
    "url": "https://www.sec.gov/Archives/edgar/data/2113214/000119312526450510/ownership.xml"
   }
- ]
+ ],
+ "frUpdated": "2026-11-09T21:23:44.051Z"
 }
