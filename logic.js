@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.5";   // version unique de l'app (badge + footer la lisent) — v4.0.5 : score PAR SECTEUR (TradingView), base du score explicite (vBase/vMode), marqueur approx propagé, âge de la composition
+  var VERSION = "4.0.6";   // version unique de l'app (badge + footer la lisent) — v4.0.6 : objectifs de consensus analystes (module v10 financialData), éléments éco/financiers par ligne, vue 🎯 triée par potentiel
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -757,14 +757,17 @@ var RI = (function () {
       o.ins = hit ? hit.b : 0;
       o.insLvl = hit ? hit.level : 0;
       o.xScore = o.score == null ? null : (o.score + o.ins);
+      // v4.0.6 : potentiel vs objectif de consensus (upside) — la carte 🎯 trie là-dessus.
+      o.upX = (e.tp != null && e.px > 0 && isFinite(e.tp) && isFinite(e.px)) ? Math.round((e.tp / e.px - 1) * 1000) / 10 : null;
       return o;
     });
   }
 
-  // tri des vues SBF 120 : "val" = score, "xins" = score croisé, "cap" = capitalisation.
-  // Les scores null (perte) restent en fin de liste — jamais cachés.
+  // tri des vues SBF 120 : "val" = score, "xins" = score croisé, "cap" = capitalisation,
+  // "obj" = potentiel vs objectif de consensus analystes (upside) — l'avis du marché, pas le nôtre.
+  // Les scores null (perte, pas d'objectif) restent en fin de liste — jamais cachés.
   function sbfSort(list, view) {
-    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : "score");
+    var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : (view === "obj" ? "upX" : "score"));
     return list.slice().sort(function (a, b) {
       var va = a[key], vb = b[key];
       var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);

@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 20
       - name: Cotations SBF 120 (Yahoo Finance)
-        run: node tools/fetch-quotes.js
+        run: node tools/fetch-quotes.js --max-age-targets-min=720
         # Échec (moins de 90 % de réponses, session Yahoo impossible) -> exit 1,
         # quotes.json précédent conservé, pas de commit : l'UI garde ses cotes anciennes.
       - name: Validation

@@ -47,7 +47,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.5");
+  EQ(RI.VERSION, "4.0.6");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -803,8 +803,12 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("Percentiles internes") > -1 && h.indexOf("par secteur") > -1, "note méthodo dans la page (secteur + indice)");
     A(h.indexOf("k/3 métriques") > -1, "note : base du score explicite");
     A(h.indexOf("id=\"sbComp\"") > -1, "stat âge de la composition (univers)");
+    A(h.indexOf("id=\"sbTpN\"") > -1, "stat objectifs analystes (consensus)");
     A(h.indexOf("≈ à vérifier") > -1, "badge approx visible sur les tickers approximatifs");
     A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
+    A(h.indexOf('data-v="obj"') > -1 && h.indexOf("🎯 Objectifs") > -1, "segment 🎯 Objectifs");
+    A(h.indexOf("objectif de consensus des analystes") > -1, "note méthodo : consensus ≠ score maison");
+    A(h.indexOf("potentiel vs l'objectif") > -1 || h.indexOf("Potentiel vs objectif") > -1, "potentiel vs objectif expliqué");
     A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
   });
   T("rankPct : percentiles, plus bas = 100, exclusion des non positifs", function () {
@@ -1502,6 +1506,69 @@ function TA(name, fn) {
     A(b.indexOf("approx: e.approx === true ? true : undefined") > -1, "assemblage final garde approx (sbf120.json)");
     var f = fs.readFileSync(__dirname + "/../tools/fetch-quotes.js", "utf8");
     A(f.indexOf("approx: e.approx === true ? true : undefined") > -1, "relevés quotes.json gardent approx (Yahoo + TV)");
+  });
+  TA("v4.0.6 fetchTargets : URL v10 financialData + objectifs/éléments parsés ; 429 → arrêt immédiat, partiel conservé", function () {
+    var calls = 0;
+    FQ.setFetchForTests(function (url) {
+      var u = String(url);
+      A(u.indexOf("v10/finance/quoteSummary/") > -1 && u.indexOf("modules=financialData") > -1 && u.indexOf("crumb=") > -1, "URL v10 + module + crumb : " + u);
+      calls++;
+      if (calls === 1) return Promise.resolve(res(200, JSON.stringify({ quoteSummary: { result: [{ financialData: {
+        targetMeanPrice: { raw: 491.36 }, targetLowPrice: { raw: 415 }, targetHighPrice: { raw: 590 },
+        numberOfAnalystOpinions: { raw: 27 }, recommendationKey: "buy",
+        revenueGrowth: { raw: -0.029 }, earningsGrowth: { raw: 0.008 },
+        operatingMargins: { raw: 0.2252 }, returnOnEquity: { raw: 0.16586 }, debtToEquity: { raw: 53.306 }
+      } }] } })));
+      return Promise.resolve(res(429, "Too Many Requests")); // 2e valeur : la rafale commence
+    });
+    return FQ.fetchTargets(["MC.PA", "AIR.PA", "CAP.PA"], { cookie: "A1=d=x", crumb: "crumb4tests" }, { paceMs: 0 }).then(function (t) {
+      EQ(t.got, 1, "1 objectif récupéré avant le 429");
+      EQ(t.rows["MC.PA"].tp, 491.36, "objectif moyen");
+      EQ(t.rows["MC.PA"].tpHi, 590, "borne haute");
+      EQ(t.rows["MC.PA"].tpN, 27, "27 analystes");
+      EQ(t.rows["MC.PA"].rec, "buy", "recommandation");
+      EQ(t.rows["MC.PA"].roe, 0.16586, "ROE exposé (élément financier)");
+      A(t.rows["AIR.PA"] === undefined, "le 429 arrête la boucle : AIR.PA non traité");
+      EQ(t.errors, 0, "le 429 n'est pas compté comme erreur muette");
+    });
+  });
+  T("v4.0.6 finDataRow : champs absents → null (jamais de faux zéro)", function () {
+    var r = FQ.finDataRow({ targetMeanPrice: { raw: 42 } });
+    EQ(r.tp, 42, "objectif présent");
+    A(r.tpLo === null && r.tpHi === null && r.tpN === null && r.rec === null, "bornes/analystes/reco absents → null");
+    A(r.gRev === null && r.mOp === null && r.roe === null && r.de === null, "éléments éco/fin absents → null");
+  });
+  T("v4.0.6 mergeTargets : fusion par ticker ; tpUpdated posé seulement si ≥ 60 % de couverture", function () {
+    var q = { updated: "2026-01-01T00:00:00Z", list: [{ y: "A.PA", px: 100 }, { y: "B.PA", px: 50 }, { y: "C.PA", px: 10 }] };
+    FQ.mergeTargets(q, { rows: { "A.PA": { tp: 120, tpLo: 100, tpHi: 140, tpN: 9, rec: "buy", gRev: 0.02, gEps: 0.05, mOp: 0.1, roe: 0.12, de: 40 }, "B.PA": { tp: 60, tpLo: 55, tpHi: 70, tpN: 4, rec: "hold", gRev: 0.01, gEps: 0.02, mOp: 0.05, roe: 0.08, de: 30 } }, got: 2 });
+    EQ(q.list[0].tp, 120, "objectif fusionné par ticker");
+    EQ(q.list[0].tpN, 9, "nb analystes fusionné");
+    EQ(q.tpN, 2, "compteur global");
+    A(q.tpUpdated !== null && /^\d{4}-\d{2}-\d{2}T/.test(q.tpUpdated), "2/3 ≈ 67 % ≥ 60 % → tpUpdated posé");
+    var q2 = { updated: "2026-01-01T00:00:00Z", list: [{ y: "A.PA", px: 100 }, { y: "B.PA", px: 50 }, { y: "C.PA", px: 10 }] };
+    FQ.mergeTargets(q2, { rows: { "A.PA": { tp: 120 } }, got: 1 });
+    A(q2.tpUpdated === null, "1/3 < 2 (60 % de 3) → tpUpdated null : le run suivant réessaiera");
+    EQ(q2.list[1].tp, undefined, "ligne sans objectif inchangée");
+  });
+  T("v4.0.6 sbfEnrich/sbfSort : potentiel upX + vue 🎯 par potentiel décroissant, sans objectif en fin", function () {
+    var l = [
+      { n: "A", y: "A.PA", px: 100, tp: 120, score: 50 },
+      { n: "B", y: "B.PA", px: 50, tp: 40, score: 60 },
+      { n: "C", y: "C.PA", px: 10, tp: null, score: 70 },
+      { n: "D", y: "D.PA", px: 80, tp: 80, score: 40 }
+    ];
+    var enr = RI.sbfEnrich(l, { byName: {}, byIsin: {} });
+    EQ(enr[0].upX, 20, "A : objectif 120 vs cours 100 → +20 %");
+    EQ(enr[1].upX, -20, "B : objectif 40 vs cours 50 → −20 %");
+    A(enr[2].upX === null, "C sans objectif → upX null");
+    EQ(enr[3].upX, 0, "D : objectif = cours → 0 %");
+    EQ(RI.sbfSort(enr, "obj").map(function (e) { return e.n; }), ["A", "D", "B", "C"], "vue 🎯 : potentiel décroissant, null en fin");
+  });
+  T("v4.0.6 workflows : garde 12 h sur les objectifs (120 requêtes v10 à ne refaire que 2×/jour)", function () {
+    var q = fs.readFileSync(__dirname + "/../.github/workflows/quotes.yml", "utf8");
+    A(q.indexOf("--max-age-targets-min=720") > -1, "quotes.yml : garde objectifs 12 h");
+    var p = fs.readFileSync(__dirname + "/../.github/workflows/pages.yml", "utf8");
+    A(p.indexOf("--max-age-targets-min=720") > -1, "pages.yml : le secours respecte la même garde");
   });
   TA("v4.0.4 ageMinutesOf : âge en minutes ; absent/invalide → null (garde anti-doublon)", function () {
     EQ(FQ.ageMinutesOf(null), null);

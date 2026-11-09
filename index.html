@@ -169,6 +169,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       <div class="stat"><div class="v" id="sbRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
       <div class="stat"><div class="v" id="sbSrc">—</div><div class="l">source des cotes</div></div>
       <div class="stat"><div class="v" id="sbComp">—</div><div class="l">composition (univers)</div></div>
+      <div class="stat"><div class="v" id="sbTpN">—</div><div class="l">objectifs analystes</div></div>
     </div>
     <div class="card hidden" id="sbBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
     <div class="card filters">
@@ -176,10 +177,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <div class="seg" id="segSb">
           <button data-v="val" class="on">📐 Valorisation</button>
           <button data-v="xins">🔀 × Initiés FR</button>
+          <button data-v="obj">🎯 Objectifs</button>
         </div>
         <input type="search" id="sq" placeholder="🔎 valeur du SBF 120…" aria-label="Rechercher">
       </div>
-      <p class="mut">Percentiles internes : <b>par secteur</b> quand ≥ 8 pairs du même secteur sont cotés (données TradingView), sinon sur tout l’indice. Pondération PER 50 % · rendement 30 % · P/B 20 % — le score affiche sa base (k/3 métriques) et son référentiel (vs secteur ou vs indice). Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. La vue 🔀 ajoute le bonus initiés FR (clusters 30 j : +15/10/4 selon le niveau). Outil de tri, pas un conseil.</p>
+      <p class="mut">Percentiles internes : <b>par secteur</b> quand ≥ 8 pairs du même secteur sont cotés (données TradingView), sinon sur tout l’indice. Pondération PER 50 % · rendement 30 % · P/B 20 % — le score affiche sa base (k/3 métriques) et son référentiel (vs secteur ou vs indice). Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. La vue 🔀 ajoute le bonus initiés FR (clusters 30 j : +15/10/4 selon le niveau). La vue 🎯 classe par <b>potentiel vs l’objectif de consensus des analystes</b> (module Yahoo financialData : moyenne des prix cibles + les éléments économiques et financiers qui les fondent — croissance, marge opérationnelle, ROE, endettement) — l’avis du marché, ≠ notre score maison. Outil de tri, pas un conseil.</p>
     </div>
     <div id="sbList"></div>
   </div><!-- /viewSbf -->
@@ -193,7 +195,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Achats ≥ 1 000 $ ; ventes ≥ 50 000 $ et uniquement hors plan 10b5-1 / hors levée d'options.</li>
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
-        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext.</li>
+        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext. 🎯 <b>Objectifs</b> : consensus des analystes (module Yahoo financialData, rafraîchi ~2×/jour) — prix cible moyen vs cours, nombre d'analystes, recommandation, et les éléments économiques et financiers qui fondent ces modèles (croissance du CA, marge opérationnelle, ROE, endettement). L'avis du marché, ≠ notre score maison.</li>
       </ul>
       <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
       <p style="margin-top:6px">⚠️ Outil d'information, pas un conseil en investissement. Les initiés vendent pour mille raisons et achètent pour une : leur achat est un signal, pas une garantie.</p>
@@ -678,6 +680,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     } else {
       $("sbComp").textContent = "—";
     }
+    // v4.0.6 : objectifs de consensus analystes (module Yahoo financialData — 1 requête/valeur,
+    // rafraîchi ~1×/12 h ; absent du relevé TradingView, la colonne y est null)
+    var nTp = 0;
+    q.list.forEach(function (e) { if (e.tp != null) nTp++; });
+    $("sbTpN").textContent = nTp > 0 ? (nTp + (q.tpUpdated ? " (" + RI.isoToDmY(String(q.tpUpdated).slice(0, 10)) + ")" : "")) : "—";
     if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
     if (q.missing && q.missing.length) msgs.push("⚠️ " + q.missing.length + " valeur" + (q.missing.length > 1 ? "s" : "") + " sans cote (" + esc(q.missing.slice(0, 6).join(", ")) + (q.missing.length > 6 ? "…" : "") + ").");
     var sb = $("sbBanner");
@@ -699,9 +706,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     var shown = rows.slice(0, state.sbLimit);
     var html = [];
     var isX = state.prefs.sbView === "xins";
+    var isO = state.prefs.sbView === "obj";
+    var recFr = { strong_buy: "fort achat", buy: "achat", hold: "conserver", underperform: "sous-perf.", sell: "vente" };
+    function fmtPctSigned(v) { return (v > 0 ? "+" : "") + String(Math.round(v * 10) / 10).replace(".", ",") + " %"; }
     for (var i = 0; i < shown.length; i++) {
       var e = shown[i];
-      var sc = isX ? e.xScore : e.score;
+      var sc = isX ? e.xScore : (isO ? e.upX : e.score);
       var up = e.chg > 0, dn = e.chg < 0;
       html.push(
         '<div class="card"><div class="row fr"><div class="bar"></div>' +
@@ -719,11 +729,25 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         " · P/B " + (e.pb != null ? esc(String(Math.round(e.pb * 100) / 100).replace(".", ",")) : "—") +
         (e.sec ? " · secteur " + esc(e.sec) : "") +
         ' · <a href="' + esc(sbQuoteUrl(e)) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        "</div></div>" +
+        "</div>" +
+        (e.tp != null
+          ? '<div class="details">🎯 objectif <b>' + esc(String(Math.round(e.tp * 100) / 100).replace(".", ",")) + " €</b> (" +
+            (e.upX != null ? '<span class="' + (e.upX > 0 ? "up" : (e.upX < 0 ? "dn" : "")) + '">' + esc(fmtPctSigned(e.upX)) + "</span>" : "—") + ")" +
+            (e.tpN != null ? " · " + e.tpN + " analyste" + (e.tpN > 1 ? "s" : "") : "") +
+            (recFr[e.rec] ? " · " + esc(recFr[e.rec]) : "") +
+            (e.gRev != null ? " · CA " + esc(fmtPctSigned(Math.round(e.gRev * 1000) / 10)) : "") +
+            (e.mOp != null ? " · marge op. " + esc(String(Math.round(e.mOp * 1000) / 10).replace(".", ",")) + " %" : "") +
+            (e.roe != null ? " · ROE " + esc(String(Math.round(e.roe * 1000) / 10).replace(".", ",")) + " %" : "") +
+            (e.de != null ? " · dette/CP " + esc(String(Math.round(e.de)).replace(".", ",")) + " %" : "") +
+            "</div>"
+          : "") +
+        "</div>" +
         '<div class="sbsc">' + (sc == null
-          ? '<span title="Pas de bénéfice net sur les 4 derniers trimestres (PER indisponible) — hors classement valorisation">—</span>'
-          : '<b title="Score de valorisation : PER 50 % · rendement 30 % · P/B 20 % — base ' + (e.vBase || 0) + "/3 métriques · classement " + (e.vMode === "sector" ? "vs pairs du même secteur (≥ 8 cotés)" : "vs tout l’indice") + '">' + sc + "</b>") +
-        (isX && e.ins > 0 ? "<small>+" + e.ins + " initiés</small>" : "<small>" + (isX ? "score + initiés" : ((e.vBase || 0) + "/3 · " + (e.vMode === "sector" ? "vs secteur" : "vs indice"))) + "</small>") +
+          ? '<span title="' + (isO ? "Pas d’objectif de consensus pour cette valeur (module Yahoo financialData)" : "Pas de bénéfice net sur les 4 derniers trimestres (PER indisponible) — hors classement valorisation") + '">—</span>'
+          : '<b title="' + (isO
+              ? "Potentiel vs objectif de consensus des analystes (prix cible moyen ÷ cours − 1) — l’avis du marché, pas notre score maison"
+              : "Score de valorisation : PER 50 % · rendement 30 % · P/B 20 % — base " + (e.vBase || 0) + "/3 métriques · classement " + (e.vMode === "sector" ? "vs pairs du même secteur (≥ 8 cotés)" : "vs tout l’indice")) + '">' + (isO ? esc(fmtPctSigned(sc)) : sc) + "</b>") +
+        (isX && e.ins > 0 ? "<small>+" + e.ins + " initiés</small>" : "<small>" + (isX ? "score + initiés" : (isO ? "vs objectif" : ((e.vBase || 0) + "/3 · " + (e.vMode === "sector" ? "vs secteur" : "vs indice")))) + "</small>") +
         "</div>" +
         "</div></div>"
       );

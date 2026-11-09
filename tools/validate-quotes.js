@@ -57,9 +57,11 @@ if (q) {
     if (seenQ[r.y]) fail(w + "doublon ticker " + r.y);
     seenQ[r.y] = true;
     if (!isFinite(r.px) || r.px <= 0) fail(w + "px invalide : " + r.px);
-    ["chg", "per", "fper", "dY", "pb", "cap"].forEach(function (k) {
+    ["chg", "per", "fper", "dY", "pb", "cap", "tp", "tpLo", "tpHi", "tpN", "gRev", "gEps", "mOp", "roe", "de"].forEach(function (k) {
       if (r[k] !== null && r[k] !== undefined && !isFinite(r[k])) fail(w + k + " invalide : " + r[k]);
     });
+    if (r.tp != null && r.tpLo != null && r.tpHi != null && !(r.tpLo <= r.tp && r.tp <= r.tpHi)) fail(w + "objectif hors bornes (tp " + r.tp + ", " + r.tpLo + "-" + r.tpHi + ")");
+    if (r.tp != null && r.tp <= 0) fail(w + "objectif non positif : " + r.tp);
     if (!r.n || !r.mn || !r.g) fail(w + "champ n/mn/g manquant");
   });
   // si le relevé s'est bien passé, il doit couvrir l'essentiel de l'indice (garde 90 % côté fetch,

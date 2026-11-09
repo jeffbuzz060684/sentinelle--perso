@@ -91,6 +91,87 @@ async function quotesBatch(symbols, sess, maxAttempts) {
   throw new Error("batch v7/quote en échec (" + symbols.length + " symboles) : " + (lastErr ? lastErr.message : "?"));
 }
 
+// ---------- objectifs de cours (consensus analystes) + éléments éco/financiers (v4.0.6) ----------
+// Yahoo v10/finance/quoteSummary?modules=financialData, 1 requête PAR valeur (pas de batch pour
+// ce module). Fournit l'objectif de cours moyen/haut/bas, le nombre d'analystes, la recommandation
+// ET les éléments économiques et financiers qui fondent les modèles des analystes : croissance du
+// CA et du résultat, marge opérationnelle, ROE, dette/capitaux propres. Les objectifs bougent
+// lentement : garde --max-age-targets-min (12 h côté workflows), et abandon immédiat au premier
+// 429 — l'étape n'est JAMAIS bloquante, le relevé des cotes reste valide sans objectifs.
+
+function finDataRow(fd) {
+  function num(v) { return (v && typeof v.raw === "number" && isFinite(v.raw)) ? v.raw : null; }
+  return {
+    tp: num(fd.targetMeanPrice), tpLo: num(fd.targetLowPrice), tpHi: num(fd.targetHighPrice),
+    tpN: num(fd.numberOfAnalystOpinions),
+    rec: (typeof fd.recommendationKey === "string" && fd.recommendationKey) || null,
+    gRev: num(fd.revenueGrowth), gEps: num(fd.earningsGrowth),
+    mOp: num(fd.operatingMargins), roe: num(fd.returnOnEquity), de: num(fd.debtToEquity)
+  };
+}
+
+// Requête v10 pour un symbole (null si la réponse est vide/mal formée).
+async function finDataFor(sym, sess) {
+  var host = (Math.random() < 0.5) ? "query1" : "query2";
+  var url = "https://" + host + ".finance.yahoo.com/v10/finance/quoteSummary/" + encodeURIComponent(sym) +
+    "?modules=financialData&crumb=" + encodeURIComponent(sess.crumb);
+  var r = await rawFetch(url, { headers: { "User-Agent": UA, "Accept": "application/json", "Cookie": sess.cookie } });
+  if (r.status !== 200) { var e = new Error("v10 HTTP " + r.status); e.status = r.status; throw e; }
+  var body = JSON.parse(await r.text());
+  var res = body && body.quoteSummary && body.quoteSummary.result && body.quoteSummary.result[0];
+  return (res && res.financialData) ? finDataRow(res.financialData) : null;
+}
+
+// Collecte des objectifs pour tous les tickers. Retour { rows: {ticker: champs}, got, errors }.
+// Au premier 429 : on ARRÊTE (les 429 de Yahoo vont par rafales — inutile de marteler 119 fois).
+async function fetchTargets(symbols, sess, opts) {
+  opts = opts || {};
+  var rows = {}, got = 0, errors = 0, aborted = false;
+  for (var i = 0; i < symbols.length; i++) {
+    if (outOfTime()) { log("[targets] budget temps dépassé après " + i + "/" + symbols.length + " — objectifs partiels conservés"); aborted = true; break; }
+    var sym = symbols[i];
+    try {
+      var row = await finDataFor(sym, sess);
+      if (row && row.tp != null) { rows[sym] = row; got++; }
+    } catch (e) {
+      if (e && e.status === 429) { log("[targets] 429 Yahoo au symbole " + (i + 1) + "/" + symbols.length + " — étape interrompue, le relevé des cotes reste valide"); aborted = true; break; }
+      errors++;
+    }
+    if (i % 20 === 19) log("[targets] " + (i + 1) + "/" + symbols.length + " traités (" + got + " objectifs)");
+    await sleep(opts.paceMs != null ? opts.paceMs : 150);
+  }
+  if (!aborted && errors) log("[targets] " + errors + " réponses en erreur (ignorées)");
+  return { rows: rows, got: got, errors: errors };
+}
+
+// Session + collecte, budget temps dédié (jamais de budget résiduel entre les étapes).
+async function fetchTargetsAuto(symbols, opts) {
+  opts = opts || {};
+  setDeadline(opts.budgetTargetsMs || 100000);
+  try {
+    var sess = await yahooSession(opts.sessionAttempts || 4);
+    log("[targets] session Yahoo OK — collecte des objectifs (" + symbols.length + " valeurs)");
+    return await fetchTargets(symbols, sess, opts);
+  } finally {
+    setDeadline(null);
+  }
+}
+
+// Fusion des objectifs dans un relevé : par ticker, champs courts sur chaque ligne.
+// tpUpdated n'est posé QUE si la couverture est décente (≥ 60 % des lignes) — sinon null :
+// le run suivant réessaiera au lieu de servir des objectifs périmés en silence.
+function mergeTargets(q, targets) {
+  if (!targets || !targets.rows) return q;
+  q.list.forEach(function (e) {
+    var t = targets.rows[e.y];
+    if (!t) return;
+    for (var k in t) if (Object.prototype.hasOwnProperty.call(t, k)) e[k] = t[k];
+  });
+  q.tpN = targets.got;
+  q.tpUpdated = (targets.got >= Math.ceil(q.list.length * 0.6)) ? new Date().toISOString().replace(/\.\d+Z$/, "Z") : null;
+  return q;
+}
+
 // Normalise une réponse v7/quote en ligne compacte (noms de champs courts — quotes.json est servi au
 // navigateur : taille maîtrisée). null -> champ absent.
 function quoteRow(q) {
@@ -281,25 +362,63 @@ async function main() {
   // v4.0.4 anti-double collecte : --max-age-min=N (utilisé par le secours de pages.yml) —
   // si le quotes.json existant a moins de N minutes, on ne re-collecte PAS (le cron quotes.yml
   // couvre déjà la cadence). Sans l'option, on collecte toujours (workflow cotes dédié).
-  var maxAge = null;
+  // v4.0.6 : --max-age-targets-min=N — les objectifs d'analystes bougent lentement : si le
+  // tpUpdated du fichier existant a moins de N minutes, l'étape objectifs est sautée (le module
+  // v10 est PAR valeur : 120 requêtes à ne refaire que 1×/12 h).
+  var maxAge = null, maxAgeTargets = null;
   process.argv.forEach(function (a) {
     var m = /^--max-age-min=(\d+)$/.exec(a);
     if (m) maxAge = parseInt(m[1], 10);
+    var t = /^--max-age-targets-min=(\d+)$/.exec(a);
+    if (t) maxAgeTargets = parseInt(t[1], 10);
   });
   try {
     var sb = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "sbf120.json"), "utf8"));
-    if (maxAge !== null) {
-      try {
-        var prev = JSON.parse(fs.readFileSync(dest, "utf8"));
-        var age = ageMinutesOf(prev.updated);
-        if (age !== null && age < maxAge) {
-          log("[quotes] relevé précédent frais (" + age + " min < " + maxAge + ") — pas de nouvelle collecte (anti-doublon)");
-          return;
-        }
-      } catch (eRead) { /* pas de quotes.json précédent : on collecte normalement */ }
+    var prev = null;
+    try { prev = JSON.parse(fs.readFileSync(dest, "utf8")); } catch (eRead) { /* pas de quotes.json précédent */ }
+    var targetsFresh = function () {
+      var ageT = prev ? ageMinutesOf(prev.tpUpdated) : null;
+      return ageT !== null && (maxAgeTargets === null || ageT < maxAgeTargets);
+    };
+    if (maxAge !== null && prev) {
+      var age = ageMinutesOf(prev.updated);
+      if (age !== null && age < maxAge) {
+        log("[quotes] relevé précédent frais (" + age + " min < " + maxAge + ") — pas de nouvelle collecte (anti-doublon)");
+        // les cotes sont fraîches mais les objectifs peuvent être périmés : étape ciblée,
+        // on ne touche à RIEN d'autre du fichier (cotes, indice, composition d'origine).
+        if (targetsFresh()) { log("[targets] objectifs précédents frais — rien à faire"); return; }
+        if (!prev.list || !prev.list.length) return;
+        try {
+          var t0 = await fetchTargetsAuto(prev.list.map(function (e) { return e.y; }), {});
+          if (t0.got > 0) {
+            mergeTargets(prev, t0);
+            fs.writeFileSync(dest, JSON.stringify(prev));
+            log("[targets] écrit : " + t0.got + " objectifs (relevé des cotes inchangé)");
+          } else log("[targets] aucun objectif récupéré — fichier inchangé");
+        } catch (eT) { log("[targets] étape en échec (non bloquant) : " + eT.message); }
+        return;
+      }
     }
     setDeadline(null); // fetchQuotesAuto pose son budget par étape (Yahoo puis repli)
     var out = await fetchQuotesAuto(sb, {});
+    // étape objectifs (v4.0.6) : non bloquante. Si les objectifs du fichier précédent sont
+    // frais, on les REPORTe sur le nouveau relevé (l'objectif ne dépend pas du relevé en cours) ;
+    // sinon on collecte (Yahoo v10 — le repli TradingView n'a pas d'objectifs, la colonne est null).
+    if (prev && targetsFresh() && prev.list) {
+      var carried = { rows: {}, got: 0 };
+      prev.list.forEach(function (e) { if (e.tp != null) { carried.rows[e.y] = { tp: e.tp, tpLo: e.tpLo, tpHi: e.tpHi, tpN: e.tpN, rec: e.rec, gRev: e.gRev, gEps: e.gEps, mOp: e.mOp, roe: e.roe, de: e.de }; carried.got++; } });
+      if (carried.got >= Math.ceil(out.list.length * 0.6)) {
+        mergeTargets(out, carried); out.tpUpdated = prev.tpUpdated;
+        log("[targets] objectifs précédents reportés sur le nouveau relevé (" + carried.got + ")");
+      }
+    }
+    if (out.tpUpdated == null) {
+      try {
+        var t1 = await fetchTargetsAuto(out.list.map(function (e) { return e.y; }), {});
+        mergeTargets(out, t1);
+        log("[targets] " + t1.got + "/" + out.list.length + " objectifs intégrés" + (out.tpUpdated ? "" : " (couverture insuffisante — tpUpdated non posé)"));
+      } catch (eT) { log("[targets] étape en échec (non bloquant) : " + eT.message); }
+    }
     fs.writeFileSync(dest, JSON.stringify(out));
     log("[quotes] écrit : " + out.n + " valeurs" + (out.missing.length ? " (manquantes : " + out.missing.join(", ") + ")" : "") + " -> " + dest);
   } catch (e) {
@@ -309,4 +428,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker, fetchQuotesAuto: fetchQuotesAuto, ageMinutesOf: ageMinutesOf, setDeadline: setDeadline };
+module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker, fetchQuotesAuto: fetchQuotesAuto, ageMinutesOf: ageMinutesOf, setDeadline: setDeadline, finDataRow: finDataRow, finDataFor: finDataFor, fetchTargets: fetchTargets, fetchTargetsAuto: fetchTargetsAuto, mergeTargets: mergeTargets };
