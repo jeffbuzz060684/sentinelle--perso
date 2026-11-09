@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.8");
+  EQ(RI.VERSION, "4.0.9");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -819,6 +819,7 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("⚠️ bénef. attendus en baisse") > -1, "garde-fou piège à valeur (fper > per) affiché");
     A(h.indexOf('id="sbQ"') > -1, "stat couverture qualité (v4.0.8)");
     A(h.indexOf("journal-scores.jsonl") > -1, "journal de validation mentionné dans l'aide");
+    A(h.indexOf("repli TradingView la croissance est absente") > -1 || h.indexOf("repli TradingView, la croissance") > -1, "v4.0.9 : repli TV qualité expliqué (3/4 sans croissance)");
     A(h.indexOf("3 métriques sur 4") > -1 || h.indexOf("3 métriques qualité") > -1, "exigence 3/4 expliquée");
     A(h.indexOf("objectif de consensus des analystes") > -1, "note méthodo : consensus ≠ score maison");
     A(h.indexOf("potentiel vs l'objectif") > -1 || h.indexOf("Potentiel vs objectif") > -1, "potentiel vs objectif expliqué");
@@ -1643,7 +1644,42 @@ function TA(name, fn) {
       EQ(q.list[0].w52lo, 38.2, "plus bas 52 s. TradingView");
       EQ(q.list[0].w52hi, 61.9, "plus haut 52 s. TradingView");
       EQ(q.list[0].sec, "Finance", "secteur toujours là");
+      A(q.list[0].roe === null && q.list[0].mOp === null && q.list[0].de === null, "ancien schéma 11 colonnes → fondamentaux null (tvNum/tvPct/tvDe tolèrent l'absence)");
     });
+  });
+  TA("v4.0.9 fetchQuotesTv : fondamentaux qualité du scanner (d[11]/d[12]/d[13]) — % et ratio TV convertis au format canonique Yahoo", function () {
+    var sb = { updated: "2026-01-01T00:00:00Z", list: sbf100() };
+    FQ.setFetchForTests(function (url, opts) {
+      var body = JSON.parse(opts.body);
+      var out = body.symbols.tickers.map(function (t) {
+        return t === "EURONEXT:PX1"
+          ? { s: t, d: ["PX1", 8229.14, 1.07] }
+          : { s: t, d: [t.split(":")[1], 42.5, 1.1, 12.4, null, 2.35, 1.8, 2.5e9, "Finance", 38.2, 61.9, 16.3085688582353, 21.7965620722994, 0.537734048021147] };
+      });
+      return Promise.resolve(res(200, { totalCount: out.length, data: out }));
+    });
+    return FQ.fetchQuotesTv(sb, {}).then(function (q) {
+      EQ(q.list[0].roe, 16.3085688582353 / 100, "ROE TV 16,3 % → décimal Yahoo 0,163 (même échelle que finDataRow)");
+      EQ(q.list[0].mOp, 21.7965620722994 / 100, "marge op. TV 21,8 % → décimal 0,218");
+      EQ(q.list[0].de, 0.537734048021147 * 100, "dette/CP TV ratio 0,538 → % Yahoo 53,8");
+    });
+  });
+  T("v4.0.9 oppScores : repli TV sans croissance → score sur 3/4 métriques (attendus recalculés à la main)", function () {
+    var list = [ // gRev absent PARTOUT = le cas réel du repli TradingView (revenue_* null sur EURONEXT)
+      { n: "A", sec: "S", roe: 0.20, mOp: 0.15, de: 30, score: 80 },
+      { n: "B", sec: "S", roe: 0.10, mOp: 0.10, de: 60, score: 40 },
+      { n: "C", sec: "S", roe: 0.15, mOp: 0.12, de: 45, score: 60 }
+    ];
+    var o = RI.oppScores(list);
+    // percentiles index (3 < MIN_SEC=8) : A bat tout (100), B dernier (0), C médian (50) — sur les 3 métriques
+    EQ(o[0].qBase, 3, "A : 3 métriques qualité sans croissance");
+    EQ(o[0].qScore, 100, "A : (35+25+20)×100/80 = 100");
+    EQ(o[0].oScore, 91, "A : round(0,57×100 + 0,43×80) = 91");
+    EQ(o[1].qScore, 0, "B : 0 sur les 3 métriques");
+    EQ(o[2].qScore, 50, "C : 4000/80 = 50");
+    EQ(o[2].oScore, 54, "C : round(0,57×50 + 0,43×60) = 54");
+    A(o[0].pRev === null, "croissance absente → percentile croissance null (pas un zéro qui punirait)");
+    EQ(o[1].qBase, 3, "B : qBase 3 → qScore non null malgré l'absence de croissance");
   });
   T("v4.0.8 journal-scores : entrée du jour (top triés + cours des 120 = pas de biais du survivant), anti-doublon par date", function () {
     var J = require("./journal-scores.js");

@@ -254,10 +254,21 @@ async function fetchQuotes(sb, opts) {
 var TV_SCAN_URL = "https://scanner.tradingview.com/france/scan";
 var TV_COLUMNS = ["name", "close", "change", "price_earnings_ttm", "price_earnings_forecast_fy0",
   "dividends_yield_current", "price_book_ratio", "market_cap_basic", "sector",
-  "price_52_week_low", "price_52_week_high"];
+  "price_52_week_low", "price_52_week_high",
+  // v4.0.9 : fondamentaux qualité depuis le MÊME scan (plus de dépendance à Yahoo pour le score 💎) —
+  // vérifié le 09/11/2026 sur les 112 réponses : return_on_equity 106, operating_margin 109, debt_to_equity 109.
+  // Les colonnes revenue_* (croissance) restent null sur EURONEXT → gRev null en repli TV, la règle
+  // « ≥ 3/4 métriques » d'oppScores fait alors le score sur ROE/marge/dette.
+  "return_on_equity", "operating_margin", "debt_to_equity"];
 
 function tvTicker(y) { return "EURONEXT:" + String(y).replace(/\.PA$/i, "").toUpperCase(); } // le scanner TV exige des MAJUSCULES
 function tvNum(v) { return (typeof v === "number" && isFinite(v)) ? v : null; }
+// v4.0.9 : TV parle en % (ROE 16,3) et en ratio (dette/CP 0,54) ; Yahoo — le format canonique de
+// quotes.json (finDataRow) — parle en décimaux (0,163) et en % (53,8). On convertit pour que
+// logique, UI et validateur ne voient QU'UN format ; mergeTargets écrasera avec les valeurs
+// Yahoo dès que Yahoo revient (même définition : ROE = résultat/fonds propres, dette/CP = dette totale/fonds propres).
+function tvPct(v) { var n = tvNum(v); return n != null ? n / 100 : null; }  // TV 16,3 % → décimal 0,163
+function tvDe(v) { var n = tvNum(v); return n != null ? n * 100 : null; }    // TV ratio 0,538 → % 53,8
 
 async function tvScan(tickers, maxAttempts) {
   var attempts = maxAttempts || 3;
@@ -300,7 +311,8 @@ async function fetchQuotesTv(sb, opts) {
       px: d[1], chg: tvNum(d[2]), per: tvNum(d[3]), fper: tvNum(d[4]),
       dY: tvNum(d[5]), pb: tvNum(d[6]), cap: tvNum(d[7]), t: null,
       sec: (typeof d[8] === "string" && d[8]) ? d[8] : null,
-      w52lo: tvNum(d[9]), w52hi: tvNum(d[10])
+      w52lo: tvNum(d[9]), w52hi: tvNum(d[10]),
+      roe: tvPct(d[11]), mOp: tvPct(d[12]), de: tvDe(d[13])
     });
   });
   if (list.length / sb.list.length < (opts.minRatio || 0.9)) {

@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.8";   // version unique de l'app (badge + footer la lisent) — v4.0.8 : revue du score 💎 (point bas retiré du score → 57/43, qualité par secteur, ex æquo, capitaux propres négatifs, 3/4 métriques, ⚠️ fper>per, journal de validation)
+  var VERSION = "4.0.9";   // version unique de l'app (badge + footer la lisent) — v4.0.9 : fondamentaux qualité depuis le scanner TradingView en repli (ROE, marge op., dette/CP — sans la croissance, règle 3/4) quand Yahoo est saturé
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
