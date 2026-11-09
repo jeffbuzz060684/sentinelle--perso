@@ -60,7 +60,10 @@ module.exports = function simDom(cb) {
   };
   var FETCH_DATA = {
     updated: "2026-11-09T08:07:00Z", frOk: true, usOk: true,
-    fr: [{ id: "f1", source: "FR", societe: "ROCHE BOBOIS SA", auteur: "TXR S.R.L.", role: "Membre du Conseil de Surveillance", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 1400, prix: 15.7286, montant: 22020.04, url: "https://bdif.amf-france.org/x" }],
+    fr: [
+      { id: "f1", source: "FR", societe: "ROCHE BOBOIS SA", auteur: "TXR S.R.L.", role: "Membre du Conseil de Surveillance", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 1400, prix: 15.7286, montant: 22020.04, url: "https://bdif.amf-france.org/x" },
+      { id: "f2", source: "FR", societe: "ROCHE BOBOIS SA", auteur: "GIOVANNI TAMBURI", role: "Président", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 600, prix: 16, montant: 9600, url: "https://bdif.amf-france.org/y" }
+    ],
     us: [{ id: "u1", source: "US", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Achat", instrument: "Common Stock", isin: "", dateOp: "2026-11-04", datePub: "2026-11-05", volume: 2000, prix: 30, montant: 60000, code: "P", url: "https://sec.gov/x" }]
   };
   var fetchCalls = 0;
@@ -105,17 +108,35 @@ module.exports = function simDom(cb) {
   function settle() {
     T("data.json récupéré via fetch", function () { A(fetchCalls >= 1, "fetch data.json non appelé"); });
     T("compteurs affichés", function () {
-      A(elements["nFr"] && elements["nFr"].textContent === "1", "nFr : " + (elements["nFr"] && elements["nFr"].textContent));
+      A(elements["nFr"] && elements["nFr"].textContent === "2", "nFr : " + (elements["nFr"] && elements["nFr"].textContent));
       A(elements["nUs"] && elements["nUs"].textContent === "1", "nUs");
+      A(elements["nSig"] && elements["nSig"].textContent === "1", "nSig : " + (elements["nSig"] && elements["nSig"].textContent));
     });
     T("chip fraîcheur affichée", function () {
       A(elements["fresh"] && elements["fresh"].textContent.length > 3, "fresh : " + (elements["fresh"] && elements["fresh"].textContent));
     });
-    T("les 2 lignes rendues avec échappement HTML", function () {
+    T("carte accumulation rendue (2 initiés distincts -> 🔥)", function () {
+      var s = elements["signals"] && elements["signals"].innerHTML || "";
+      A(s.indexOf("ROCHE BOBOIS SA") > -1, "société présente");
+      A(s.indexOf("2 achats") > -1, "compte des achats");
+      A(s.indexOf("2 initiés distincts") > -1, "initiés distincts");
+      A(s.indexOf("prix moyen payé") > -1, "prix moyen");
+      A(s.indexOf("lvl l2") > -1, "badge niveau 2");
+      A(s.indexOf("boursorama.com") > -1, "lien cote FR");
+      A(s.indexOf("data-sig") > -1, "action voir les achats");
+      A(elements["sigCard"] && !elements["sigCard"]._cls.has("hidden"), "carte visible");
+    });
+    T("les 3 lignes rendues avec échappement HTML + badge ×2 + cote", function () {
       var h = elements["list"] && elements["list"].innerHTML || "";
-      A(h.indexOf("ROCHE BOBOIS SA") > -1, "ligne FR présente");
+      A(h.indexOf("ROCHE BOBOIS SA") > -1, "lignes FR présentes");
       A(h.indexOf("ACME CORP") > -1, "ligne US présente");
       A(h.indexOf("class=\"src fr\"") > -1 && h.indexOf("class=\"src us\"") > -1, "badges FR/US");
+      A(h.indexOf('class="x"') > -1 && h.indexOf("×2") > -1, "badge ×2 sur les lignes ROCHE BOBOIS");
+      A(h.indexOf("boursorama.com") > -1 && h.indexOf("google.com/finance") > -1, "liens cote FR + US");
+    });
+    T("bandeau nouveaux : première visite silencieuse, date mémorisée", function () {
+      A(elements["newBanner"] && elements["newBanner"]._cls.has("hidden"), "bandeau masqué à la première visite");
+      A(store["sentinelle-perso-lastseen-v1"] !== undefined, "date de visite mémorisée");
     });
     T("données persistées en localStorage (secours hors ligne)", function () {
       A(store["sentinelle-perso-data-v1"] && store["sentinelle-perso-data-v1"].indexOf("ROCHE BOBOIS") > -1, "cache local écrit");

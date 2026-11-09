@@ -252,6 +252,99 @@ T("freshness", function () {
   EQ(RI.freshness("n'importe quoi", now).stale, true);
 });
 
+// ---------- v2 : signaux d'accumulation ----------
+var SIGROWS = [
+  { id: "1", source: "FR", societe: "KLEA HOLDING", isin: "FR0000039620", auteur: "SMILA RAPHAEL", dateOp: "2026-11-02", datePub: "2026-11-05", volume: 10000, prix: 4.0, montant: 40000 },
+  { id: "2", source: "FR", societe: "Klea Holding", isin: "FR0000039620", auteur: "Smila Raphael", dateOp: "2026-11-03", datePub: "2026-11-06", volume: 5000, prix: 4.4, montant: 22000 },
+  { id: "3", source: "FR", societe: "KLEA HOLDING", isin: "FR0000039620", auteur: "DUPONT MARIE", dateOp: "2026-11-04", datePub: "2026-11-07", volume: 1000, prix: 4.2, montant: 4200 },
+  { id: "4", source: "FR", societe: "BOLLORE", isin: "FR0000039299", auteur: "ODET", dateOp: "2026-11-02", datePub: "2026-11-06", volume: 142877, prix: 3.78, montant: 540075 }
+];
+T("sigKey : nom normalisé côté FR (37/63 déclarations réelles sans ISIN), ticker côté US", function () {
+  EQ(RI.sigKey(SIGROWS[0]), "FR|KLEA HOLDING");
+  EQ(RI.sigKey(SIGROWS[1]), "FR|KLEA HOLDING", "casse/accents différents -> même société");
+  EQ(RI.sigKey({ source: "US", societe: "Madrigal", ticker: "MDGL" }), "US|MDGL");
+  EQ(RI.sigKey({ source: "FR", societe: "ROCHE BOBOIS SA", isin: "" }), RI.sigKey({ source: "FR", societe: "roche bobois sa", isin: "FR0013344173" }), "ISIN présent ou absent : une seule carte (bug réel de la v2 initiale)");
+  EQ(RI.sigKey({ source: "FR", societe: "", isin: "FR0000123456" }), "FR|FR0000123456", "nom vide -> ISIN en secours");
+});
+T("signalsFrom : cluster multi-initiés -> niveau 3 (🔥🔥), prix moyen pondéré", function () {
+  var s = RI.signalsFrom(SIGROWS);
+  EQ(s.length, 1, "BOLLORE (1 achat) exclu");
+  EQ(s[0].societe, "KLEA HOLDING");
+  EQ(s[0].level, 3, "3 achats + 2 initiés distincts -> cluster");
+  EQ(s[0].buys, 3);
+  EQ(s[0].buyers, 2);
+  EQ(s[0].total, 66200);
+  EQ(s[0].avgPx, 4.1375, "prix moyen pondéré : 66200 / 16000");
+  EQ(s[0].first, "2026-11-05");
+  EQ(s[0].last, "2026-11-07");
+});
+T("signalsFrom : même initié x3 -> niveau 2 ; x2 -> niveau 1 ; tri niveau puis total", function () {
+  var r3 = [
+    { id: "a", source: "US", societe: "X CORP", ticker: "XC", auteur: "MEME", dateOp: "2026-11-01", datePub: "2026-11-02", volume: 100, prix: 10, montant: 1000 },
+    { id: "b", source: "US", societe: "X CORP", ticker: "XC", auteur: "MEME", dateOp: "2026-11-02", datePub: "2026-11-03", volume: 100, prix: 11, montant: 1100 },
+    { id: "c", source: "US", societe: "X CORP", ticker: "XC", auteur: "MEME", dateOp: "2026-11-03", datePub: "2026-11-04", volume: 100, prix: 12, montant: 1200 }
+  ];
+  var s = RI.signalsFrom(r3);
+  EQ(s.length, 1);
+  EQ(s[0].level, 2, "3 achats du même initié -> accumulation");
+  EQ(s[0].buyers, 1);
+  var l1 = RI.signalsFrom(r3.slice(0, 2));
+  EQ(l1.length, 1);
+  EQ(l1[0].level, 1, "2 achats même initié -> signal faible");
+  // tri : niveau 3 avant niveau 1, total décroissant à niveau égal
+  var mix = r3.concat(SIGROWS.slice(0, 3));
+  var ms = RI.signalsFrom(mix);
+  EQ(ms[0].level, 3, "KLEA cluster en tête");
+  A(ms[0].total > ms[1].total, "total décroissant à niveau différent vérifié séparément");
+});
+T("signalsFrom : total >= 1 M -> niveau 2 même avec 2 achats", function () {
+  var s = RI.signalsFrom([
+    { id: "a", source: "US", societe: "BIG", ticker: "BG", auteur: "A", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 60400, prix: 383.015, montant: 23134106 },
+    { id: "b", source: "US", societe: "BIG", ticker: "BG", auteur: "A", dateOp: "2026-11-06", datePub: "2026-11-06", volume: 100, prix: 380, montant: 38000 }
+  ]);
+  EQ(s.length, 1);
+  EQ(s[0].level, 2, "gros total -> accumulation");
+  EQ(s[0].total, 23172106);
+});
+T("signalsFrom : FR et US jamais fusionnés (clés et devises séparées)", function () {
+  var s = RI.signalsFrom([
+    { id: "a", source: "FR", societe: "MADRIGAL", isin: "", auteur: "A", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 100, prix: 10, montant: 1000 },
+    { id: "b", source: "US", societe: "MADRIGAL", ticker: "MDGL", auteur: "A", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 100, prix: 10, montant: 1000 }
+  ]);
+  EQ(s.length, 0, "même nom, sources différentes -> 2 groupes d'1 achat, aucun signal");
+});
+T("signalsFrom : lignes hostiles ignorées", function () {
+  var s = RI.signalsFrom([
+    { id: "", societe: "X", source: "FR", datePub: "2026-11-06", volume: 1, prix: 1, montant: 1 },
+    { id: "b", societe: "X", source: "FR", datePub: null, volume: 1, prix: 1, montant: 1 },
+    { id: "c", societe: "X", source: "FR", datePub: "2026-11-06", volume: 1, prix: 1, montant: NaN },
+    { id: "d", societe: "X", source: "FR", datePub: "2026-11-06", volume: 0, prix: 1, montant: 100 },
+    { id: "e", societe: "X", source: "FR", datePub: "2026-11-06", volume: 1, prix: NaN, montant: 100 }
+  ]);
+  EQ(s.length, 0, "aucun signal sur données incohérentes (prix moyen impossible)");
+});
+T("signalCountByKey : badge ×N", function () {
+  var c = RI.signalCountByKey(SIGROWS);
+  EQ(c["FR|KLEA HOLDING"], 3);
+  EQ(c["FR|BOLLORE"], 1);
+});
+T("quoteUrl : FR -> Boursorama (ISIN), US -> Google Finance (ticker)", function () {
+  EQ(RI.quoteUrl({ source: "FR", isin: "FR0000039299", societe: "BOLLORE" }), "https://www.boursorama.com/recherche/?query=FR0000039299");
+  EQ(RI.quoteUrl({ source: "FR", isin: "", societe: "Air Liquide SA" }), "https://www.boursorama.com/recherche/?query=Air%20Liquide%20SA");
+  EQ(RI.quoteUrl({ source: "US", ticker: "MDGL", societe: "MADRIGAL" }), "https://www.google.com/finance/search?q=MDGL");
+  A(/^https:\/\//.test(RI.quoteUrl({ source: "US", ticker: "", societe: "X/Y Corp" })), "https garanti");
+});
+T("fmtPx : devise selon la source", function () {
+  EQ(RI.fmtPx({ source: "FR" }, 4.1375), "4.14 \u20ac");
+  EQ(RI.fmtPx({ source: "US" }, 383.015), "383.02 $");
+  EQ(RI.fmtPx({ source: "FR" }, NaN), "\u2014");
+});
+T("normName : accents, ponctuation, casse", function () {
+  EQ(RI.normName("Compagnie Générale d'Eau"), "COMPAGNIE GENERALE D EAU");
+  EQ(RI.normName("  roche-bobois  s.a. "), "ROCHE BOBOIS S A");
+  EQ(RI.normName(null), "");
+});
+
 // ---------- compilation navigateur de tous les scripts (leçon v5.3 du Radar) ----------
 function compilesAsBrowserScript(name, code) {
   try { new vm.Script(code, { filename: name }); }
@@ -285,8 +378,17 @@ T("fetch-insiders.js compile", function () {
   });
   T("sw.js : cache versionné + réseau d'abord + clé sans ?v=", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf('sentinelle-perso-v1') > -1, "cache versionné");
+    A(sw.indexOf('sentinelle-perso-v2') > -1, "cache v2 (les téléphones v1 re-téléchargent le shell)");
+    A(sw.indexOf('sentinelle-perso-v1"') === -1, "plus de v1 comme nom de cache");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
+  });
+  T("v2 : badge et éléments UI des signaux présents", function () {
+    A(html.indexOf('id="ver">v2<') > -1, "badge v2");
+    A(html.indexOf('id="sigCard"') > -1, "carte accumulations");
+    A(html.indexOf('id="newBanner"') > -1, "bandeau nouveaux");
+    A(html.indexOf('id="newChip"') > -1, "filtre 🆕");
+    A(html.indexOf("signalsFrom") > -1, "signaux rendus");
+    A(html.indexOf("quoteUrl") > -1, "liens cote");
   });
   T("insiders.yml : cron 2 h ouvrés + contents write + actions write + redéploiement Pages", function () {
     var y = fs.readFileSync(__dirname + "/../.github/workflows/insiders.yml", "utf8");
@@ -294,6 +396,18 @@ T("fetch-insiders.js compile", function () {
     A(y.indexOf("contents: write") > -1, "permission commit");
     A(y.indexOf("actions: write") > -1, "permission relancer pages.yml");
     A(y.indexOf("gh workflow run pages.yml") > -1, "redéploiement explicite");
+    A(y.indexOf("git add data.json state.json") > -1, "state.json committé (déduplication US durable)");
+    A(y.indexOf("node tools/validate-data.js") > -1, "validation avant commit");
+    A(y.indexOf("sentinelle-bot") > -1, "identité bot unique");
+  });
+  T("un seul workflow de scan : scan.yml supprimé (doublon horaire)", function () {
+    A(!fs.existsSync(__dirname + "/../.github/workflows/scan.yml"), "scan.yml absent");
+  });
+  T("code mort de la v0 supprimé", function () {
+    A(!fs.existsSync(__dirname + "/../app.js"), "app.js");
+    A(!fs.existsSync(__dirname + "/../styles.css"), "styles.css");
+    A(!fs.existsSync(__dirname + "/insiders-core.js"), "insiders-core.js");
+    A(!fs.existsSync(__dirname + "/test-insiders.js"), "test-insiders.js");
   });
   T("pages.yml : tests bloquants avant déploiement", function () {
     var y = fs.readFileSync(__dirname + "/../.github/workflows/pages.yml", "utf8");

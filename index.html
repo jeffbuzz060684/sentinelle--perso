@@ -52,6 +52,22 @@ h3{font-size:13px;margin-bottom:6px}
 .info p,.info li{font-size:12.5px;color:var(--mut);line-height:1.5}
 .info ul{padding-left:18px;margin-top:4px}
 .empty{text-align:center;color:var(--mut);font-size:13px;padding:24px 0}
+.hidden{display:none}
+#newBanner{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.4);font-size:13px;line-height:1.5}
+.sig{padding:9px 0;border-bottom:1px solid var(--line)}
+.sig:last-child{border-bottom:0}
+.sig .head{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}
+.sig .soc{font-weight:600;font-size:14px;overflow-wrap:break-word}
+.sig .lvl{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;white-space:nowrap}
+.sig .lvl.l3{background:rgba(251,113,133,.18);color:var(--red)}
+.sig .lvl.l2{background:rgba(251,191,36,.16);color:var(--amber)}
+.sig .lvl.l1{background:rgba(148,163,184,.14);color:var(--mut)}
+.sig .sum{font-size:12px;color:var(--txt);margin-top:3px;overflow-wrap:break-word}
+.sig .sum b{font-weight:700}
+.sig .sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.x{font-size:10.5px;font-weight:700;background:rgba(251,191,36,.16);color:var(--amber);border-radius:5px;padding:1px 5px;white-space:nowrap}
+.newdot{font-size:10px;font-weight:700;background:rgba(52,211,153,.16);color:var(--green);border-radius:5px;padding:1px 5px;white-space:nowrap}
+.mut{font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5}
 details summary{cursor:pointer;color:var(--txt);font-weight:600;font-size:13.5px}
 footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-height:1.6}
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:12.5px;opacity:0;transition:opacity .4s;pointer-events:none;max-width:90vw}
@@ -62,15 +78,17 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 <div class="wrap">
   <header>
     <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v1</span>
+    <span class="badge" id="ver">v2</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
 
   <div class="stats">
     <div class="stat"><div class="v" id="nFr">—</div><div class="l">achats AMF 🇫🇷 (90 j)</div></div>
     <div class="stat"><div class="v" id="nUs">—</div><div class="l">achats SEC 🇺🇸 (90 j)</div></div>
-    <div class="stat"><div class="v" id="nTop">—</div><div class="l">plus gros achat du jour</div></div>
+    <div class="stat"><div class="v" id="nSig" style="color:var(--amber)">—</div><div class="l">🔥 sociétés en accumulation</div></div>
   </div>
+
+  <div class="card hidden" id="newBanner"></div>
 
   <div class="card filters">
     <div class="filters">
@@ -91,7 +109,14 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       <button class="amt" data-m="50000">≥ 50 k</button>
       <button class="amt" data-m="100000">≥ 100 k</button>
       <button class="amt" data-m="1000000">≥ 1 M</button>
+      <button class="amt" id="newChip" title="Achats publiés depuis ta dernière visite">🆕 Nouveaux</button>
     </div>
+  </div>
+
+  <div class="card hidden" id="sigCard">
+    <h3>🔥 Initiés en accumulation <span class="badge" style="font-weight:400">fenêtre 90 j</span></h3>
+    <div id="signals"></div>
+    <p class="mut">Le prix moyen payé est <b>la référence des initiés</b>, pas le cours du jour — compare-la à la cote. 🔥🔥 = plusieurs initiés <b>distincts</b> achètent la même société : c'est le signal le plus fort. Un même initié qui rachète plusieurs fois (×N) montre aussi sa conviction. Heuristique maison, pas une garantie.</p>
   </div>
 
   <div id="list"></div>
@@ -103,6 +128,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       <ul>
         <li>🇫🇷 <b>AMF</b> : déclarations des dirigeants de sociétés cotées françaises, publiées sous <b>3 jours ouvrés</b> (art. L.621-18-2). Montants ≥ 1 000 €.</li>
         <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, <b>achats au marché uniquement</b> (code P) — conversions, dons, cadeaux et levées d'options exclus. Montants ≥ 1 000 $.</li>
+        <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
       </ul>
       <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
@@ -112,7 +138,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
   <footer>
     Sources : déclarations publiques <a href="https://transactions-amf.swaoo.com/" target="_blank" rel="noopener">Transactions AMF</a> · <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank" rel="noopener">SEC EDGAR</a><br>
-    Sentinelle perso v1 · pipeline GitHub Actions · aucune donnée personnelle dans cette app
+    Sentinelle perso v2 · pipeline GitHub Actions · aucune donnée personnelle dans cette app
   </footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -123,7 +149,8 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 (function () {
   var DATA_KEY = "sentinelle-perso-data-v1";
   var PREF_KEY = "sentinelle-perso-prefs-v1";
-  var state = { data: null, prefs: { src: "all", sort: "date", m: 0, q: "" } };
+  var SEEN_KEY = "sentinelle-perso-lastseen-v1";
+  var state = { data: null, newIds: [], prefs: { src: "all", sort: "date", m: 0, q: "", new: false } };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -143,6 +170,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         if (p.sort === "date" || p.sort === "montant") state.prefs.sort = p.sort;
         if (typeof p.m === "number" && p.m >= 0) state.prefs.m = p.m;
         if (typeof p.q === "string") state.prefs.q = p.q;
+        if (typeof p.new === "boolean") state.prefs.new = p.new;
       }
     } catch (e) { }
   }
@@ -150,9 +178,44 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     try { localStorage.setItem(PREF_KEY, JSON.stringify(state.prefs)); } catch (e) { }
   }
 
+  // ---- « nouveaux depuis ta dernière visite » (granularité jour de publication) ----
+  function todayLocal() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function seenGet() { try { return localStorage.getItem(SEEN_KEY) || null; } catch (e) { return null; } }
+  function seenSet(v) { try { localStorage.setItem(SEEN_KEY, v); } catch (e) { } }
+
+  function countNew(d) {
+    var ls = seenGet();
+    var ids = [];
+    var all = (d.fr || []).concat(d.us || []);
+    if (ls) {
+      for (var i = 0; i < all.length; i++) {
+        // >= le jour de la dernière visite inclus : les achats publiés ce jour-là
+        // restent marqués (jour de publication = granularité max des données).
+        if (String(all[i].datePub).slice(0, 10) >= ls) ids.push(all[i].id);
+      }
+    }
+    state.newIds = ids;
+    seenSet(todayLocal());
+    var nb = $("newBanner");
+    if (ids.length > 0) {
+      nb.classList.remove("hidden");
+      nb.innerHTML = "🆕 <b>" + ids.length + "</b> achat" + (ids.length > 1 ? "s" : "") +
+        " d'initi\u00e9" + (ids.length > 1 ? "s" : "") + " publi\u00e9" + (ids.length > 1 ? "s" : "") +
+        " depuis ta derni\u00e8re visite — filtre \u00ab \ud83d\udc1f Nouveaux \u00bb";
+    } else {
+      nb.classList.add("hidden");
+    }
+  }
+
   function applyData(d) {
     if (!d || !d.fr || !d.us) return false;
+    var prevUpdated = state.data ? state.data.updated : null;
     state.data = d;
+    // re-compter uniquement quand un nouveau relevé arrive (pas à chaque refresh)
+    if (prevUpdated !== d.updated) countNew(d);
     try { localStorage.setItem(DATA_KEY, JSON.stringify(d)); } catch (e) { }
     render();
     return true;
@@ -180,33 +243,66 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       });
   }
 
-  function fmtTop(d) {
-    var today = (state.data && state.data.updated || "").slice(0, 10);
-    var best = null;
-    var all = (d.fr || []).concat(d.us || []);
-    for (var i = 0; i < all.length; i++) {
-      if (String(all[i].datePub).slice(0, 10) !== today) continue;
-      if (!best || (all[i].montant || 0) > (best.montant || 0)) best = all[i];
+  function fmtSigMontant(sig) {
+    return sig.source === "US" ? RI.fmtUSD(sig.total) : RI.fmtEUR(sig.total);
+  }
+  function lvlBadge(sig) {
+    if (sig.level === 3) return '<span class="lvl l3" title="Plusieurs initiés distincts achètent la même société">🔥🔥 cluster</span>';
+    if (sig.level === 2) return '<span class="lvl l2" title="Accumulation nette (achats répétés, plusieurs initiés ou total ≥ 1 M)">🔥</span>';
+    return '<span class="lvl l1" title="Deux achats du même initié — à nuancer">×2</span>';
+  }
+  function renderSignals(sigs) {
+    var card = $("sigCard");
+    if (!sigs || sigs.length === 0) {
+      card.classList.add("hidden");
+      return;
     }
-    if (!best) return "—";
-    return RI.fmtMontant(best);
+    card.classList.remove("hidden");
+    var html = [];
+    for (var i = 0; i < sigs.length; i++) {
+      var s = sigs[i];
+      html.push(
+        '<div class="sig">' +
+        '<div class="head">' + lvlBadge(s) +
+        '<span class="soc">' + esc(s.societe) + (s.ticker ? ' <span class="tk">' + esc(s.ticker) + "</span>" : "") + "</span></div>" +
+        '<div class="sum"><b>' + s.buys + " achat" + (s.buys > 1 ? "s" : "") + "</b> · " +
+        s.buyers + " initi\u00e9" + (s.buyers > 1 ? "s" : "") + " distinct" + (s.buyers > 1 ? "s" : "") +
+        " · total " + esc(fmtSigMontant(s)) +
+        " · prix moyen pay\u00e9 <b>" + esc(RI.fmtPx(s, s.avgPx)) + "</b></div>" +
+        '<div class="sub"><span>' + esc(RI.isoToDmY(s.first)) + " \u2192 " + esc(RI.isoToDmY(s.last)) + "</span>" +
+        ' · <a href="' + esc(RI.quoteUrl(s)) + '" target="_blank" rel="noopener">cote \u2197</a>' +
+        ' · <a href="#" data-sig="' + esc(s.societe) + '">voir les achats</a>' +
+        "</div></div>"
+      );
+    }
+    $("signals").innerHTML = html.join("");
   }
 
   function render() {
     var d = state.data;
     if (!d) return;
-    var fr = RI.esc;
     $("nFr").textContent = String((d.fr || []).length);
     $("nUs").textContent = String((d.us || []).length);
-    $("nTop").textContent = fmtTop(d);
 
     var f = RI.freshness(d.updated, Date.now());
     var c = $("fresh");
     c.textContent = "relevé " + f.label;
     c.className = "chip" + (f.stale ? " stale" : "");
 
-    var rows = (d.fr || []).concat(d.us || []);
-    rows = RI.filterRows(rows, { source: state.prefs.src, minMontant: state.prefs.m, q: state.prefs.q });
+    var all = (d.fr || []).concat(d.us || []);
+
+    // signaux d'accumulation : suivent le filtre source uniquement (pas montant/recherche)
+    var sigRows = RI.filterRows(all, { source: state.prefs.src });
+    var sigs = RI.signalsFrom(sigRows);
+    $("nSig").textContent = String(sigs.length);
+    renderSignals(sigs);
+
+    var cnt = RI.signalCountByKey(all);
+
+    var rows = RI.filterRows(all, { source: state.prefs.src, minMontant: state.prefs.m, q: state.prefs.q });
+    if (state.prefs.new) {
+      rows = rows.filter(function (r) { return state.newIds.indexOf(r.id) > -1; });
+    }
     rows = RI.sortRows(rows, state.prefs.sort);
 
     var el = $("list");
@@ -218,17 +314,23 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       var lag = RI.lagLabel(r);
+      var n = cnt[RI.sigKey(r)];
+      var isNew = state.newIds.indexOf(r.id) > -1;
       html.push(
         '<div class="card"><div class="row ' + (r.source === "FR" ? "fr" : "us") + '">' +
         '<div class="bar"></div>' +
         '<div class="t">' +
-        '<div class="soc">' + esc(r.societe) + (r.ticker ? ' <span class="tk">' + esc(r.ticker) + "</span>" : "") + "</div>" +
+        '<div class="soc">' + esc(r.societe) + (r.ticker ? ' <span class="tk">' + esc(r.ticker) + "</span>" : "") +
+        (n >= 2 ? ' <span class="x" title="Nombre d\'achats de cette société sur la fenêtre 90 j — voir la carte accumulation">×' + n + "</span>" : "") +
+        (isNew ? ' <span class="newdot">🆕</span>' : "") +
+        "</div>" +
         '<div class="who">' + esc(r.auteur) + (r.role ? " · " + esc(r.role) : "") + "</div>" +
         '<div class="meta"><span>achat du ' + esc(RI.isoToDmY(r.dateOp)) + "</span>" +
         (lag ? "<span>" + esc(lag) + "</span>" : "") +
         (r.instrument ? "<span>" + esc(String(r.instrument).slice(0, 40)) + "</span>" : "") +
         "</div>" +
         '<div class="details">' + esc(RI.fmtNum(r.volume)) + " × " + esc(r.source === "US" ? "$" + r.prix : r.prix + " €") +
+        ' · <a href="' + esc(RI.quoteUrl(r)) + '" target="_blank" rel="noopener">cote ↗</a>' +
         (r.url ? ' · <a href="' + esc(r.url) + '" target="_blank" rel="noopener">source</a>' : "") + "</div>" +
         "</div>" +
         '<div style="text-align:right"><div class="montant">' + esc(RI.fmtMontant(r)) + '</div><div style="margin-top:4px"><span class="src ' + (r.source === "FR" ? "fr" : "us") + '">' + r.source + "</span></div></div>" +
@@ -237,6 +339,19 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     }
     el.innerHTML = html.join("");
   }
+
+  // « voir les achats » d'une carte accumulation → filtre la liste sur la société
+  $("signals").addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-sig]");
+    if (!a) return;
+    e.preventDefault();
+    var q = a.getAttribute("data-sig") || "";
+    state.prefs.q = q;
+    var inp = document.getElementById("q");
+    if (inp) inp.value = q;
+    savePrefs();
+    render();
+  });
 
   function wire() {
     var segSrc = $("segSrc");
@@ -263,10 +378,16 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     $("amts").addEventListener("click", function (e) {
       var b = e.target.closest("button");
       if (!b) return;
+      if (b.getAttribute("data-m") === null) return; // 🆕 Nouveaux a son propre handler
       state.prefs.m = parseInt(b.getAttribute("data-m"), 10) || 0;
       Array.prototype.forEach.call($("amts").querySelectorAll("button"), function (x) {
-        x.classList.toggle("on", x === b);
+        if (x.getAttribute("data-m") !== null) x.classList.toggle("on", x === b);
       });
+      savePrefs(); render();
+    });
+    $("newChip").addEventListener("click", function () {
+      state.prefs.new = !state.prefs.new;
+      $("newChip").classList.toggle("on", state.prefs.new);
       savePrefs(); render();
     });
     $("q").addEventListener("input", function (e) {
@@ -288,8 +409,10 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       b.classList.toggle("on", b.getAttribute("data-sort") === state.prefs.sort);
     });
     Array.prototype.forEach.call($("amts").querySelectorAll("button"), function (b) {
+      if (b.getAttribute("data-m") === null) return;
       b.classList.toggle("on", (parseInt(b.getAttribute("data-m"), 10) || 0) === state.prefs.m);
     });
+    $("newChip").classList.toggle("on", state.prefs.new === true);
     $("q").value = state.prefs.q;
   }
 

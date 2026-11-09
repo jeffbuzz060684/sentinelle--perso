@@ -13,6 +13,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,14 +21,16 @@ jobs:
           node-version: 20
       - name: Relevé FR (AMF) + US (SEC)
         run: node tools/fetch-insiders.js
+      - name: Validation des données
+        run: node tools/validate-data.js
       - name: Commit si changé
         id: changed
         run: |
           if ! git diff --quiet; then
-            git config user.name "radar-inities-bot"
-            git config user.email "actions@users.noreply.github.com"
+            git config user.name "sentinelle-bot"
+            git config user.email "actions@github.com"
             git add data.json state.json
-            git commit -m "chore: relevé initiés $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git commit -m "scan: achats initiés $(date -u '+%Y-%m-%d %Hh UTC')"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else

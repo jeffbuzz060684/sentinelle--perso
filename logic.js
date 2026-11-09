@@ -318,6 +318,95 @@ var RI = (function () {
     return { h: h, label: label, stale: h > CFG.STALE_H };
   }
 
+  // ---------- signaux : accumulation des initiés par société ----------
+  // Un achat isolé = bruit ; plusieurs achats (surtout d'initiés DISTINCTS) = conviction.
+  // Heuristique maison de niveau, non validée historiquement :
+  //   niveau 3 (🔥🔥) : >= 2 initiés distincts ET >= 3 achats  — le vrai signal de cluster
+  //   niveau 2 (🔥)   : >= 3 achats (même initié qui rachète) OU >= 2 initiés OU total >= 1 M
+  //   niveau 1 (×)    : 2 achats d'un même initié — à nuancer
+  //   < 2 achats      : pas un signal (reste dans la liste brute)
+  function normName(s) {
+    return String(s == null ? "" : s).toUpperCase()
+      .replace(/[\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5]/g, "A").replace(/[\u00c8\u00c9\u00ca\u00cb]/g, "E")
+      .replace(/[\u00cc\u00cd\u00ce\u00cf]/g, "I").replace(/[\u00d2\u00d3\u00d4\u00d5\u00d6]/g, "O")
+      .replace(/[\u00d9\u00da\u00db\u00dc]/g, "U").replace(/\u00c7/g, "C")
+      .replace(/[^A-Z0-9]+/g, " ").trim();
+  }
+  // clé de regroupement : jamais mélanger FR (€) et US ($). Côté FR, le NOM normalisé
+  // prime : 37/63 déclarations réelles sans ISIN — la clé ISIN couperait une société
+  // en deux cartes (cas ROCHE BOBOIS constaté). Côté US, le ticker (toujours présent).
+  function sigKey(r) {
+    if (r.source === "US") return "US|" + ((r.ticker && normName(r.ticker)) || normName(r.societe));
+    return "FR|" + (normName(r.societe) || String(r.isin || "").trim());
+  }
+  function signalsFrom(rows) {
+    var map = {};
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r || !r.id || !r.datePub) continue;
+      if (r.montant == null || !isFinite(r.montant) || r.montant < 0) continue;
+      if (!isFinite(r.volume) || r.volume <= 0 || !isFinite(r.prix) || r.prix <= 0) continue;
+      var k = sigKey(r);
+      var g = map[k];
+      if (!g) {
+        g = map[k] = { key: k, source: r.source, societe: r.societe, ticker: r.ticker || "", isin: r.isin || "",
+          buys: 0, total: 0, volume: 0, buyers: {}, first: null, last: null };
+      }
+      g.buys++; g.total += r.montant; g.volume += r.volume;
+      var bk = normName(r.auteur) || "\u2014";
+      g.buyers[bk] = (g.buyers[bk] || 0) + 1;
+      var d = String(r.datePub).slice(0, 10);
+      if (!g.first || d < g.first) g.first = d;
+      if (!g.last || d > g.last) g.last = d;
+    }
+    var out = [];
+    for (var k2 in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, k2)) continue;
+      var m = map[k2];
+      if (m.buys < 2) continue;
+      var nBuyers = 0;
+      for (var b in m.buyers) {
+        if (Object.prototype.hasOwnProperty.call(m.buyers, b)) nBuyers++;
+      }
+      out.push({
+        key: m.key, source: m.source, societe: m.societe, ticker: m.ticker, isin: m.isin,
+        buys: m.buys, buyers: nBuyers,
+        total: Math.round(m.total * 100) / 100,
+        avgPx: m.volume > 0 ? Math.round((m.total / m.volume) * 10000) / 10000 : 0,
+        first: m.first, last: m.last,
+        level: (nBuyers >= 2 && m.buys >= 3) ? 3 : ((m.buys >= 3 || nBuyers >= 2 || m.total >= 1000000) ? 2 : 1)
+      });
+    }
+    out.sort(function (a, b) {
+      if (b.level !== a.level) return b.level - a.level;
+      return b.total - a.total;
+    });
+    return out;
+  }
+  // badge ×N dans la liste brute : nb d'achats de la société sur la fenêtre
+  function signalCountByKey(rows) {
+    var c = {};
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r || !r.datePub) continue;
+      var k = sigKey(r);
+      c[k] = (c[k] || 0) + 1;
+    }
+    return c;
+  }
+  // lien cote en 1 tap — pas d'API marché (fragile, CORS) : on renvoie vers la recherche
+  function quoteUrl(r) {
+    if (r.source === "US") {
+      return "https://www.google.com/finance/search?q=" + encodeURIComponent(String(r.ticker || r.societe || "").trim());
+    }
+    var id = String(r.isin || "").trim();
+    return "https://www.boursorama.com/recherche/?query=" + encodeURIComponent(id || String(r.societe || "").trim());
+  }
+  function fmtPx(r, px) {
+    if (px == null || !isFinite(px)) return "\u2014";
+    return fmtNum(px) + (r.source === "US" ? " $" : " \u20ac");
+  }
+
   return {
     CFG: CFG,
     esc: esc, decodeEntities: decodeEntities, stripTags: stripTags,
@@ -327,7 +416,8 @@ var RI = (function () {
     frNextPage: frNextPage,
     mergeRows: mergeRows,
     filterRows: filterRows, sortRows: sortRows,
-    fmtEUR: fmtEUR, fmtUSD: fmtUSD, fmtNum: fmtNum, fmtMontant: fmtMontant, lagLabel: lagLabel, freshness: freshness
+    fmtEUR: fmtEUR, fmtUSD: fmtUSD, fmtNum: fmtNum, fmtMontant: fmtMontant, lagLabel: lagLabel, freshness: freshness,
+    normName: normName, sigKey: sigKey, signalsFrom: signalsFrom, signalCountByKey: signalCountByKey, quoteUrl: quoteUrl, fmtPx: fmtPx
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }
