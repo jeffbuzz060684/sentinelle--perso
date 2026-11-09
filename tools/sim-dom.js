@@ -319,22 +319,15 @@ module.exports = function simDom(cb) {
       A(s.indexOf("boursorama.com") > -1, "lien cote Boursorama");
       A(s.indexOf("score + initiés") === -1, "vue 📐 : libellé /100, pas « score + initiés »");
     });
-    T("v4.0 clic segment 🔀 × Initiés FR : tri croisé + libellé « score + initiés » persisté", function () {
-      var btn = {
-        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
-        getAttribute: function (k) { return k === "data-v" ? "xins" : null; }
-      };
-      btn.closest = function () { return btn; };
-      var h = elements["segSb"] && elements["segSb"].listeners.click && elements["segSb"].listeners.click[0];
-      A(!!h, "handler segSb présent");
-      h({ target: btn, preventDefault: function () { } });
+    T("v4.0.11 UN SEUL classement 🏆 : plus de segments, tri Long terme permanent", function () {
+      var seg = elements["segSb"];
+      A(!seg || !seg.listeners || !seg.listeners.click || !seg.listeners.click[0], "plus de handler de vue — un seul classement, rien à basculer");
       var s = elements["sbList"].innerHTML || "";
-      A(s.indexOf("score + initiés") > -1, "vue croisée active");
-      A(s.indexOf("+10 initiés") > -1, "détail du bonus affiché");
+      A(s.indexOf("score + initiés") === -1, "l'ancienne vue croisée n'existe plus");
+      A(s.indexOf("qualité+entrée+initiés") > -1, "libellé du classement unique (qualité+entrée+initiés)");
+      A(s.indexOf("+10 initiés") > -1, "détail du bonus initiés affiché quand il existe");
       var p = store["sentinelle-perso-prefs-v1"] || "";
-      A(p.indexOf("xins") > -1, "vue mémorisée");
-      var rco = s.indexOf("ROCHE BOBOIS"), pl = s.indexOf("Société en perte");
-      A(rco > -1 && pl > rco, "ROCHE BOBOIS (bonus initiés) passe devant la valeur en perte");
+      A(p.indexOf("xins") === -1 && p.indexOf("sbView") === -1, "plus de vue mémorisée : " + p);
     });
     T("v4.0 recherche SBF : filtre par nom/mnémonique, message si rien trouvé", function () {
       var h = elements["sq"] && elements["sq"].listeners.input && elements["sq"].listeners.input[0];

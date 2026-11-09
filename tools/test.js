@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.10");
+  EQ(RI.VERSION, "4.0.11");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -796,7 +796,8 @@ T("fetch-insiders.js compile", function () {
     var h = fs.readFileSync(__dirname + "/../index.html", "utf8");
     A(h.indexOf('id="tabs"') > -1 && h.indexOf('data-tab="sbf"') > -1, "barre d'onglets 👁 Initiés / 📊 SBF 120");
     A(h.indexOf('id="viewIns"') > -1 && h.indexOf('id="viewSbf"') > -1, "deux vues séparées");
-    A(h.indexOf('id="segSb"') > -1 && h.indexOf('data-v="val"') > -1 && h.indexOf('data-v="xins"') > -1, "segment 📐 Valorisation / 🔀 × Initiés FR");
+    A(h.indexOf('id="segSb"') > -1 && h.indexOf("🏆 Long terme — LA liste unique") > -1, "v4.0.11 : UN SEUL classement 🏆, titre statique");
+    A(h.indexOf('data-v="val"') === -1 && h.indexOf('data-v="xins"') === -1 && h.indexOf('data-v="obj"') === -1 && h.indexOf('data-v="lt"') === -1, "v4.0.11 : plus aucun segment de vue (📐 🔀 🎯 supprimés, demande de Jade)");
     A(h.indexOf('id="sq"') > -1, "recherche d'une valeur");
     A(h.indexOf('id="sbList"') > -1 && h.indexOf("sbLimit") > -1, "liste + pagination 100");
     A(h.indexOf('id="sbIdxPx"') > -1 && h.indexOf('id="sbIdxChg"') > -1, "stats indice");
@@ -809,8 +810,7 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("id=\"sbTpN\"") > -1, "stat objectifs analystes (consensus)");
     A(h.indexOf("≈ à vérifier") > -1, "badge approx visible sur les tickers approximatifs");
     A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
-    A(h.indexOf('data-v="obj"') > -1 && h.indexOf("🎯 Objectifs") > -1, "segment 🎯 Objectifs");
-    A(h.indexOf('data-v="lt"') > -1 && h.indexOf("🏆 Long terme") > -1, "segment 🏆 Long terme (LA liste unique, v4.0.10)");
+    A(h.indexOf("UNE SEULE liste 🏆 Long terme") > -1, "v4.0.11 : note méthodo = un seul classement, vues séparées supprimées");
     A(h.indexOf("📉 bas de fourchette 52 s.") > -1, "badge position 52 s. neutre (info, pas un signal d'achat)");
     A(h.indexOf("qualité 55 %") > -1 && h.indexOf("point d'entrée 35 %") > -1 && h.indexOf("initiés FR 10 %") > -1, "note méthodo 🏆 : 55/35/10 affichés");
     A(h.indexOf("affiché sans être noté") > -1, "v4.0.10 : contexte d'entrée (52 s., consensus 🎯) affiché mais hors score");
@@ -821,8 +821,7 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("journal-scores.jsonl") > -1, "journal de validation mentionné dans l'aide");
     A(h.indexOf("repli TradingView la croissance est absente") > -1 || h.indexOf("repli TradingView, la croissance") > -1, "v4.0.9 : repli TV qualité expliqué (3/4 sans croissance)");
     A(h.indexOf("3 métriques sur 4") > -1 || h.indexOf("3 métriques qualité") > -1, "exigence 3/4 expliquée");
-    A(h.indexOf("objectif de consensus des analystes") > -1, "note méthodo : consensus ≠ score maison");
-    A(h.indexOf("potentiel vs l'objectif") > -1 || h.indexOf("Potentiel vs objectif") > -1, "potentiel vs objectif expliqué");
+    A(h.indexOf("contexte d'entrée") > -1 && h.indexOf("≠ notre score maison") > -1, "consensus 🎯 = contexte d'entrée, ≠ score maison (v4.0.11)");
     A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
   });
   T("rankPct : percentiles, plus bas = 100, exclusion des non positifs", function () {

@@ -175,15 +175,10 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     <div class="card hidden" id="sbBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
     <div class="card filters">
       <div class="filters">
-        <div class="seg" id="segSb">
-          <button data-v="lt" class="on">🏆 Long terme</button>
-          <button data-v="val">📐 Valorisation</button>
-          <button data-v="xins">🔀 × Initiés FR</button>
-          <button data-v="obj">🎯 Objectifs</button>
-        </div>
+        <div class="seg" id="segSb"><span style="font-weight:600;cursor:default">🏆 Long terme — LA liste unique · qualité 55 % + point d'entrée 35 % + initiés 10 %</span></div>
         <input type="search" id="sq" placeholder="🔎 valeur du SBF 120…" aria-label="Rechercher">
       </div>
-      <p class="mut">Percentiles internes : <b>par secteur</b> quand ≥ 8 pairs du même secteur sont cotés (données TradingView), sinon sur tout l’indice. Pondération PER 50 % · rendement 30 % · P/B 20 % — le score affiche sa base (k/3 métriques) et son référentiel (vs secteur ou vs indice). Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. La vue 🔀 ajoute le bonus initiés FR (clusters 30 j : +15/10/4 selon le niveau). La vue 🎯 classe par <b>potentiel vs l’objectif de consensus des analystes</b> (module Yahoo financialData : moyenne des prix cibles + les éléments économiques et financiers qui les fondent — croissance, marge opérationnelle, ROE, endettement) — l’avis du marché, ≠ notre score maison. La vue 🏆 <b>Long terme</b> est <b>LA liste unique</b> (demande du 09/11 : les 4 classements séparés n'en faisaient qu'un) : <b>qualité 55 %</b> (ROE 35 %, marge op. 25 %, croissance CA 20 %, dette/CP 20 % — module Yahoo, classée <b>par secteur</b> comme la valorisation, ≥ 3 métriques sur 4 exigées ; en repli TradingView la croissance est absente : le score se calcule sur ROE, marge op. et dette/CP — 3/4) + <b>point d'entrée 35 %</b> (valorisation PER/rendement/P/B vs pairs) + <b>initiés FR 10 %</b> (conviction des dirigeants sur 30 j, jamais de malus). Capitaux propres négatifs → métriques non mesurables ; PER prévisionnel au-dessus du PER passé → ⚠️ bénéfices attendus en baisse. Le <b>contexte d'entrée est affiché sans être noté</b> : 📉 position dans la fourchette 52 semaines (un point bas n'est pas un plancher — pièges à valeur) et 🎯 potentiel consensus (l'avis du marché) restent des <b>informations</b> — la littérature (George &amp; Hwang) associe le momentum au <b>plus haut</b> 52 s., pas au plus bas ; ils ne seront notés que si le journal de validation le démontre. Les vues 📐, 🔀 et 🎯 restent pour explorer une dimension chacune. Sans fondamentaux, pas de score 🏆 — on n'invente rien. Outil de tri, pas un conseil.</p>
+      <p class="mut">Percentiles internes : <b>par secteur</b> quand ≥ 8 pairs du même secteur sont cotés (données TradingView), sinon sur tout l’indice. Pondération PER 50 % · rendement 30 % · P/B 20 % — le score affiche sa base (k/3 métriques) et son référentiel (vs secteur ou vs indice). Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. L'onglet classe les actions par <b>UNE SEULE liste 🏆 Long terme</b> (v4.0.11, demande de Jade : les 4 vues séparées n'existent plus) : <b>qualité 55 %</b> (ROE 35 %, marge op. 25 %, croissance CA 20 %, dette/CP 20 % — module Yahoo, classée <b>par secteur</b> comme la valorisation, ≥ 3 métriques sur 4 exigées ; en repli TradingView la croissance est absente : le score se calcule sur ROE, marge op. et dette/CP — 3/4) + <b>point d'entrée 35 %</b> (valorisation PER/rendement/P/B vs pairs) + <b>initiés FR 10 %</b> (conviction des dirigeants sur 30 j — clusters +15/10/4, jamais de malus). Capitaux propres négatifs → métriques non mesurables ; PER prévisionnel au-dessus du PER passé → ⚠️ bénéfices attendus en baisse. Le <b>contexte d'entrée est affiché sans être noté</b> : 📉 position dans la fourchette 52 semaines (un point bas n'est pas un plancher — pièges à valeur) et 🎯 potentiel consensus (l'avis du marché) restent des <b>informations</b> — la littérature (George &amp; Hwang) associe le momentum au <b>plus haut</b> 52 s., pas au plus bas ; ils ne seront notés que si le journal de validation le démontre. Le consensus 🎯 (prix cible moyen, nombre d'analystes, recommandation — module Yahoo financialData, rafraîchi ~2×/jour) est affiché sur les cartes comme <b>contexte d'entrée</b> — l'avis du marché, ≠ notre score maison. Sans fondamentaux, pas de score 🏆 — on n'invente rien. Outil de tri, pas un conseil.</p>
     </div>
     <div id="sbList"></div>
   </div><!-- /viewSbf -->
@@ -197,7 +192,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Achats ≥ 1 000 $ ; ventes ≥ 50 000 $ et uniquement hors plan 10b5-1 / hors levée d'options.</li>
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
-        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext. 🎯 <b>Objectifs</b> : consensus des analystes (module Yahoo financialData, rafraîchi ~2×/jour) — prix cible moyen vs cours, nombre d'analystes, recommandation, et les éléments économiques et financiers qui fondent ces modèles (croissance du CA, marge opérationnelle, ROE, endettement). L'avis du marché, ≠ notre score maison. 🏆 <b>Long terme</b> : <b>LA liste unique</b> — qualité 55 % (ROE, marge, croissance, dette — par secteur) + point d'entrée 35 % (valorisation PER/rendement/P/B vs pairs) + initiés FR 10 % (conviction des dirigeants, jamais de malus) ; fondamentaux Yahoo, ou TradingView en repli sans la croissance (score sur 3/4). La position dans la fourchette <b>52 semaines</b> et le potentiel consensus 🎯 sont affichés comme <b>contexte d'entrée</b> mais <b>exclus du score</b> : George &amp; Hwang associent le momentum au plus HAUT 52 s., pas au plus bas. Chaque jour, le pipeline journalise le top 20 (fichier <code>journal-scores.jsonl</code>) pour mesurer un jour les rendements à 3/6/12 mois contre l'indice — heuristique de tri <b>non validée sur historique</b>, à confronter aux vues 🔀 (initiés) et 🎯 (consensus) avant toute décision.</li>
+        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext. 🏆 <b>Un seul classement — Long terme</b> (v4.0.11) : qualité 55 % (ROE, marge, croissance, dette — par secteur) + point d'entrée 35 % (valorisation PER/rendement/P/B vs pairs) + initiés FR 10 % (conviction des dirigeants, jamais de malus) ; fondamentaux Yahoo, ou TradingView en repli sans la croissance (score sur 3/4). Le consensus 🎯 des analystes (prix cible moyen vs cours, nombre d'analystes, recommandation) est affiché comme <b>contexte d'entrée</b> sur chaque carte. La position dans la fourchette <b>52 semaines</b> est affichée comme <b>contexte d'entrée</b> aussi, mais <b>exclue du score</b> : George &amp; Hwang associent le momentum au plus HAUT 52 s., pas au plus bas. Chaque jour, le pipeline journalise le top 20 (fichier <code>journal-scores.jsonl</code>) pour mesurer un jour les rendements à 3/6/12 mois contre l'indice — heuristique de tri <b>non validée sur historique</b>, à confronter au contexte d'entrée (initiés 🔀, consensus 🎯) et au journal avant toute décision.</li>
       </ul>
       <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
       <p style="margin-top:6px">⚠️ Outil d'information, pas un conseil en investissement. Les initiés vendent pour mille raisons et achètent pour une : leur achat est un signal, pas une garantie.</p>
@@ -219,7 +214,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   var PREF_KEY = "sentinelle-perso-prefs-v1";
   var SEEN_KEY = "sentinelle-perso-lastseen-v1";
   var QKEY = "sentinelle-perso-quotes-v4";
-  var state = { data: null, quotes: null, newIds: {}, limit: 100, sbLimit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false, sbQ: "", tab: "ins", sbView: "lt" } };
+  var state = { data: null, quotes: null, newIds: {}, limit: 100, sbLimit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false, sbQ: "", tab: "ins" } }; // v4.0.11 : plus de sbView — un seul classement 🏆
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -242,8 +237,6 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         if (typeof p.new === "boolean") state.prefs.new = p.new;
         if (p.side === "buy" || p.side === "sell" || p.side === "all") state.prefs.side = p.side;
         if (p.tab === "ins" || p.tab === "sbf") state.prefs.tab = p.tab;
-        if (p.sbView === "opp") p.sbView = "lt"; // v4.0.10 : la 💎 devient la liste unique 🏆 Long terme
-        if (p.sbView === "lt" || p.sbView === "val" || p.sbView === "xins" || p.sbView === "obj") state.prefs.sbView = p.sbView;
         if (typeof p.sbQ === "string") state.prefs.sbQ = p.sbQ;
       }
     } catch (e) { }
@@ -633,15 +626,6 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       reflectPrefs();
       if (state.prefs.tab === "sbf") renderSbf();
     });
-    $("segSb").addEventListener("click", function (e) {
-      var b = e.target && e.target.closest ? e.target.closest("button[data-v]") : null;
-      if (!b) return;
-      state.prefs.sbView = b.getAttribute("data-v");
-      state.sbLimit = 100;
-      savePrefs();
-      reflectPrefs();
-      renderSbf();
-    });
     $("sq").addEventListener("input", function (e) {
       state.prefs.sbQ = e.target.value;
       state.sbLimit = 100;
@@ -704,7 +688,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     var bonus = RI.insiderFrBonus((state.data && state.data.fr) || [], { since: since30 });
     var enr = RI.sbfEnrich(val, bonus);
     var qTxt = String(state.prefs.sbQ || "").trim().toLowerCase();
-    var rows = RI.sbfSort(enr, state.prefs.sbView);
+    var rows = RI.sbfSort(enr, "lt"); // v4.0.11 : UN SEUL classement — qualité/opportunité
     if (qTxt) rows = rows.filter(function (e) {
       return String(e.n).toLowerCase().indexOf(qTxt) >= 0 || String(e.mn).toLowerCase().indexOf(qTxt) >= 0;
     });
@@ -714,14 +698,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     }
     var shown = rows.slice(0, state.sbLimit);
     var html = [];
-    var isX = state.prefs.sbView === "xins";
-    var isO = state.prefs.sbView === "obj";
-    var isL = state.prefs.sbView === "lt"; // 🏆 LA liste unique : long terme + point d'entrée
     var recFr = { strong_buy: "fort achat", buy: "achat", hold: "conserver", underperform: "sous-perf.", sell: "vente" };
     function fmtPctSigned(v) { return (v > 0 ? "+" : "") + String(Math.round(v * 10) / 10).replace(".", ",") + " %"; }
     for (var i = 0; i < shown.length; i++) {
       var e = shown[i];
-      var sc = isX ? e.xScore : (isO ? e.upX : (isL ? e.ltScore : e.score));
+      var sc = e.ltScore;
       var up = e.chg > 0, dn = e.chg < 0;
       html.push(
         '<div class="card"><div class="row fr"><div class="bar"></div>' +
@@ -730,10 +711,10 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         ' <span class="tk">' + esc(e.mn) + '</span> <span class="gb">' + sbGroupLabel(e.g) + '</span>' +
         (e.approx ? ' <span class="gb" title="Ticker résolu approximativement (correspondance de nom incertaine) — cours à vérifier avant toute décision">≈ à vérifier</span>' : "") +
         (e.ins > 0 ? ' <span class="lvl l' + e.insLvl + '" title="Initiés FR en accumulation sur 30 j (vue 🔰)">' + (e.insLvl >= 2 ? "🔥" : "×2") + " +" + e.ins + "</span>" : "") +
-        (isL && e.pos52 != null && e.pos52 <= 20
+        (e.pos52 != null && e.pos52 <= 20
           ? ' <span class="gb" title="Cours dans le bas de sa fourchette 52 semaines (' + (e.gapLo != null ? "+" + esc(String(Math.round(e.gapLo * 10) / 10).replace(".", ",")) + " % de son plus bas" : "position " + e.pos52 + "/100") + '). Point d\u2019entrée AFFICHÉ, pas un signal d\u2019achat : George &amp; Hwang associent le momentum au PLUS HAUT 52 s., pas au plus bas ; un point bas n\u2019est pas un plancher. La position 52 s. n\u2019entre pas dans le score 🏆 (exclu en v4.0.8 avant validation).">📉 bas de fourchette 52 s.</span>'
           : "") +
-        (isL && e.earnWarn
+        (e.earnWarn
           ? ' <span class="gb" title="Le PER prévisionnel est AU-DESSUS du PER passé : le consensus s\u2019attend à des bénéfices en baisse. Le profil « pas chère » qui va avec est typique du piège à valeur — croiser avec 🔀 initiés et 🎯 objectifs.">⚠️ bénef. attendus en baisse</span>'
           : "") +
         "</div>" +
@@ -757,7 +738,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
             (e.de != null ? " · dette/CP " + esc(String(Math.round(e.de)).replace(".", ",")) + " %" : "") +
             "</div>"
           : "") +
-        (isL && e.w52lo != null && e.w52hi != null
+        (e.w52lo != null && e.w52hi != null
           ? '<div class="details">📉 52 s. : ' + esc(String(Math.round(e.w52lo * 100) / 100).replace(".", ",")) + " – " + esc(String(Math.round(e.w52hi * 100) / 100).replace(".", ",")) + " €" +
             (e.gapLo != null ? " · cours à +" + esc(String(Math.round(e.gapLo * 10) / 10).replace(".", ",")) + " % du plus bas" : "") +
             (e.dd52 != null ? " · " + esc(fmtPctSigned(Math.round(e.dd52 * 10) / 10)) + " du plus haut" : "") +
@@ -765,13 +746,9 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
           : "") +
         "</div>" +
         '<div class="sbsc">' + (sc == null
-          ? '<span title="' + (isL ? "Qualité non mesurable (fondamentaux indisponibles ou moins de 3 métriques sur 4) ou valorisation non mesurable (perte) — pas de score 🏆, on n’invente rien" : (isO ? "Pas d’objectif de consensus pour cette valeur (module Yahoo financialData)" : "Pas de bénéfice net sur les 4 derniers trimestres (PER indisponible) — hors classement valorisation")) + '">—</span>'
-          : '<b title="' + (isL
-              ? "Score 🏆 Long terme = qualité " + e.qScore + "/100 × 55 % (ROE/marge op./croissance/dette, " + (e.qMode === "sector" ? "vs pairs du même secteur" : "vs indice") + ", base " + e.qBase + "/4 — les meilleures entreprises) + valorisation " + e.score + "/100 × 35 % (PER/rendement/P/B vs pairs — le point d’entrée) + initiés FR " + (e.ins > 0 ? "+" + e.ins + " (conviction des dirigeants, jamais de malus)" : "0") + " × 10 %. La position 52 s. et le consensus 🎯 sont AFFICHÉS comme contexte d’entrée, pas notés. Heuristique de tri jamais validée sur historique indépendant — pas un conseil."
-              : (isO
-                ? "Potentiel vs objectif de consensus des analystes (prix cible moyen ÷ cours − 1) — l’avis du marché, pas notre score maison"
-                : "Score de valorisation : PER 50 % · rendement 30 % · P/B 20 % — base " + (e.vBase || 0) + "/3 métriques · classement " + (e.vMode === "sector" ? "vs pairs du même secteur (≥ 8 cotés)" : "vs tout l’indice"))) + '">' + (isO ? esc(fmtPctSigned(sc)) : sc) + "</b>") +
-        (isX && e.ins > 0 ? "<small>+" + e.ins + " initiés</small>" : "<small>" + (isX ? "score + initiés" : (isO ? "vs objectif" : (isL ? "qualité+entrée+initiés" : ((e.vBase || 0) + "/3 · " + (e.vMode === "sector" ? "vs secteur" : "vs indice"))))) + "</small>") +
+          ? '<span title="Qualité non mesurable (fondamentaux indisponibles ou moins de 3 métriques sur 4) ou valorisation non mesurable (perte) — pas de score 🏆, on n’invente rien">—</span>'
+          : '<b title="Score 🏆 Long terme = qualité ' + e.qScore + '/100 × 55 % (ROE/marge op./croissance/dette, ' + (e.qMode === "sector" ? "vs pairs du même secteur" : "vs indice") + ', base ' + e.qBase + '/4 — les meilleures entreprises) + point d’entrée ' + e.score + '/100 × 35 % (PER/rendement/P/B vs pairs) + initiés FR ' + (e.ins > 0 ? "+" + e.ins + " (conviction des dirigeants, jamais de malus)" : "0") + ' × 10 %. La position 52 s. et le consensus 🎯 sont AFFICHÉS comme contexte d’entrée, pas notés. Heuristique de tri jamais validée sur historique indépendant — pas un conseil.">' + sc + "</b>") +
+        "<small>" + (e.ins > 0 ? "+" + e.ins + " initiés" : "qualité+entrée+initiés") + "</small>" +
         "</div>" +
         "</div></div>"
       );
@@ -800,9 +777,6 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     });
     $("newChip").classList.toggle("on", state.prefs.new === true);
     $("q").value = state.prefs.q;
-    Array.prototype.forEach.call($("segSb").querySelectorAll("button"), function (b) {
-      b.classList.toggle("on", b.getAttribute("data-v") === state.prefs.sbView);
-    });
     Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-tab") === state.prefs.tab);
     });

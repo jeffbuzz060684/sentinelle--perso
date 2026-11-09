@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.10";   // version unique de l'app (badge + footer la lisent) — v4.0.10 : liste unique 🏆 Long terme (qualité 55 + point d'entrée 35 + initiés 10) qui remplace les classements séparés ; ex æquo → rang moyen aussi dans la valorisation ; percentile à valeur unique → null
+  var VERSION = "4.0.11";   // version unique de l'app (badge + footer la lisent) — v4.0.11 : UN SEUL classement 🏆 Long terme (qualité 55 + point d'entrée 35 + initiés 10) — les vues 📐 🔀 🎯 n'existent plus
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
