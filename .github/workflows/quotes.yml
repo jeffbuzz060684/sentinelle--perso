@@ -39,7 +39,9 @@ jobs:
       - name: Commit si changé
         id: changed
         run: |
-          if ! git diff --quiet; then
+          # v4.0.8 : git status --porcelain (et pas git diff --quiet) — ops.json et le journal
+          # sont NON TRACKÉS au premier run, un simple diff les ignorerait silencieusement.
+          if [ -n "$(git status --porcelain quotes.json journal-scores.jsonl ops.json)" ]; then
             git config user.name "sentinelle-bot"
             git config user.email "actions@github.com"
             git add quotes.json journal-scores.jsonl ops.json
@@ -53,7 +55,7 @@ jobs:
       - name: Conserver ops.json même en échec (mémoire des pannes)
         if: failure()
         run: |
-          if ! git diff --quiet -- ops.json; then
+          if [ -n "$(git status --porcelain -- ops.json)" ]; then
             git config user.name "sentinelle-bot"
             git config user.email "actions@github.com"
             git add ops.json
