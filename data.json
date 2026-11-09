@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-09T08:15:53.918Z",
+ "generatedAt": "2026-11-09T08:24:50.913Z",
  "windowDays": 8,
  "buys": [
   {
@@ -1048,20 +1048,20 @@
   "fr": {
    "status": "ok",
    "n": 52,
-   "scan": "2026-11-09T08:15:53.918Z"
+   "scan": "2026-11-09T08:24:50.913Z"
   },
   "frRss": {
    "status": "ok",
    "n": 0,
-   "scan": "2026-11-09T08:15:53.918Z"
+   "scan": "2026-11-09T08:24:50.913Z"
   },
   "us": {
    "status": "erreur",
    "n": 0,
-   "scan": "2026-11-09T08:15:53.918Z",
+   "scan": "2026-11-09T08:24:50.913Z",
    "erreur": "HTTP 403 https://efts.sec.gov/LATEST/search-index?q=%22form%204%22&forms=4&dateRange=custom&startdt"
   },
-  "lastScan": "2026-11-09T08:15:53.918Z"
+  "lastScan": "2026-11-09T08:24:50.913Z"
  },
  "stats": {
   "total": 52,
