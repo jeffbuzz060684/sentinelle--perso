@@ -64,11 +64,21 @@ T("parseSwaoo : champs d'une ligne complète", function () {
   A(isFinite(r.montant) && r.montant >= 1000, "montant : " + r.montant);
   A(r.url.indexOf("bdif.amf-france.org") > -1, "url AMF");
 });
-T("parseSwaoo : acquisitions uniquement + montants ≥ CFG", function () {
+T("parseSwaoo v3 : acquisitions ET cessions uniquement + montants ≥ CFG", function () {
   frRows.forEach(function (r) {
-    EQ(r.nature, "Acquisition");
+    A(r.nature === "Acquisition" || r.nature === "Cession", "nature inattendue : " + r.nature);
+    EQ(r.side, r.nature === "Cession" ? "sell" : "buy", "side cohérent avec la nature");
     A(r.montant >= RI.CFG.FR_MIN_EUR, "montant min");
   });
+  var sells = frRows.filter(function (r) { return r.side === "sell"; });
+  A(sells.length >= 3, "cessions de la fixture réelle présentes : " + sells.length);
+});
+T("rowsOfSide : séparation buy/sell/all", function () {
+  var b = RI.rowsOfSide(frRows, "buy"), s = RI.rowsOfSide(frRows, "sell"), a = RI.rowsOfSide(frRows, "all");
+  EQ(a.length, b.length + s.length, "all = buy + sell");
+  EQ(s.length, frRows.length - b.length, "sell = complément de buy");
+  b.forEach(function (r) { EQ(r.side, "buy", "aucune vente côté buy"); });
+  EQ(RI.rowsOfSide(frRows, "n'importe").length, frRows.length, "side inconnu -> tout");
 });
 T("parseSwaoo : page sans tableau -> []", function () {
   EQ(RI.parseSwaoo("<html><body>rien</body></html>"), []);
@@ -144,20 +154,33 @@ T("parseForm4 : directeur sans titre -> rôle Directeur", function () {
   EQ(rows[0].code, "P");
   EQ(rows[0].dateOp, "2026-11-05");
 });
-T("usRowsFrom : seuls les achats au marché (code P) sont retenus", function () {
-  var mk = function (code) {
+T("usRowsFrom v3 : achat = P+A, vente = S+D ; autres codes et paires incohérentes exclus", function () {
+  var mk = function (code, acq) {
     return RI.parseForm4("<ownershipDocument><rptOwnerName>A</rptOwnerName><officerTitle>CEO</officerTitle>" +
       "<nonDerivativeTransaction><transactionDate><value>2026-11-05</value></transactionDate>" +
       "<transactionCoding><transactionCode>" + code + "</transactionCode></transactionCoding>" +
-      "<transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>" +
+      "<transactionAcquiredDisposedCode><value>" + acq + "</value></transactionAcquiredDisposedCode>" +
       "<transactionAmounts><transactionShares><value>100</value></transactionShares>" +
       "<transactionPricePerShare><value>10</value></transactionPricePerShare></transactionAmounts>" +
       "</nonDerivativeTransaction></ownershipDocument>");
   };
-  EQ(RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, mk("P")).length, 1, "achat au marché P : retenu");
+  var hit = { accession: "X", fileDate: "2026-11-06", url: "u" };
+  var buy = RI.usRowsFrom(hit, mk("P", "A"));
+  EQ(buy.length, 1, "achat au marché P+A : retenu");
+  EQ(buy[0].side, "buy");
+  EQ(buy[0].nature, "Achat");
+  var sell = RI.usRowsFrom(hit, mk("S", "D"));
+  EQ(sell.length, 1, "vente au marché S+D : retenue");
+  EQ(sell[0].side, "sell");
+  EQ(sell[0].nature, "Vente");
   ["F", "G", "J", "M", "A"].forEach(function (code) {
-    EQ(RI.usRowsFrom({ accession: "X", fileDate: "2026-11-06", url: "u" }, mk(code)).length, 0, "code " + code + " exclu");
+    EQ(RI.usRowsFrom(hit, mk(code, "A")).length, 0, "code " + code + " exclu côté achat");
   });
+  ["F", "G", "M"].forEach(function (code) {
+    EQ(RI.usRowsFrom(hit, mk(code, "D")).length, 0, "code " + code + " exclu côté vente (pas une vente au marché)");
+  });
+  EQ(RI.usRowsFrom(hit, mk("P", "D")).length, 0, "P+D incohérent : exclu");
+  EQ(RI.usRowsFrom(hit, mk("S", "A")).length, 0, "S+A incohérent : exclu");
 });
 T("usRowsFrom : sous le seuil exclu", function () {
   var r = RI.parseForm4("<ownershipDocument><rptOwnerName>A</rptOwnerName>" +
@@ -378,17 +401,28 @@ T("fetch-insiders.js compile", function () {
   });
   T("sw.js : cache versionné + réseau d'abord + clé sans ?v=", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf('sentinelle-perso-v2') > -1, "cache v2 (les téléphones v1 re-téléchargent le shell)");
-    A(sw.indexOf('sentinelle-perso-v1"') === -1, "plus de v1 comme nom de cache");
+    A(sw.indexOf('sentinelle-perso-v3') > -1, "cache v3 (les téléphones v1/v2 re-téléchargent le shell)");
+    A(sw.indexOf('sentinelle-perso-v2') === -1, "plus de v2 comme nom de cache");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
-  T("v2 : badge et éléments UI des signaux présents", function () {
-    A(html.indexOf('id="ver">v2<') > -1, "badge v2");
+  T("v3 : badge et éléments UI achats/ventes présents", function () {
+    A(html.indexOf('id="ver">v3<') > -1, "badge v3");
+    A(html.indexOf('id="segSide"') > -1, "segment Achats+ventes");
+    A(html.indexOf('id="segSort"') > -1, "segment tri par id (plus par position — segSide est en dernier)");
+    A(html.indexOf('id="sigCardSell"') > -1, "carte ventes");
+    A(html.indexOf('id="nSell"') > -1, "stat ventes");
     A(html.indexOf('id="sigCard"') > -1, "carte accumulations");
     A(html.indexOf('id="newBanner"') > -1, "bandeau nouveaux");
     A(html.indexOf('id="newChip"') > -1, "filtre 🆕");
     A(html.indexOf("signalsFrom") > -1, "signaux rendus");
     A(html.indexOf("quoteUrl") > -1, "liens cote");
+  });
+  T("v3 : pipeline ventes — FR Acquisition+Cession, US P+A/S+D, migration state v3, data 4 listes", function () {
+    var fi = fs.readFileSync(__dirname + "/fetch-insiders.js", "utf8");
+    A(fi.indexOf("f_nature%5B%5D=Acquisition&f_nature%5B%5D=Cession") > -1, "requête FR avec les deux natures");
+    A(fi.indexOf("state.v !== 3") > -1, "migration v3 : mémoire US réinitialisée une fois (ventes absentes avant)");
+    A(fi.indexOf("frS") > -1 && fi.indexOf("usS") > -1, "data.json à 4 listes (fr, us, frS, usS)");
+    A(fi.indexOf("rowsOfSide") > -1, "séparation buy/sell via rowsOfSide");
   });
   T("insiders.yml : cron 2 h ouvrés + contents write + actions write + redéploiement Pages", function () {
     var y = fs.readFileSync(__dirname + "/../.github/workflows/insiders.yml", "utf8");

@@ -91,10 +91,16 @@ var RI = (function () {
       var ficheM = detail.match(/href="(https:\/\/bdif\.amf-france\.org\/Fiche-BDIF[^"]*)"/);
       // cellules après la société : [0]=datePub [1]=dateOp [2]=nature [3]=instrument [4]=ISIN [5]=volume [6]=prix [7]=montant
       var nature = cells[2];
-      if (nature && nature.toLowerCase().indexOf("acquisition") !== 0) continue; // acquisitions uniquement
+      // v3 : acquisitions ET cessions (les autres natures restent hors périmètre)
+      var natL = String(nature || "").toLowerCase();
+      var side = null;
+      if (natL.indexOf("acquisition") === 0) side = "buy";
+      else if (natL.indexOf("cession") === 0) side = "sell";
+      if (!side) continue;
       var row = {
         id: id,
         source: "FR",
+        side: side,
         societe: stripTags(m[1]),
         auteur: auteur,
         role: role,
@@ -126,8 +132,7 @@ var RI = (function () {
     return rawCount > 0 && page < max;
   }
 
-  // ---------- parseur US : EDGAR full-text search + Form 4 XML ----------
-  // "Enphase Energy, Inc.  (ENPH)  (CIK 0001463101)" -> { issuer, ticker }
+  // ---------- parseur US : EDGAR full-text search + Form 4 XML ----------  // "Enphase Energy, Inc.  (ENPH)  (CIK 0001463101)" -> { issuer, ticker }
   function parseIssuerDisplay(s) {
     var raw = String(s || "").replace(/\s+/g, " ").trim();
     var ticker = null;
@@ -193,26 +198,30 @@ var RI = (function () {
       transactions: txs
     };
   }
-  // Filtre "achats" : code A (acquis) + code P uniquement (achat au marché).
-  // Hors périmètre, pour honnêteté : F/G (cadeaux, dons), J (autres — conversions, distributions),
-  // M (levée d'options — pas de nouvel argent engagé), A (attribution — rémunération).
+  // Filtre "au marché uniquement" des deux côtés, pour honnêteté :
+  //   achat  = code P (purchase) + code acquis A
+  //   vente  = code S (open-market sale) + code disposé D
+  // Hors périmètre des deux côtés : F/G (cadeaux, dons), J (conversions, distributions),
+  // M (levée d'options), A (attribution) — aucun argent engagé au marché.
   function usRowsFrom(hit, f4) {
     var rows = [];
     for (var i = 0; i < f4.transactions.length; i++) {
       var t = f4.transactions[i];
-      if (t.acq !== "A") continue;
-      if (t.code !== "P") continue;
+      var isBuy = (t.acq === "A" && t.code === "P");
+      var isSell = (t.acq === "D" && t.code === "S");
+      if (!isBuy && !isSell) continue;
       if (!isFinite(t.shares) || !isFinite(t.price) || t.shares <= 0 || t.price <= 0) continue;
       var montant = t.shares * t.price;
       if (montant < CFG.US_MIN_USD) continue;
       rows.push({
         id: hit.accession + "|" + (f4.owner || hit.owner) + "|" + t.code + "|" + t.date + "|" + t.shares,
         source: "US",
+        side: isBuy ? "buy" : "sell",
         societe: f4.issuer || hit.issuer || "",
         ticker: f4.ticker || hit.ticker || "",
         auteur: f4.owner || hit.owner || "",
         role: f4.role || "",
-        nature: "Achat",
+        nature: isBuy ? "Achat" : "Vente",
         instrument: t.title || "",
         isin: "",
         dateOp: t.date || "",
@@ -225,6 +234,10 @@ var RI = (function () {
       });
     }
     return rows;
+  }
+  function rowsOfSide(rows, side) {
+    if (side !== "buy" && side !== "sell") return (rows || []).slice();
+    return (rows || []).filter(function (r) { return r && r.side === side; });
   }
 
   // ---------- fusion / déduplication / fenêtre de conservation ----------
@@ -417,7 +430,8 @@ var RI = (function () {
     mergeRows: mergeRows,
     filterRows: filterRows, sortRows: sortRows,
     fmtEUR: fmtEUR, fmtUSD: fmtUSD, fmtNum: fmtNum, fmtMontant: fmtMontant, lagLabel: lagLabel, freshness: freshness,
-    normName: normName, sigKey: sigKey, signalsFrom: signalsFrom, signalCountByKey: signalCountByKey, quoteUrl: quoteUrl, fmtPx: fmtPx
+    normName: normName, sigKey: sigKey, signalsFrom: signalsFrom, signalCountByKey: signalCountByKey, quoteUrl: quoteUrl, fmtPx: fmtPx,
+    rowsOfSide: rowsOfSide
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

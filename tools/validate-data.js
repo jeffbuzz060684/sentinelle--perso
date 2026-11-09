@@ -11,7 +11,7 @@ var data;
 try { data = JSON.parse(fs.readFileSync(path, "utf8")); } catch (e) { fail("data.json illisible : " + e.message); }
 if (!data || typeof data !== "object") fail("data.json : pas un objet");
 if (!/^\d{4}-\d{2}-\d{2}T/.test(data.updated || "")) fail("updated absent ou non ISO : " + data.updated);
-["fr", "us"].forEach(function (src) {
+["fr", "us", "frS", "usS"].forEach(function (src) {
   if (!Array.isArray(data[src])) fail(src + " : pas un tableau");
   data[src].forEach(function (r, i) {
     var w = src + "[" + i + "] : ";
@@ -32,4 +32,5 @@ if (!/^\d{4}-\d{2}-\d{2}T/.test(data.updated || "")) fail("updated absent ou non
 ["reserve", "paliersDone", "phone", "email", "password"].forEach(function (k) {
   if (k in data) fail("clé interdite dans data.json : " + k);
 });
-console.log("data.json OK : " + data.fr.length + " FR + " + data.us.length + " US, relevé " + data.updated);
+console.log("data.json OK : " + data.fr.length + " achats FR + " + data.us.length + " achats US + " +
+  (data.frS ? data.frS.length : 0) + " ventes FR + " + (data.usS ? data.usS.length : 0) + " ventes US, relevé " + data.updated);

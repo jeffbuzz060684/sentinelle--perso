@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 "use strict";
-// Sentinelle perso — relevé automatique des achats d'initiés (aucune dépendance, Node 18+)
-//   FR : https://transactions-amf.swaoo.com/ (déclarations AMF, requête POST nature=Acquisition)
-//   US : SEC EDGAR full-text search (Form 4) + téléchargement des XML officiels
-// Écrit data.json (affiché par la PWA) et state.json (accessions déjà traitées).
+// Sentinelle perso — relevé automatique des achats ET ventes d'initiés (aucune dépendance, Node 18+)
+//   FR : https://transactions-amf.swaoo.com/ (déclarations AMF, requête POST natures Acquisition+Cession)
+//   US : SEC EDGAR full-text search (Form 4) + téléchargement des XML officiels (achats code P, ventes code S)
+// Écrit data.json (affiché par la PWA : fr/us = achats, frS/usS = ventes) et state.json (accessions déjà traitées).
 // Une panne de source ne casse jamais le run : on garde les données précédentes.
 
 var fs = require("fs");
@@ -50,7 +50,7 @@ function pad(n) { return (n < 10 ? "0" : "") + n; }
 
 // ---------- FR : swaoo ----------
 function frQuery(debut, fin, page) {
-  var body = "f_nature%5B%5D=Acquisition" +
+  var body = "f_nature%5B%5D=Acquisition&f_nature%5B%5D=Cession" +
     "&f_date_publication_debut=" + encodeURIComponent(debut) +
     "&f_date_publication_fin=" + encodeURIComponent(fin) +
     "&f_montant_min=" + CFG.FR_MIN_EUR +
@@ -95,10 +95,18 @@ function ftsQuery(startdt, enddt, from) {
   return fetchText(url, null, 30000).then(function (txt) { return RI.parseFts(txt); });
 }
 
-function fetchUs(now, state, prevRows) {
+function fetchUs(now, state, prevBuys, prevSells) {
   var startdt = RI.isoDay(new Date(now - 3 * 86400000)); // fenêtre 3 jours, la dédup fait le reste
   var enddt = RI.isoDay(new Date(now));
   var processed = {};
+  // v3 : migration — les XML traités par l'ancien parseur n'ont pas leurs ventes extraites.
+  // On vide la mémoire US une seule fois : les accessions de la fenêtre 3 j sont re-téléchargées
+  // et re-parsées des deux côtés (l'historique US des ventes commence à cette date, honnêtement).
+  if (state.v !== 3) {
+    log("US : migration v3 (ventes) — mémoire des accessions réinitialisée");
+    state.processedUs = [];
+    state.v = 3;
+  }
   (state.processedUs || []).forEach(function (a) { processed[a] = 1; });
   var hits = [];
   var run = function (from) {
@@ -108,8 +116,9 @@ function fetchUs(now, state, prevRows) {
       return null;
     });
   };
-  var buys = (prevRows || []).slice();
-  var done = 0, skipped = 0, fetched = 0, errors = 0;
+  var buys = (prevBuys || []).slice();
+  var sells = (prevSells || []).slice();
+  var done = 0, skipped = 0, fetched = 0, errors = 0, nBuys = 0, nSells = 0;
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   return run(0).then(function () {
     var todo = [];
@@ -128,7 +137,10 @@ function fetchUs(now, state, prevRows) {
             fetched++;
             var f4 = RI.parseForm4(xml);
             var rows = RI.usRowsFrom(Object.assign({}, h, { url: url }), f4);
-            rows.forEach(function (r) { buys.push(r); });
+            rows.forEach(function (r) {
+              if (r.side === "sell") { sells.push(r); nSells++; }
+              else { buys.push(r); nBuys++; }
+            });
           })
           .catch(function () { errors++; }) // un XML inaccessible n'arrête jamais le run
           .then(function () {
@@ -139,12 +151,12 @@ function fetchUs(now, state, prevRows) {
       });
     });
     return chain.then(function () {
-      // les accessions vues sont marquées traitées (qu'elles contiennent des achats ou non)
+      // les accessions vues sont marquées traitées (achats, ventes, ou rien)
       todo.forEach(function (h) { processed[h.accession] = 1; });
       var list = Object.keys(processed);
       if (list.length > 20000) list = list.slice(list.length - 20000); // fenêtre glissante
       state.processedUs = list;
-      return { rows: buys, hits: hits.length, fetched: fetched, skipped: skipped, errors: errors };
+      return { buys: buys, sells: sells, nBuys: nBuys, nSells: nSells, hits: hits.length, fetched: fetched, skipped: skipped, errors: errors };
     });
   });
 }
@@ -152,29 +164,35 @@ function fetchUs(now, state, prevRows) {
 // ---------- main ----------
 function main() {
   var now = Date.now();
-  var data = { updated: new Date(now).toISOString(), fr: [], us: [] };
+  var data = { updated: new Date(now).toISOString(), fr: [], us: [], frS: [], usS: [] };
   var state = { processedUs: [] };
   try { data = JSON.parse(fs.readFileSync("data.json", "utf8")); } catch (e) { }
   try { state = JSON.parse(fs.readFileSync("state.json", "utf8")); } catch (e) { }
   if (!data.fr) data.fr = [];
   if (!data.us) data.us = [];
+  if (!data.frS) data.frS = [];
+  if (!data.usS) data.usS = [];
   var frOk = true, usOk = true;
 
   log("== Sentinelle perso — relevé du " + new Date(now).toISOString() + " ==");
   return fetchFr(now).then(function (frRows) {
-    log("FR : " + frRows.length + " acquisitions sur la fenêtre de " + CFG.FR_DAYS + " j");
-    data.fr = RI.mergeRows(data.fr, frRows, CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
-    log("FR total consolidé : " + data.fr.length);
+    var frBuys = RI.rowsOfSide(frRows, "buy");
+    var frSells = RI.rowsOfSide(frRows, "sell");
+    log("FR : " + frBuys.length + " acquisitions + " + frSells.length + " cessions sur la fenêtre de " + CFG.FR_DAYS + " j");
+    data.fr = RI.mergeRows(data.fr, frBuys, CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
+    data.frS = RI.mergeRows(data.frS, frSells, CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
+    log("FR total consolidé : " + data.fr.length + " achats + " + data.frS.length + " cessions");
   }).catch(function (e) {
     frOk = false;
     log("FR : ECHEC source (" + e.message + ") — données précédentes conservées");
   }).then(function () {
-    return fetchUs(now, state, data.us);
+    return fetchUs(now, state, data.us, data.usS);
   }).then(function (usRes) {
-    data.us = RI.mergeRows(usRes.rows, [], CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
+    data.us = RI.mergeRows(usRes.buys, [], CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
+    data.usS = RI.mergeRows(usRes.sells, [], CFG.KEEP_DAYS, CFG.MAX_ROWS, now);
     log("US : " + usRes.hits + " Form 4 vus, " + usRes.fetched + " XML téléchargés, " +
-      usRes.skipped + " déjà traités, " + usRes.errors + " erreurs");
-    log("US total consolidé : " + data.us.length);
+      usRes.skipped + " déjà traités, " + usRes.errors + " erreurs, " + usRes.nBuys + " achats + " + usRes.nSells + " ventes extraits");
+    log("US total consolidé : " + data.us.length + " achats + " + data.usS.length + " ventes");
   }).catch(function (e) {
     usOk = false;
     log("US : ECHEC source (" + e.message + ") — données précédentes conservées");
@@ -182,11 +200,12 @@ function main() {
     data.updated = new Date(Date.now()).toISOString();
     data.frOk = frOk;
     data.usOk = usOk;
-    data.counts = { fr: data.fr.length, us: data.us.length };
+    data.counts = { fr: data.fr.length, us: data.us.length, frS: data.frS.length, usS: data.usS.length };
     var out = JSON.stringify(data, null, 1);
     fs.writeFileSync("data.json", out);
     fs.writeFileSync("state.json", JSON.stringify(state));
-    log("data.json écrit : " + data.fr.length + " FR + " + data.us.length + " US");
+    log("data.json écrit : " + data.fr.length + " achats FR + " + data.us.length + " achats US + " +
+      data.frS.length + " ventes FR + " + data.usS.length + " ventes US");
     log("Fréquence : toutes les 2 h en jours ouvrés (workflow insiders.yml)");
   });
 }

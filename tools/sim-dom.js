@@ -61,10 +61,15 @@ module.exports = function simDom(cb) {
   var FETCH_DATA = {
     updated: "2026-11-09T08:07:00Z", frOk: true, usOk: true,
     fr: [
-      { id: "f1", source: "FR", societe: "ROCHE BOBOIS SA", auteur: "TXR S.R.L.", role: "Membre du Conseil de Surveillance", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 1400, prix: 15.7286, montant: 22020.04, url: "https://bdif.amf-france.org/x" },
-      { id: "f2", source: "FR", societe: "ROCHE BOBOIS SA", auteur: "GIOVANNI TAMBURI", role: "Président", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 600, prix: 16, montant: 9600, url: "https://bdif.amf-france.org/y" }
+      { id: "f1", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", auteur: "TXR S.R.L.", role: "Membre du Conseil de Surveillance", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 1400, prix: 15.7286, montant: 22020.04, url: "https://bdif.amf-france.org/x" },
+      { id: "f2", source: "FR", side: "buy", societe: "ROCHE BOBOIS SA", auteur: "GIOVANNI TAMBURI", role: "Président", nature: "Acquisition", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 600, prix: 16, montant: 9600, url: "https://bdif.amf-france.org/y" }
     ],
-    us: [{ id: "u1", source: "US", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Achat", instrument: "Common Stock", isin: "", dateOp: "2026-11-04", datePub: "2026-11-05", volume: 2000, prix: 30, montant: 60000, code: "P", url: "https://sec.gov/x" }]
+    us: [{ id: "u1", source: "US", side: "buy", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Achat", instrument: "Common Stock", isin: "", dateOp: "2026-11-04", datePub: "2026-11-05", volume: 2000, prix: 30, montant: 60000, code: "P", url: "https://sec.gov/x" }],
+    frS: [
+      { id: "fs1", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "POUVANNEC PHILIPPE", role: "Directeur Général Adjoint", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-05", datePub: "2026-11-06", volume: 15000, prix: 64.9, montant: 973500, url: "https://bdif.amf-france.org/z" },
+      { id: "fs2", source: "FR", side: "sell", societe: "TOTALENERGIES SE", auteur: "SAUNIER BERTRAND", role: "Membre du Conseil d'Administration", nature: "Cession", instrument: "Action", isin: "", dateOp: "2026-11-04", datePub: "2026-11-06", volume: 2000, prix: 65, montant: 130000, url: "https://bdif.amf-france.org/w" }
+    ],
+    usS: [{ id: "us1", source: "US", side: "sell", societe: "ACME CORP", ticker: "ACM", auteur: "John Doe", role: "CEO", nature: "Vente", instrument: "Common Stock", isin: "", dateOp: "2026-11-03", datePub: "2026-11-05", volume: 1000, prix: 30, montant: 30000, code: "S", url: "https://sec.gov/y" }]
   };
   var fetchCalls = 0;
   function fetchStub(url) {
@@ -111,6 +116,7 @@ module.exports = function simDom(cb) {
       A(elements["nFr"] && elements["nFr"].textContent === "2", "nFr : " + (elements["nFr"] && elements["nFr"].textContent));
       A(elements["nUs"] && elements["nUs"].textContent === "1", "nUs");
       A(elements["nSig"] && elements["nSig"].textContent === "1", "nSig : " + (elements["nSig"] && elements["nSig"].textContent));
+      A(elements["nSell"] && elements["nSell"].textContent === "3", "nSell : " + (elements["nSell"] && elements["nSell"].textContent));
     });
     T("chip fraîcheur affichée", function () {
       A(elements["fresh"] && elements["fresh"].textContent.length > 3, "fresh : " + (elements["fresh"] && elements["fresh"].textContent));
@@ -126,13 +132,31 @@ module.exports = function simDom(cb) {
       A(s.indexOf("data-sig") > -1, "action voir les achats");
       A(elements["sigCard"] && !elements["sigCard"]._cls.has("hidden"), "carte visible");
     });
-    T("les 3 lignes rendues avec échappement HTML + badge ×2 + cote", function () {
+    T("carte ventes rendue (2 vendeurs distincts -> 🔴)", function () {
+      var s = elements["signalsSell"] && elements["signalsSell"].innerHTML || "";
+      A(s.indexOf("TOTALENERGIES SE") > -1, "société présente");
+      A(s.indexOf("2 ventes") > -1, "compte des ventes");
+      A(s.indexOf("2 initiés distincts") > -1, "vendeurs distincts");
+      A(s.indexOf("prix moyen vendu") > -1, "prix moyen vendu");
+      A(s.indexOf("lvl l2") > -1, "badge niveau 2");
+      A(s.indexOf("boursorama.com") > -1, "lien cote FR");
+      A(s.indexOf("data-sig") > -1, "action voir");
+      A(elements["sigCardSell"] && !elements["sigCardSell"]._cls.has("hidden"), "carte ventes visible");
+    });
+    T("les 6 lignes rendues avec échappement HTML + badge ×2 + cote + ventes", function () {
       var h = elements["list"] && elements["list"].innerHTML || "";
       A(h.indexOf("ROCHE BOBOIS SA") > -1, "lignes FR présentes");
       A(h.indexOf("ACME CORP") > -1, "ligne US présente");
       A(h.indexOf("class=\"src fr\"") > -1 && h.indexOf("class=\"src us\"") > -1, "badges FR/US");
       A(h.indexOf('class="x"') > -1 && h.indexOf("×2") > -1, "badge ×2 sur les lignes ROCHE BOBOIS");
+      A(h.indexOf("vente du") > -1, "lignes vente libellées « vente du »");
+      A(h.indexOf("row fr sell") > -1, "ligne FR de vente (classe sell)");
+      A(h.indexOf("row us sell") > -1, "ligne US de vente (classe sell)");
+      A(h.indexOf('class="xs"') > -1, "badge ×N vente en rouge (classe xs)");
       A(h.indexOf("boursorama.com") > -1 && h.indexOf("google.com/finance") > -1, "liens cote FR + US");
+    });
+    T("segment Achats+ventes câblé", function () {
+      A(elements["segSide"] && elements["segSide"].listeners.click && elements["segSide"].listeners.click.length > 0, "handler clic segSide");
     });
     T("bandeau nouveaux : première visite silencieuse, date mémorisée", function () {
       A(elements["newBanner"] && elements["newBanner"]._cls.has("hidden"), "bandeau masqué à la première visite");

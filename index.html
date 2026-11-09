@@ -37,6 +37,8 @@ input[type=search]{flex:1;min-width:130px;background:var(--bg);border:1px solid 
 .row .bar{width:3px;border-radius:2px;align-self:stretch;min-height:38px}
 .row.fr .bar{background:var(--blue)}
 .row.us .bar{background:var(--green)}
+.row.sell .bar{background:var(--red)}
+.row.sell .montant{color:var(--red)}
 .row .t{flex:1;min-width:0}
 .soc{font-weight:600;font-size:14.5px;overflow-wrap:break-word}
 .tk{font-size:11.5px;color:var(--blue);font-weight:600}
@@ -62,10 +64,12 @@ h3{font-size:13px;margin-bottom:6px}
 .sig .lvl.l3{background:rgba(251,113,133,.18);color:var(--red)}
 .sig .lvl.l2{background:rgba(251,191,36,.16);color:var(--amber)}
 .sig .lvl.l1{background:rgba(148,163,184,.14);color:var(--mut)}
+.sig.sell .lvl.l1{background:rgba(251,113,133,.10);color:var(--red)}
 .sig .sum{font-size:12px;color:var(--txt);margin-top:3px;overflow-wrap:break-word}
 .sig .sum b{font-weight:700}
 .sig .sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
 .x{font-size:10.5px;font-weight:700;background:rgba(251,191,36,.16);color:var(--amber);border-radius:5px;padding:1px 5px;white-space:nowrap}
+.xs{font-size:10.5px;font-weight:700;background:rgba(251,113,133,.14);color:var(--red);border-radius:5px;padding:1px 5px;white-space:nowrap}
 .newdot{font-size:10px;font-weight:700;background:rgba(52,211,153,.16);color:var(--green);border-radius:5px;padding:1px 5px;white-space:nowrap}
 .mut{font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5}
 details summary{cursor:pointer;color:var(--txt);font-weight:600;font-size:13.5px}
@@ -78,14 +82,15 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 <div class="wrap">
   <header>
     <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v2</span>
+    <span class="badge" id="ver">v3</span>
     <span class="chip" id="fresh">chargement…</span>
   </header>
 
   <div class="stats">
     <div class="stat"><div class="v" id="nFr">—</div><div class="l">achats AMF 🇫🇷 (90 j)</div></div>
     <div class="stat"><div class="v" id="nUs">—</div><div class="l">achats SEC 🇺🇸 (90 j)</div></div>
-    <div class="stat"><div class="v" id="nSig" style="color:var(--amber)">—</div><div class="l">🔥 sociétés en accumulation</div></div>
+    <div class="stat"><div class="v" id="nSig" style="color:var(--amber)">—</div><div class="l">🔥 en accumulation</div></div>
+    <div class="stat"><div class="v" id="nSell" style="color:var(--red)">—</div><div class="l">🔴 ventes d'initiés</div></div>
   </div>
 
   <div class="card hidden" id="newBanner"></div>
@@ -98,18 +103,23 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <button data-src="US">🇺🇸 SEC</button>
       </div>
       <input type="search" id="q" placeholder="🔎 société, dirigeant, ISIN…" aria-label="Rechercher">
-      <div class="seg">
+      <div class="seg" id="segSort">
         <button data-sort="date" class="on">Date</button>
         <button data-sort="montant">Montant</button>
       </div>
     </div>
     <div class="amts" id="amts">
+      <div class="seg" id="segSide">
+        <button data-side="all" class="on">Achats + ventes</button>
+        <button data-side="buy">🟢 Achats</button>
+        <button data-side="sell">🔴 Ventes</button>
+      </div>
       <button class="amt on" data-m="0">Tous montants</button>
       <button class="amt" data-m="10000">≥ 10 k</button>
       <button class="amt" data-m="50000">≥ 50 k</button>
       <button class="amt" data-m="100000">≥ 100 k</button>
       <button class="amt" data-m="1000000">≥ 1 M</button>
-      <button class="amt" id="newChip" title="Achats publiés depuis ta dernière visite">🆕 Nouveaux</button>
+      <button class="amt" id="newChip" title="Lignes publiées depuis ta dernière visite">🆕 Nouveaux</button>
     </div>
   </div>
 
@@ -117,6 +127,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     <h3>🔥 Initiés en accumulation <span class="badge" style="font-weight:400">fenêtre 90 j</span></h3>
     <div id="signals"></div>
     <p class="mut">Le prix moyen payé est <b>la référence des initiés</b>, pas le cours du jour — compare-la à la cote. 🔥🔥 = plusieurs initiés <b>distincts</b> achètent la même société : c'est le signal le plus fort. Un même initié qui rachète plusieurs fois (×N) montre aussi sa conviction. Heuristique maison, pas une garantie.</p>
+  </div>
+
+  <div class="card hidden" id="sigCardSell">
+    <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">fenêtre 90 j</span></h3>
+    <div id="signalsSell"></div>
+    <p class="mut">Les initiés vendent pour mille raisons (diversification, impôts, et côté US des <b>plans automatiques 10b5-1</b>) — une vente isolée ne veut rien dire. C'est la vente <b>groupée de plusieurs initiés distincts</b> (🔴🔴) qui est un signal d'alerte. Le prix moyen vendu marque le niveau que les initiés jugent suffisant.</p>
   </div>
 
   <div id="list"></div>
@@ -138,7 +154,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
   <footer>
     Sources : déclarations publiques <a href="https://transactions-amf.swaoo.com/" target="_blank" rel="noopener">Transactions AMF</a> · <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank" rel="noopener">SEC EDGAR</a><br>
-    Sentinelle perso v2 · pipeline GitHub Actions · aucune donnée personnelle dans cette app
+    Sentinelle perso v3 · pipeline GitHub Actions · aucune donnée personnelle dans cette app
   </footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -150,7 +166,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   var DATA_KEY = "sentinelle-perso-data-v1";
   var PREF_KEY = "sentinelle-perso-prefs-v1";
   var SEEN_KEY = "sentinelle-perso-lastseen-v1";
-  var state = { data: null, newIds: [], prefs: { src: "all", sort: "date", m: 0, q: "", new: false } };
+  var state = { data: null, newIds: [], prefs: { src: "all", side: "all", sort: "date", m: 0, q: "", new: false } };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -171,6 +187,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         if (typeof p.m === "number" && p.m >= 0) state.prefs.m = p.m;
         if (typeof p.q === "string") state.prefs.q = p.q;
         if (typeof p.new === "boolean") state.prefs.new = p.new;
+        if (p.side === "buy" || p.side === "sell" || p.side === "all") state.prefs.side = p.side;
       }
     } catch (e) { }
   }
@@ -189,7 +206,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   function countNew(d) {
     var ls = seenGet();
     var ids = [];
-    var all = (d.fr || []).concat(d.us || []);
+    var all = (d.fr || []).concat(d.us || []).concat(d.frS || []).concat(d.usS || []);
     if (ls) {
       for (var i = 0; i < all.length; i++) {
         // >= le jour de la dernière visite inclus : les achats publiés ce jour-là
@@ -246,13 +263,14 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   function fmtSigMontant(sig) {
     return sig.source === "US" ? RI.fmtUSD(sig.total) : RI.fmtEUR(sig.total);
   }
-  function lvlBadge(sig) {
-    if (sig.level === 3) return '<span class="lvl l3" title="Plusieurs initiés distincts achètent la même société">🔥🔥 cluster</span>';
-    if (sig.level === 2) return '<span class="lvl l2" title="Accumulation nette (achats répétés, plusieurs initiés ou total ≥ 1 M)">🔥</span>';
-    return '<span class="lvl l1" title="Deux achats du même initié — à nuancer">×2</span>';
+  function lvlBadge(sig, sell) {
+    if (sig.level === 3) return '<span class="lvl l3" title="' + (sell ? "Plusieurs initiés distincts vendent la même société — signal d'alerte" : "Plusieurs initiés distincts achètent la même société") + '">' + (sell ? "\ud83d\udd34\ud83d\udd34" : "\ud83d\udd25\ud83d\udd25") + " cluster</span>";
+    if (sig.level === 2) return '<span class="lvl l2" title="' + (sell ? "Ventes répétées, plusieurs vendeurs ou total ≥ 1 M" : "Accumulation nette (achats répétés, plusieurs initiés ou total ≥ 1 M)") + '">' + (sell ? "\ud83d\udd34" : "\ud83d\udd25") + "</span>";
+    return '<span class="lvl l1" title="' + (sell ? "Deux ventes du même initié — à nuancer" : "Deux achats du même initié — à nuancer") + '">\u00d72</span>';
   }
-  function renderSignals(sigs) {
-    var card = $("sigCard");
+  function renderSignals(sigs, sell) {
+    var card = sell ? $("sigCardSell") : $("sigCard");
+    var target = sell ? "signalsSell" : "signals";
     if (!sigs || sigs.length === 0) {
       card.classList.add("hidden");
       return;
@@ -262,20 +280,20 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     for (var i = 0; i < sigs.length; i++) {
       var s = sigs[i];
       html.push(
-        '<div class="sig">' +
-        '<div class="head">' + lvlBadge(s) +
+        '<div class="sig' + (sell ? " sell" : "") + '">' +
+        '<div class="head">' + lvlBadge(s, sell) +
         '<span class="soc">' + esc(s.societe) + (s.ticker ? ' <span class="tk">' + esc(s.ticker) + "</span>" : "") + "</span></div>" +
-        '<div class="sum"><b>' + s.buys + " achat" + (s.buys > 1 ? "s" : "") + "</b> · " +
+        '<div class="sum"><b>' + s.buys + " " + (sell ? "vente" : "achat") + (s.buys > 1 ? (sell ? "s" : "s") : "") + "</b> · " +
         s.buyers + " initi\u00e9" + (s.buyers > 1 ? "s" : "") + " distinct" + (s.buyers > 1 ? "s" : "") +
         " · total " + esc(fmtSigMontant(s)) +
-        " · prix moyen pay\u00e9 <b>" + esc(RI.fmtPx(s, s.avgPx)) + "</b></div>" +
+        " · prix moyen " + (sell ? "vendu" : "pay\u00e9") + " <b>" + esc(RI.fmtPx(s, s.avgPx)) + "</b></div>" +
         '<div class="sub"><span>' + esc(RI.isoToDmY(s.first)) + " \u2192 " + esc(RI.isoToDmY(s.last)) + "</span>" +
         ' · <a href="' + esc(RI.quoteUrl(s)) + '" target="_blank" rel="noopener">cote \u2197</a>' +
-        ' · <a href="#" data-sig="' + esc(s.societe) + '">voir les achats</a>' +
+        ' · <a href="#" data-sig="' + esc(s.societe) + '">voir</a>' +
         "</div></div>"
       );
     }
-    $("signals").innerHTML = html.join("");
+    $(target).innerHTML = html.join("");
   }
 
   function render() {
@@ -289,16 +307,21 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     c.textContent = "relevé " + f.label;
     c.className = "chip" + (f.stale ? " stale" : "");
 
-    var all = (d.fr || []).concat(d.us || []);
+    var buys = (d.fr || []).concat(d.us || []);
+    var sells = (d.frS || []).concat(d.usS || []);
+    $("nSell").textContent = String(sells.length);
 
-    // signaux d'accumulation : suivent le filtre source uniquement (pas montant/recherche)
-    var sigRows = RI.filterRows(all, { source: state.prefs.src });
+    // signaux : suivent le filtre source uniquement (pas montant/recherche/côté)
+    var sigRows = RI.filterRows(buys, { source: state.prefs.src });
     var sigs = RI.signalsFrom(sigRows);
     $("nSig").textContent = String(sigs.length);
-    renderSignals(sigs);
+    renderSignals(sigs, false);
+    renderSignals(RI.signalsFrom(RI.filterRows(sells, { source: state.prefs.src })), true);
 
-    var cnt = RI.signalCountByKey(all);
+    var cnt = RI.signalCountByKey(buys);
+    var cntS = RI.signalCountByKey(sells);
 
+    var all = state.prefs.side === "buy" ? buys : (state.prefs.side === "sell" ? sells : buys.concat(sells));
     var rows = RI.filterRows(all, { source: state.prefs.src, minMontant: state.prefs.m, q: state.prefs.q });
     if (state.prefs.new) {
       rows = rows.filter(function (r) { return state.newIds.indexOf(r.id) > -1; });
@@ -307,25 +330,26 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
     var el = $("list");
     if (rows.length === 0) {
-      el.innerHTML = '<div class="empty">Aucun achat avec ces filtres.</div>';
+      el.innerHTML = '<div class="empty">Aucune ligne avec ces filtres.</div>';
       return;
     }
     var html = [];
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       var lag = RI.lagLabel(r);
-      var n = cnt[RI.sigKey(r)];
+      var sell = r.side === "sell";
+      var n = sell ? cntS[RI.sigKey(r)] : cnt[RI.sigKey(r)];
       var isNew = state.newIds.indexOf(r.id) > -1;
       html.push(
-        '<div class="card"><div class="row ' + (r.source === "FR" ? "fr" : "us") + '">' +
+        '<div class="card"><div class="row ' + (r.source === "FR" ? "fr" : "us") + (sell ? " sell" : "") + '">' +
         '<div class="bar"></div>' +
         '<div class="t">' +
         '<div class="soc">' + esc(r.societe) + (r.ticker ? ' <span class="tk">' + esc(r.ticker) + "</span>" : "") +
-        (n >= 2 ? ' <span class="x" title="Nombre d\'achats de cette société sur la fenêtre 90 j — voir la carte accumulation">×' + n + "</span>" : "") +
+        (n >= 2 ? ' <span class="' + (sell ? "xs" : "x") + '" title="Nombre de ' + (sell ? "ventes" : "achats") + ' de cette société sur la fenêtre 90 j — voir la carte ' + (sell ? "ventes" : "accumulation") + '">×' + n + "</span>" : "") +
         (isNew ? ' <span class="newdot">🆕</span>' : "") +
         "</div>" +
         '<div class="who">' + esc(r.auteur) + (r.role ? " · " + esc(r.role) : "") + "</div>" +
-        '<div class="meta"><span>achat du ' + esc(RI.isoToDmY(r.dateOp)) + "</span>" +
+        '<div class="meta"><span>' + (sell ? "vente" : "achat") + " du " + esc(RI.isoToDmY(r.dateOp)) + "</span>" +
         (lag ? "<span>" + esc(lag) + "</span>" : "") +
         (r.instrument ? "<span>" + esc(String(r.instrument).slice(0, 40)) + "</span>" : "") +
         "</div>" +
@@ -340,18 +364,22 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     el.innerHTML = html.join("");
   }
 
-  // « voir les achats » d'une carte accumulation → filtre la liste sur la société
-  $("signals").addEventListener("click", function (e) {
+  // « voir » d'une carte signal → filtre la liste sur la société (pression complète achat+vente)
+  function onSigLink(e) {
     var a = e.target.closest("a[data-sig]");
     if (!a) return;
     e.preventDefault();
     var q = a.getAttribute("data-sig") || "";
     state.prefs.q = q;
+    state.prefs.side = "all";
     var inp = document.getElementById("q");
     if (inp) inp.value = q;
     savePrefs();
+    reflectPrefs();
     render();
-  });
+  }
+  $("signals").addEventListener("click", onSigLink);
+  $("signalsSell").addEventListener("click", onSigLink);
 
   function wire() {
     var segSrc = $("segSrc");
@@ -364,13 +392,22 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       });
       savePrefs(); render();
     });
-    var segs = document.querySelectorAll(".seg");
-    var segSort = segs[segs.length - 1];
+    var segSort = $("segSort");
     segSort.addEventListener("click", function (e) {
       var b = e.target.closest("button");
       if (!b) return;
       state.prefs.sort = b.getAttribute("data-sort");
       Array.prototype.forEach.call(segSort.querySelectorAll("button"), function (x) {
+        x.classList.toggle("on", x === b);
+      });
+      savePrefs(); render();
+    });
+    var segSide = $("segSide");
+    segSide.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      state.prefs.side = b.getAttribute("data-side") || "all";
+      Array.prototype.forEach.call(segSide.querySelectorAll("button"), function (x) {
         x.classList.toggle("on", x === b);
       });
       savePrefs(); render();
@@ -404,9 +441,11 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     Array.prototype.forEach.call(segSrc.querySelectorAll("button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-src") === state.prefs.src);
     });
-    var segs = document.querySelectorAll(".seg");
-    Array.prototype.forEach.call(segs[segs.length - 1].querySelectorAll("button"), function (b) {
+    Array.prototype.forEach.call($("segSort").querySelectorAll("button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-sort") === state.prefs.sort);
+    });
+    Array.prototype.forEach.call($("segSide").querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", (b.getAttribute("data-side") || "all") === (state.prefs.side || "all"));
     });
     Array.prototype.forEach.call($("amts").querySelectorAll("button"), function (b) {
       if (b.getAttribute("data-m") === null) return;
