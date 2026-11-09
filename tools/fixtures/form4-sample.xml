@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<ownershipDocument>
+
+    <schemaVersion>X0609</schemaVersion>
+
+    <documentType>4/A</documentType>
+
+    <periodOfReport>2026-10-06</periodOfReport>
+
+    <dateOfOriginalSubmission>2026-10-08</dateOfOriginalSubmission>
+
+    <notSubjectToSection16>0</notSubjectToSection16>
+
+    <issuer>
+        <issuerCik>0002076163</issuerCik>
+        <issuerName>Silvia, Inc.</issuerName>
+        <issuerTradingSymbol>SVIA</issuerTradingSymbol>
+        <issuerForeignTradingSymbol></issuerForeignTradingSymbol>
+    </issuer>
+
+    <reportingOwner>
+        <reportingOwnerId>
+            <rptOwnerCik>0002117818</rptOwnerCik>
+            <rptOwnerName>Noor Shain</rptOwnerName>
+        </reportingOwnerId>
+        <reportingOwnerAddress>
+            <rptOwnerNonUSAddressFlag>false</rptOwnerNonUSAddressFlag>
+            <rptOwnerStreet1>600 LEXINGTON AVENUE, FLOOR 2</rptOwnerStreet1>
+            <rptOwnerStreet2></rptOwnerStreet2>
+            <rptOwnerCity>NEW YORK</rptOwnerCity>
+            <rptOwnerState>NY</rptOwnerState>
+            <rptOwnerZipCode>10022</rptOwnerZipCode>
+            <rptOwnerStateDescription></rptOwnerStateDescription>
+        </reportingOwnerAddress>
+        <reportingOwnerRelationship>
+            <isDirector>0</isDirector>
+            <isOfficer>1</isOfficer>
+            <isTenPercentOwner>0</isTenPercentOwner>
+            <isOther>0</isOther>
+            <officerTitle>Chief Technology Officer</officerTitle>
+            <otherText></otherText>
+        </reportingOwnerRelationship>
+    </reportingOwner>
+
+    <aff10b5One>0</aff10b5One>
+
+    <nonDerivativeTable>
+        <nonDerivativeTransaction>
+            <securityTitle>
+                <value>Common Stock, par value $0.001 per share</value>
+            </securityTitle>
+            <transactionDate>
+                <value>2026-10-06</value>
+            </transactionDate>
+            <deemedExecutionDate></deemedExecutionDate>
+            <transactionCoding>
+                <transactionFormType>4</transactionFormType>
+                <transactionCode>F</transactionCode>
+                <equitySwapInvolved>0</equitySwapInvolved>
+            </transactionCoding>
+            <transactionTimeliness></transactionTimeliness>
+            <transactionAmounts>
+                <transactionShares>
+                    <value>45000</value>
+                    <footnoteId id="F1"/>
+                </transactionShares>
+                <transactionPricePerShare>
+                    <value>4.18</value>
+                </transactionPricePerShare>
+                <transactionAcquiredDisposedCode>
+                    <value>D</value>
+                </transactionAcquiredDisposedCode>
+            </transactionAmounts>
+            <postTransactionAmounts>
+                <sharesOwnedFollowingTransaction>
+                    <value>4484326</value>
+                    <footnoteId id="F2"/>
+                </sharesOwnedFollowingTransaction>
+            </postTransactionAmounts>
+            <ownershipNature>
+                <directOrIndirectOwnership>
+                    <value>D</value>
+                </directOrIndirectOwnership>
+            </ownershipNature>
+        </nonDerivativeTransaction>
+    </nonDerivativeTable>
+
+    <footnotes>
+        <footnote id="F1">Represents shares of common stock, par value $0.001 per share (the &quot;Common Stock&quot;), of Silvia, Inc. (formerly known as ProCap Financial, Inc.) (the &quot;Issuer&quot;) withheld by the Issuer to satisfy tax withholding obligations upon the settlement of 125,628 restricted stock units (&quot;RSUs&quot;) that vested on October 6, 2026. After such withholding, 80,628 shares of Common Stock were delivered to the Reporting Person.</footnote>
+        <footnote id="F2">Consists of (i) 4,233,069 shares of Common Stock held directly, including 435,644 shares of Common Stock received by the Reporting Person in the merger of Silvia Merger Sub, Inc. with and into CFO Silvia, Inc. on April 6, 2026 and held in escrow for the benefit of the Reporting Person to secure indemnification obligations under the related merger agreement, which shares may not be transferred by the Reporting Person while so held, and (ii) 251,257 shares of Common Stock underlying unvested RSUs granted to the Reporting Person on May 19, 2026, which are scheduled to vest as follows: 125,628 RSUs on January 6, 2027 and 125,629 RSUs on April 6, 2027, in each case subject to the Reporting Person's continued service and the other terms of the award.</footnote>
+    </footnotes>
+
+    <remarks>This Form 4/A amends the Form 4 filed by the Reporting Person on October 8, 2026 (Accession No. 0001493152-26-046398) (the &quot;Original Form 4&quot;) to (i) remove the line reporting an acquisition of 125,628 shares of Common Stock on October 7, 2026, (ii) correct the amount of securities beneficially owned following the reported transaction and (iii) correct the transaction date for when vesting occurred. The 125,628 shares were delivered upon the settlement of a portion of the RSUs granted to the Reporting Person on May 19, 2026. The Reporting Person reports that grant on a separate Form 4 as an acquisition, as of the grant date, of the shares of Common Stock underlying the RSUs; accordingly, the delivery of shares upon settlement is not reported as a separate acquisition. The amount reported in the Original Form 4 as beneficially owned following the reported transactions did not include the 435,644 shares held in escrow for the benefit of the Reporting Person or the shares underlying the Reporting Person's unvested RSUs. The corrected amount also reflects the corrections made in the Reporting Person's amendment to his Form 4 filed July 8, 2026. The withholding transaction reported in the Original Form 4 is restated above with the corrected amount beneficially owned.</remarks>
+
+    <ownerSignature>
+        <signatureName>/s/ Shain Noor</signatureName>
+        <signatureDate>2026-11-06</signatureDate>
+    </ownerSignature>
+</ownershipDocument>

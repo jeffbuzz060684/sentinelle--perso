@@ -1,33 +1,21 @@
-# Sentinelle perso
+# 👁 Sentinelle perso
 
-Suivi des **achats d'initiés** — France (AMF/BDIF) + États-Unis (SEC EDGAR), mis à jour **automatiquement toutes les heures**.
+PWA installable : achats d'initiés **🇫🇷 AMF (France)** + **🇺🇸 SEC Form 4 (US)**, relevés automatiquement.
 
-## Sources
+- **App** : https://jeffbuzz060684.github.io/sentinelle--perso/
+- **Relevé** : workflow GitHub Actions **toutes les 2 h en jours ouvrés** (6h07 → 22h07 Paris) — `insiders.yml`
+- **Sources** (publiques, officielles) :
+  - FR : déclarations AMF des dirigeants (art. L.621-18-2, publiées sous 3 jours ouvrés), via le service d'agrégation transactions-amf.swaoo.com — **acquisitions ≥ 1 000 € uniquement**
+  - US : formulaires **Form 4** de la SEC (dépôt sous 2 jours ouvrés) via EDGAR — **achats au marché uniquement (code P, ≥ 1 000 $)** : conversions (J), levées d'options (M), attributions (A) et cadeaux/dons (F/G) exclus
+- **Fichiers** : `index.html` (UI), `logic.js` (logique pure partagée navigateur/Node), `sw.js` (PWA, réseau d'abord), `data.json` (données du relevé), `state.json` (déduplication US), `tools/` (relevé, harnais, validation, icônes)
 
-| Zone | Source | Fréquence |
-| --- | --- | --- |
-| 🇫🇷 | [Transactions dirigeants AMF](https://transactions-amf.swaoo.com) (miroir du BDIF officiel) | horaire |
-| 🇫🇷 | Flux RSS officiel [BDIF AMF](https://bdif.amf-france.org) — filet de sécurité | horaire |
-| 🇺🇸 | [SEC EDGAR Full-Text Search](https://efts.sec.gov) — Form 4, code **P** (achat) | horaire |
-
-Délais légaux de publication : **3 jours ouvrés** (AMF), **2 jours ouvrés** (SEC). Les achats ≥ 10 000 €/$ sont surlignés.
-
-## Fonctionnement
-
-- GitHub Actions (`.github/workflows/scan.yml`) scanne toutes les heures → `data.json` → commit + redéploiement.
-- PWA installable, fonctionne hors ligne (cache réseau-priorité).
-- Les **nouveaux achats** depuis la dernière consultation sont marqués 🆕.
-- Zéro API privée, zéro clé : tout vient de sources publiques ; aucune donnée personnelle n'est stockée.
-
-## Démarrage
+## Tests
 
 ```bash
-node tools/test-insiders.js   # 77 tests
-node tools/sim-dom.js          # 24 tests
-node tools/fetch-insiders.js  # scan live → data.json
-node tools/validate-data.js   # garde-fou avant déploiement
+node tools/test.js           # harnais complet (0 échec obligatoire avant déploiement)
+node tools/validate-data.js  # schéma data.json
+node tools/sim-dom.js         # exécuté dans le harnais (chargement complet de la page)
+node tools/fetch-insiders.js # relevé manuel (RI_BUDGET=800 pour un premier chargement)
 ```
 
-## Avertissement
-
-Les déclarations d'initiés sont des **informations publiques réglementées**. Cet outil les regroupe pour consultation ; il ne s'agit **pas** d'un conseil en investissement. Un achat d'initié peut avoir de nombreuses motivations (plan d'achat programmé, compensation…) qui n'impliquent aucune anticipation particulière.
+⚠️ Outil d'information, pas un conseil en investissement. Aucune donnée personnelle dans ce dépôt public.

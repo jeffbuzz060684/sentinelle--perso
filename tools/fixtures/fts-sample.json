@@ -1,0 +1,360 @@
+{
+ "took": 338,
+ "timed_out": false,
+ "_shards": {
+  "total": 50,
+  "successful": 50,
+  "skipped": 0,
+  "failed": 0
+ },
+ "hits": {
+  "total": {
+   "value": 15,
+   "relation": "eq"
+  },
+  "max_score": 3.4676511,
+  "hits": [
+   {
+    "_index": "edgar_file",
+    "_id": "0001493152-26-050503:ownership.xml",
+    "_score": 3.4676511,
+    "_source": {
+     "ciks": [
+      "0002117818",
+      "0002076163"
+     ],
+     "period_ending": "2026-10-06",
+     "file_num": [
+      "001-42995"
+     ],
+     "display_names": [
+      "Noor Shain  (CIK 0002117818)",
+      "Silvia, Inc.  (CIK 0002076163)"
+     ],
+     "xsl": "xslF345X06",
+     "schema_version": "X0609",
+     "sequence": 1,
+     "root_forms": [
+      "4"
+     ],
+     "file_date": "2026-11-06",
+     "biz_states": [
+      "NY"
+     ],
+     "sics": [
+      "6199"
+     ],
+     "form": "4/A",
+     "adsh": "0001493152-26-050503",
+     "film_num": [
+      "261532737"
+     ],
+     "biz_locations": [
+      "",
+      "New York, NY"
+     ],
+     "file_type": "4/A",
+     "ma_i_individual": null,
+     "file_description": "4/A",
+     "inc_states": [
+      "",
+      "DE"
+     ],
+     "items": []
+    }
+   },
+   {
+    "_index": "edgar_file",
+    "_id": "0001493152-26-050498:ownership.xml",
+    "_score": 3.459403,
+    "_source": {
+     "ciks": [
+      "0002117818",
+      "0002076163"
+     ],
+     "period_ending": "2026-07-06",
+     "file_num": [
+      "001-42995"
+     ],
+     "display_names": [
+      "Noor Shain  (CIK 0002117818)",
+      "Silvia, Inc.  (CIK 0002076163)"
+     ],
+     "xsl": "xslF345X06",
+     "schema_version": "X0609",
+     "sequence": 1,
+     "root_forms": [
+      "4"
+     ],
+     "file_date": "2026-11-06",
+     "biz_states": [
+      "NY"
+     ],
+     "sics": [
+      "6199"
+     ],
+     "form": "4/A",
+     "adsh": "0001493152-26-050498",
+     "film_num": [
+      "261532709"
+     ],
+     "biz_locations": [
+      "",
+      "New York, NY"
+     ],
+     "file_type": "4/A",
+     "ma_i_individual": null,
+     "file_description": "4/A",
+     "inc_states": [
+      "",
+      "DE"
+     ],
+     "items": []
+    }
+   },
+   {
+    "_index": "edgar_file",
+    "_id": "0001836939-26-000006:primary_doc.xml",
+    "_score": 2.9530566,
+    "_source": {
+     "ciks": [
+      "0001836939",
+      "0000933267"
+     ],
+     "period_ending": "2026-11-05",
+     "file_num": [
+      "001-13542"
+     ],
+     "display_names": [
+      "Zang Saul  (CIK 0001836939)",
+      "IRSA INVESTMENTS & REPRESENTATIONS INC  (CIK 0000933267)"
+     ],
+     "xsl": "xslF345X06",
+     "schema_version": "X0609",
+     "sequence": 1,
+     "root_forms": [
+      "4"
+     ],
+     "file_date": "2026-11-06",
+     "biz_states": [
+      "C1"
+     ],
+     "sics": [
+      "6552"
+     ],
+     "form": "4",
+     "adsh": "0001836939-26-000006",
+     "film_num": [
+      "261529750"
+     ],
+     "biz_locations": [
+      "",
+      "Buenos Aires, C1"
+     ],
+     "file_type": "4",
+     "ma_i_individual": null,
+     "file_description": "PRIMARY DOCUMENT",
+     "inc_states": [
+      ""
+     ],
+     "items": []
+    }
+   }
+  ]
+ },
+ "aggregations": {
+  "entity_filter": {
+   "doc_count_error_upper_bound": 0,
+   "sum_other_doc_count": 0,
+   "buckets": [
+    {
+     "key": "EXTREME NETWORKS INC  (CIK 0001078271)",
+     "doc_count": 4
+    },
+    {
+     "key": "Royalty Pharma plc  (CIK 0001802768)",
+     "doc_count": 4
+    },
+    {
+     "key": "Silvia, Inc.  (CIK 0002076163)",
+     "doc_count": 4
+    },
+    {
+     "key": "IRSA INVESTMENTS & REPRESENTATIONS INC  (CIK 0000933267)",
+     "doc_count": 3
+    },
+    {
+     "key": "Noor Shain  (CIK 0002117818)",
+     "doc_count": 2
+    },
+    {
+     "key": "Bendersky Nicolas  (CIK 0002117585)",
+     "doc_count": 1
+    },
+    {
+     "key": "Burton Ingrid  (CIK 0001771079)",
+     "doc_count": 1
+    },
+    {
+     "key": "Carinalli Charles  (CIK 0001195839)",
+     "doc_count": 1
+    },
+    {
+     "key": "Coyne Terrance P.  (CIK 0001814876)",
+     "doc_count": 1
+    },
+    {
+     "key": "ELSZTAIN EDUARDO S  (CIK 0001037182)",
+     "doc_count": 1
+    },
+    {
+     "key": "Hite Christopher  (CIK 0001814238)",
+     "doc_count": 1
+    },
+    {
+     "key": "Inflection Points Inc.  (CIK 0002091433)",
+     "doc_count": 1
+    },
+    {
+     "key": "Legorreta Pablo G.  (CIK 0001507678)",
+     "doc_count": 1
+    },
+    {
+     "key": "PASEK RONALD J  (CIK 0001479217)",
+     "doc_count": 1
+    },
+    {
+     "key": "Pompliano Anthony John III  (CIK 0002067990)",
+     "doc_count": 1
+    },
+    {
+     "key": "Shoemaker John C  (CIK 0001299645)",
+     "doc_count": 1
+    },
+    {
+     "key": "Urist Marshall  (CIK 0001838139)",
+     "doc_count": 1
+    },
+    {
+     "key": "Zang Saul  (CIK 0001836939)",
+     "doc_count": 1
+    }
+   ]
+  },
+  "sic_filter": {
+   "doc_count_error_upper_bound": 0,
+   "sum_other_doc_count": 0,
+   "buckets": [
+    {
+     "key": "2834",
+     "doc_count": 4
+    },
+    {
+     "key": "3576",
+     "doc_count": 4
+    },
+    {
+     "key": "6199",
+     "doc_count": 4
+    },
+    {
+     "key": "6552",
+     "doc_count": 3
+    }
+   ]
+  },
+  "biz_states_filter": {
+   "doc_count_error_upper_bound": 0,
+   "sum_other_doc_count": 0,
+   "buckets": [
+    {
+     "key": "NY",
+     "doc_count": 8
+    },
+    {
+     "key": "NC",
+     "doc_count": 4
+    },
+    {
+     "key": "C1",
+     "doc_count": 3
+    }
+   ]
+  },
+  "form_filter": {
+   "doc_count_error_upper_bound": 0,
+   "sum_other_doc_count": 0,
+   "buckets": [
+    {
+     "key": "4",
+     "doc_count": 15
+    }
+   ]
+  }
+ },
+ "query": {
+  "_source": {
+   "exclude": [
+    "doc_text"
+   ]
+  },
+  "query": {
+   "bool": {
+    "must": [
+     {
+      "match_phrase": {
+       "doc_text": "acquisition"
+      }
+     }
+    ],
+    "must_not": [],
+    "should": [],
+    "filter": [
+     {
+      "terms": {
+       "root_forms": [
+        "4"
+       ]
+      }
+     },
+     {
+      "range": {
+       "file_date": {
+        "gte": "2026-11-06",
+        "lte": "2026-11-09"
+       }
+      }
+     }
+    ]
+   }
+  },
+  "from": 0,
+  "size": 100,
+  "aggregations": {
+   "form_filter": {
+    "terms": {
+     "field": "root_forms",
+     "size": 30
+    }
+   },
+   "entity_filter": {
+    "terms": {
+     "field": "display_names.raw",
+     "size": 30
+    }
+   },
+   "sic_filter": {
+    "terms": {
+     "field": "sics",
+     "size": 30
+    }
+   },
+   "biz_states_filter": {
+    "terms": {
+     "field": "biz_states",
+     "size": 30
+    }
+   }
+  }
+ }
+}

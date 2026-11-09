@@ -1,44 +1,46 @@
-name: Pages
+name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: true
-
 jobs:
-  build-test:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Harnais (0 échec obligatoire)
-        run: node tools/test-insiders.js
-      - name: Simulation DOM complète
-        run: node tools/sim-dom.js
-      - name: Icônes PNG
-        run: node tools/gen-icons.js
-      - name: Validation data.json
-        run: node tools/validate-data.js
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
+      - name: Harnais de tests (bloquant)
+        run: |
+          node tools/gen-icons.js
+          node tools/test.js
   deploy:
-    needs: build-test
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Générer les icônes PNG
+        run: node tools/gen-icons.js
+      - name: Valider data.json
+        run: node tools/validate-data.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+      - name: Déployer
+        id: deployment
         uses: actions/deploy-pages@v4
