@@ -75,6 +75,8 @@ jobs:
           cp index.html logic.js sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png data.json dist/
           test -f quotes.json && cp quotes.json dist/ || echo "  note : quotes.json absent du dépôt"
           test -f sbf120.json && cp sbf120.json dist/ || echo "  note : sbf120.json absent du dépôt"
+          # v4.0.10 : le journal de validation est cité dans l'aide de l'app — servi pour être vérifiable
+          test -f journal-scores.jsonl && cp journal-scores.jsonl dist/ || echo "  note : journal-scores.jsonl absent du dépôt"
           ls dist/
         # v4.0.8 : le secours cotations met à jour ops.json (mémoire des pannes) et peut
         # envoyer l'alerte de transition / le ping dead man comme le cron dédié.
