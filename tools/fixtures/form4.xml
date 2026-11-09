@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<ownershipDocument schemaVersion="1.0" >
+  <reportingOwner>
+    <reportingOwnerId>
+      <rptOwnerCik>0001234567</rptOwnerCik>
+      <rptOwnerName>JANE DOE</rptOwnerName>
+    </reportingOwnerId>
+    <reportingOwnerRelationship>
+      <isDirector>0</isDirector>
+      <isOfficer>1</isOfficer>
+      <isTenPercentOwner>0</isTenPercentOwner>
+      <officerTitle>Chief Executive Officer</officerTitle>
+    </reportingOwnerRelationship>
+  </reportingOwner>
+  <issuer>
+    <issuerCik>0001463101</issuerCik>
+    <issuerName>EXAMPLE ENERGY, INC.</issuerName>
+    <issuerTradingSymbol>EXMP</issuerTradingSymbol>
+  </issuer>
+  <periodOfReport>2026-11-05</periodOfReport>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <securityTitle><value>Common Stock</value></securityTitle>
+      <transactionDate><value>2026-11-04</value></transactionDate>
+      <transactionCoding><transactionCode>S</transactionCode><equitySwapInvolved>0</equitySwapInvolved></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>5000</value></transactionShares>
+        <transactionPricePerShare><value>22.50</value></transactionPricePerShare>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+    <nonDerivativeTransaction>
+      <securityTitle><value>Common Stock</value></securityTitle>
+      <transactionDate><value>2026-11-05</value></transactionDate>
+      <transactionCoding><transactionCode>P</transactionCode><equitySwapInvolved>0</equitySwapInvolved></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>10000</value></transactionShares>
+        <transactionPricePerShare><value>21.75</value></transactionPricePerShare>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+    <nonDerivativeTransaction>
+      <securityTitle><value>Common Stock</value></securityTitle>
+      <transactionDate><value>2026-11-06</value></transactionDate>
+      <transactionCoding><transactionCode>P</transactionCode><equitySwapInvolved>0</equitySwapInvolved></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>2000.5</value></transactionShares>
+        <transactionAdvisory><value>Acquisition</value></transactionAdvisory>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+  </nonDerivativeTable>
+</ownershipDocument>

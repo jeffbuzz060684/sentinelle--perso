@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JKEBTZ1DNN"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-JKEBTZ1DNN');
+    </script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Transactions AMF  | Déclarations AMF </title>
+    <script defer src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script defer src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script defer src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="/styles/styles.css">
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Transactions AMF  | Déclarations AMF  " />
+    <meta property="og:description" content="Liste et consultation des déclarations des dirigeants  publiées par l'Autorité des Marchés Financiers (AMF)" />
+    <meta property="og:url" content="https://transactions-amf.swaoo.com" />
+    <meta property="og:site_name" content="Transactions AMF" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/styles/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/styles/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/styles/favicon-16x16.png">
+	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1404694032546036"
+     crossorigin="anonymous"></script>	
+</head>
+<body>
+<div class="container">
+    <div class="row">
+        <div id="pageheader" class="col-12 text-center my-4">
+            <h1><a href="/" title="Accueil Transactions AMF">Transactions AMF</a></h1>
+            <h4>Déclarations des dirigeants publiées par l'Autorité des Marchés Financiers (AMF)</h4>
+        </div>
+    </div>
+    <div class="row">
+        <p>Ce service indépendant de l'AMF vous permet de consulter et rechercher les déclarations individuelles relatives aux opérations des personnes mentionnées à l’article L.621-18-2
+            du Code monétaire et financier sur les titres des sociétés. Les déclarations AMF sont collectées et traitées quotidiennement.</p>
+    </div>
+    <div class="row insideralpha">
+        <p>
+        Transactions-AMF évolue et devient <a href="https://insideralpha.fr" target="_blank"><span class="titre1">INSIDER</span> <span class="titre2">Alpha</span></a>
+        </p>
+        <p>
+        La plateforme se renforce et centralise désormais l’analyse des opérations d’initiés : déclarations des dirigeants, franchissements de seuils, positions courtes et offres publiques.
+        </p>
+        <p style="width:100%">
+        L’offre gratuite s’enrichit avec les fiches sociétés, les profils dirigeants et le suivi des favoris.
+        </p><p style="width:100%">
+        La version Pro étend l’historique, les scores, les alertes et les signaux intelligents.
+        </p>
+        <p>
+        À découvrir sans tarder.
+        </p>
+    </div>
+
+    
+<div class="row">
+    <div class="col m-2 text-center" >
+        <button type="button" class="btn"  data-toggle="collapse" data-target="#moteur_recherche">Filtrer</button>
+    </div>
+</div>
+
+<div id="moteur_recherche" class="collapse" >
+
+    <form method="post" action = "/" class="border rounded p-3">
+        <input type="hidden" name="f_page" value="1"/>
+
+        <div class="form-group row my-2">
+            <label for="f_societes" class="col-md-4 col-form-label text-right">Société : <br>
+                <small id="f_societes_h" class="form-text text-muted">Pour rechercher plusieurs sociétés, séparer les noms par un point-virgule (;)</small></label>
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="f_societes" id="f_societes" aria-describedby="f_societes_h" placeholder="SOCIETE 1 ; SOCIETE 2..." value="">
+            </div>
+        </div>
+
+        <div class="form-group row my-2">
+            <label for="f_recherche" class="col-md-4 col-form-label text-right">Mot-clé : <br>
+                <small id="f_recherche_h" class="form-text text-muted">Recherche sur la société, l'auteur, le numéro de la déclaration, le numéro LEI, le code ISIN</small></label>
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="f_recherche" id="f_recherche" aria-describedby="f_recherche_h" placeholder="Entrez un mot-clé" value="">
+
+            </div>
+        </div>
+
+        <div class="form-group row my-2">
+            <label for="f_date_publication_debut" class="col-md-4 col-form-label">Déclaration publiée entre le <br>
+            <small id="f_date_publication_debut_h" class="form-text text-muted">Recherche maximum 3 ans en arrière</small></label>
+            <div class="col-md-3">
+                <input type="text" class="form-control datepicker" name="f_date_publication_debut" id="f_date_publication_debut"  aria-describedby="f_date_publication_debut_h"  placeholder="dd/mm/aaaa" value="01/11/2026">
+            </div>
+            <label for="f_date_publication_fin" class="col-md-2 col-form-label"> et le </label>
+            <div class="col-md-3">
+                <input type="text" class="form-control datepicker" name="f_date_publication_fin" id="f_date_publication_fin" placeholder="dd/mm/aaaa" value="09/11/2026">
+            </div>
+        </div>
+
+        <div class="form-group row my-2">
+            <label for="f_date_operation_debut" class="col-md-4 col-form-label">Opération réalisée entre le <br>
+                <small id="f_date_operation_debut_h" class="form-text text-muted">Recherche maximum 3 ans en arrière</small></label>
+            <div class="col-md-3">
+                <input type="text" class="form-control datepicker" name="f_date_operation_debut" id="f_date_operation_debut"  aria-describedby="f_date_operation_debut_h" placeholder="dd/mm/aaaa" value="">
+            </div>
+            <label for="f_date_operation_fin" class="col-md-2 col-form-label"> et le </label>
+            <div class="col-md-3">
+                <input type="text" class="form-control datepicker" name="f_date_operation_fin" id="f_date_operation_fin" placeholder="dd/mm/aaaa" value="">
+            </div>
+        </div>
+
+        <div class="form-group row my-2">
+            <label for="f_nature[]" class="col-md-4 col-form-label" aria-describedby="f_nature_h" >Nature de la transaction : <br>
+                <small id="f_nature_h" class="form-text text-muted">Plusieurs choix possibles</small>
+            </label>
+
+            <div class="col-md-4">
+                <select name="f_nature[]" id="f_nature[]"  class="custom-select" multiple>
+                    <option>Toutes</option>
+                    <option value="acq" >Acquisition</option>
+                    <option value="att" >Attribution</option>
+                    <option value="ces" >Cession</option>
+                    <option value="exe" >Exercice</option>
+                    <option value="sou" >Souscription</option>
+                    <option value="aut" >Autre</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group row my-2">
+            <label for="f_montant_min" class="col-md-4 col-form-label">Montant minimum de la transaction : </label>
+            <div class="col-md-3">
+                <input type="text" class="form-control" name="f_montant_min" id="f_montant_min" placeholder="99999" value="">
+            </div>
+        </div>
+        <div class="form-group row my-2">
+            <div class="col-12 text-center">
+                <button type="submit"  class="btn btn-outline-primary">Rechercher</button>
+            </div>
+        </div>
+    </form>
+
+    <script>
+
+        window.addEventListener('load', function() {
+
+            $.datepicker.regional['fr'] = {
+                closeText: 'Fermer',
+                prevText: '&#x3c;Préc',
+                nextText: 'Suiv&#x3e;',
+                currentText: 'Aujourd\'hui',
+                monthNames: ['Janvier','Fevrier','Mars','Avril','Mai','Juin',
+                    'Juillet','Aout','Septembre','Octobre','Novembre','Decembre'],
+                monthNamesShort: ['Jan','Fev','Mar','Avr','Mai','Jun',
+                    'Jul','Aou','Sep','Oct','Nov','Dec'],
+                dayNames: ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'],
+                dayNamesShort: ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'],
+                dayNamesMin: ['Di','Lu','Ma','Me','Je','Ve','Sa'],
+                weekHeader: 'Sm',
+                dateFormat: 'dd/mm/yy',
+                firstDay: 1,
+                isRTL: false,
+                showMonthAfterYear: false,
+                yearSuffix: '',
+                numberOfMonths: 1,
+                showButtonPanel: true,
+                minDate: '-3Y +0D',
+            };
+            $.datepicker.setDefaults($.datepicker.regional['fr']);
+
+            $('.datepicker').each(function(){
+                $(this).datepicker({firstDay: 1});
+            });
+
+        } );
+    </script>
+
+</div>
+    <div id="liste_transactions">
+    <h4><a href="/" title="Retour accueil Transactions AMF">Accueil</a></h4> > <h4>Liste des transactions </h4>
+    <p>92 déclarations enregistrées</p>
+    <div class="row">
+    <div class="col-12 text-center">
+    <nav aria-label="Page navigation example">
+        <ul class="pagination justify-content-center">
+            <li class="page-item disabled">
+                <a class="page-link" href="?f_date_publication_debut=01/11/2026&f_date_publication_fin=09/11/2026&f_page=1"  aria-label="Page précédente">
+                    <span aria-hidden="true">&laquo;</span>
+                    <span class="sr-only">Page précédente</span>
+                </a>
+            </li>
+            <li class="page-item"><a class="page-link" href="#">Page 1 / 7</a></li>
+            <li class="page-item ">
+                <a class="page-link" href="?f_date_publication_debut=01/11/2026&f_date_publication_fin=09/11/2026&f_page=2"  aria-label="Page suivante">
+                    <span class="sr-only">Page suivante</span>
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    </div>
+</div>
+
+    <table class="table table-bordered table-hover ">
+        <thead>
+        <tr>
+            <th scope="col" class="align-middle">Société</th>
+            <th scope="col" class="align-middle">Date publication</th>
+            <th scope="col" class="align-middle d-none d-xl-table-cell">Date opération</th>
+            <th scope="col" class="align-middle">Nature</th>
+            <th scope="col" class="align-middle d-none d-xl-table-cell">Instrument</th>
+            <th scope="col" class="align-middle d-none d-xl-table-cell">ISIN</th>
+            <th scope="col" class="align-middle">Volume</th>
+            <th scope="col" class="align-middle d-none d-xl-table-cell">Prix</th>
+            <th scope="col" class="align-middle">Montant</th>
+            <th scope="col" class="align-middle">Détails</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+    <td><a href="/societes/ROCHE+BOBOIS+SA/" title="Voir les transactions de ROCHE BOBOIS SA">ROCHE BOBOIS SA</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149199">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149199">05/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149199">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149199">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149199"></td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149199">1&nbsp;400.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149199">15.7286</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149199">22&nbsp;020.0400&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149199">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149199">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149199</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 05/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> TXR S.R.L.  personne morale liée à Giovanni Tamburi, Membre du Conseil de Surveillance</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : ROCHE BOBOIS SA</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> </li>
+            <li class="list-group-item"><strong>LEI :</strong> </li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 1&nbsp;400.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 15.7286&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 22&nbsp;020.0400&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378166" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149199/BC0EE384A3827A8FB92342074BC20FFDA94D1CCB180EFD2EDB9555F4223D3340.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149199">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/TOTALENERGIES+SE/" title="Voir les transactions de TOTALENERGIES SE">TOTALENERGIES SE</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149162">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149162">05/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149162">Cession</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149162">FIE - TOTALENER...</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149162">QS0009061084</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149162">11&nbsp;781.2000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149162">82.7047</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149162">974&nbsp;359.3959&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149162">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149162">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149162</h6>
+        <p class="card-text">La date de transaction saisie est la date de comptabilisation de l’opération.
+
+La date de valeur liquidative de l'opération est le 03/11/2026.Arbitrage (Vente de parts) : TOTALENERGIES ACTIONNARIAT FRANCE « A » PART C (code ISIN : QS0009061084)NB :« Le montant susmentionné correspond à LA VENTE de parts de FCPE investies dans TOTALENERGIES S.E. et non à la ventedirecte de titres TOTALENERGIES S.E. »En épargne salariale, le « porteur» ne vend pas un nombre d’actions mais des parts de Fonds Commun de Placement d’Entreprise(FCPE).</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 05/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> NAMITA SHAH, Membre du Comité exécutif</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : TOTALENERGIES SE
+LEI : 529900S21EQ1BO4ESM68</li>
+            <li class="list-group-item"><strong>Nature :</strong> Cession</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> FIE - TOTALENERGIES ACTIONNARIAT FRANCE</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> QS0009061084</li>
+            <li class="list-group-item"><strong>LEI :</strong> 529900S21EQ1BO4ESM68</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 11&nbsp;781.2000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 82.7047&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 974&nbsp;359.3959&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378165" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149162/34A3749F18575AA1556FA02BFB03C108A7010A34622FE89DF097CACBCEEF8175.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/QS0009061084" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149162">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/FONCIERE+INEA/" title="Voir les transactions de FONCIERE INEA">FONCIERE INEA</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149110">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149110">05/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149110">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149110">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149110">FR0010341032</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149110">32.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149110">31.4400</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149110">1&nbsp;006.0800&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149110">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149110">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149110</h6>
+        <p class="card-text">Philippe ROSIO, Gérant de GEST INVEST, est Président-Directeur Général de FONCIERE INEA.
+
+Autre dirigeant de FONCIERE INEA auquel GEST INVEST est indirectement liée – Arline GAUJAL KEMPLER, directeur généraldélégué de FONCIERE INEA et ce, via GEST (détenue par la holding personnelle de chacun de Philippe ROSIO et d’ArlineGAUJAL-KEMPLER) – GEST contrôlant GEST INVEST.</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 05/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> GEST INVEST société civile  personne morale liée à Philippe  ROSIO, Président Directeur Général de l'Emetteur</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : FONCIERE INEA
+LEI : 9695000H29HRRE478062</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0010341032</li>
+            <li class="list-group-item"><strong>LEI :</strong> 9695000H29HRRE478062</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 32.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 31.4400&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 1&nbsp;006.0800&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378164" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149110/45E63E193111040B173110D7DFDEBA18F9CAECAF43E2B576FC522BEC6E20CEB4.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0010341032" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149110">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/COMPAGNIE+LEBON/" title="Voir les transactions de COMPAGNIE LEBON">COMPAGNIE LEBON</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149334">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149334">04/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149334">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149334">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149334"></td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149334">90.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149334">96.0000</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149334">8&nbsp;640.0000&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149334">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149334">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149334</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 04/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> Pascal PALUEL-MARMONT, PRESIDENT DU CONSEIL D'ADMINISTRATION</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : COMPAGNIE LEBON
+LEI : 969500Q0TXUSFDLH3940</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> </li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500Q0TXUSFDLH3940</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 90.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 96.0000&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 8&nbsp;640.0000&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378168" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149334/CEB9BB552C988EACA058C522038128D60D8B427968B5CD69B87182B62E8E4D14.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149334">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/TIKEHAU+CAPITAL/" title="Voir les transactions de TIKEHAU CAPITAL">TIKEHAU CAPITAL</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149107">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149107">04/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149107">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149107">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149107">FR0013230612</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149107">2&nbsp;643.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149107">16.8800</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149107">44&nbsp;613.8400&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149107">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149107">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149107</h6>
+        <p class="card-text">Tikehau Capital Advisors est une personne étroitement liée à deux personnes dirigeantes de Tikehau Capital, à savoir :- AF&Co Management, Gérant, dont Monsieur Antoine Flamarion est le Président; et- MCH Management, Gérant, dont Monsieur Mathieu Chabran est le Président.Monsieur Antoine Flamarion est également président de la société AF&Co, elle-même Président de Tikehau Capital Advisors, etMonsieur Mathieu Chabran est également président de la société MCH, elle-même Directeur Général statutaire de Tikehau CapitalAdvisors.Tikehau Capital Advisors est également l'actionnaire unique de Tikehau Capital Commandité, associé commandité de TikehauCapital.</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 04/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> TIKEHAU CAPITAL ADVISORS Société par actions simplifiée  personne morale liée à Antoine  FLAMARION, Président de AF&CoManagement, elle-même Gérant de Tikehau Capital</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : TIKEHAU CAPITAL
+LEI : 969500BY8TEU16U3SJ94</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0013230612</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500BY8TEU16U3SJ94</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 2&nbsp;643.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 16.8800&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 44&nbsp;613.8400&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378162" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149107/A35BA7E89D8917E3BFF67DA205BDC438E87C9800E854D9B8CB062A242C105C97.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0013230612" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149107">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/HAULOTTE+GROUP/" title="Voir les transactions de HAULOTTE GROUP">HAULOTTE GROUP</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149108">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149108">03/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149108">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149108">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149108">FR0000066755</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149108">5&nbsp;650.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149108">2.1852</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149108">12&nbsp;346.3800&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149108">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149108">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149108</h6>
+        <p class="card-text">MR SAUBOT ALEXANDRE EST PRESIDENT DE SOLEM ET DIRECTEUR GENERAL DELEGUE DE HAULOTTE GROUP</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 03/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> SOLEM SAS personne morale liée à ALEXANDRE SAUBOT, DIRECTEUR GENERAL DELEGUE</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : HAULOTTE GROUP
+LEI : 9695005LBNQJXT452Y30</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0000066755</li>
+            <li class="list-group-item"><strong>LEI :</strong> 9695005LBNQJXT452Y30</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 5&nbsp;650.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 2.1852&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 12&nbsp;346.3800&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378163" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149108/130FD6E09299F6980DE95779137EFE2A37F41F0FE63D0EACF5D518152CAEF5A1.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0000066755" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149108">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/PATRIMOINE+ET+COMMERCE/" title="Voir les transactions de PATRIMOINE ET COMMERCE">PATRIMOINE ET COMMERCE</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148968">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148968">03/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148968">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148968">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148968">FR0011027135</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148968">2.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148968">20.6000</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148968">41.2000&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148968">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148968">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148968</h6>
+        <p class="card-text">GROUPE DUVAL, société par actions simplifiée personne morale liée à Eric DUVAL, président de Groupe Duval et gérant de la
+
+société PATRIMOINE & COMMERCE,  Pauline BOUCON DUVAL, directrice générale de Groupe Duval et gérante de la sociétéPATRIMOINE & COMMERCE, et Louis-Victor DUVAL, directeur général de Groupe Duval et membre du conseil de surveillance dePatrimoine et Commerce a acquis 2 actions de PATRIMOINE & COMMERCE le 03/11/2026.</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 03/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> GROUPE DUVAL SAS personne morale liée à Eric DUVAL, Gérant</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : PATRIMOINE ET COMMERCE
+LEI : 969500C2C11L0PTGRH11</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0011027135</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500C2C11L0PTGRH11</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 2.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 20.6000&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 41.2000&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378158" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148968/2D306BD82A1BD2CF30A77044DAF80C5B5BDC7593A70DCB0CCC3EBB508CF844EF.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0011027135" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148968">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/COMPAGNIE+DE+L%27ODET/" title="Voir les transactions de COMPAGNIE DE L'ODET">COMPAGNIE DE L'ODET</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148989">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148989">02/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148989">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148989">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148989">FR0000062234</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148989">193.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148989">984.5910</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148989">190&nbsp;026.0051&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148989">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148989">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148989</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 02/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> SOCIETE INDUSTRIELLE ET FINANCIERE DE L’ARTOIS Société Anonyme à conseil d’administration personne morale liée àVincent Bolloré, Président-Directeur Général de Compagnie de l’Odet</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : COMPAGNIE DE L'ODET
+LEI : 9695005PEG4IL375U849</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0000062234</li>
+            <li class="list-group-item"><strong>LEI :</strong> 9695005PEG4IL375U849</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 193.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 984.5910&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 190&nbsp;026.0051&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378160" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148989/E0CFBEA9946ABE245241543D6A8F4526F71AA8A8DD425B05EF9484CC321105B3.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0000062234" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148989">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/BOLLORE+SE/" title="Voir les transactions de BOLLORE SE">BOLLORE SE</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148987">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148987">02/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148987">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148987">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148987">FR0000039299</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148987">142&nbsp;877.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148987">3.7800</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148987">540&nbsp;075.0600&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148987">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148987">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148987</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 02/11/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> COMPAGNIE  DE  L’ODET Société Européenne personne morale liée à Bolloré Participations SE, Administrateur de Bolloré SE</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : BOLLORE SE
+LEI : 969500LEKCHH6VV86P94</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0000039299</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500LEKCHH6VV86P94</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 142&nbsp;877.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 3.7800&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 540&nbsp;075.0600&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378159" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148987/377B521D822335032A31FEB75C9949FED565B027133C087F28BBF87FD3B2FF59.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0000039299" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148987">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/AMUNDI/" title="Voir les transactions de AMUNDI">AMUNDI</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149224">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149224">22/10/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1149224">Souscription</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149224">FCPE Amundi act...</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149224"></td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149224">300.2560</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1149224">66.6300</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1149224">20&nbsp;006.0506&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149224">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1149224">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1149224</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 22/10/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> isabelle seneterre, DRH</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : AMUNDI
+LEI : 96950010FL2T1TJKR531</li>
+            <li class="list-group-item"><strong>Nature :</strong> Souscription</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Hors plateforme de négociation</li>
+            <li class="list-group-item"><strong>Instrument :</strong> FCPE Amundi actionnariat relais 2026
+CODE D’IDENTIFICATION DE L’INSTRUMENT FINANCIER : (C)QS0009206242</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> </li>
+            <li class="list-group-item"><strong>LEI :</strong> 96950010FL2T1TJKR531</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 300.2560</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 66.6300&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 20&nbsp;006.0506&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378167" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149224/9F108F417D8B33D2938C9AA91C2405042A9CAE0BC13D3BF95A85BB00967E4085.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1149224">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/HEXAOM/" title="Voir les transactions de HEXAOM">HEXAOM</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148994">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148994">24/02/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148994">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148994">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148994">FR0004159473</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148994">5&nbsp;312.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148994">35.1852</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148994">186&nbsp;903.7824&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148994">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148994">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148994</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 24/02/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> MFC PROU INVESTISSEMENT SAS personne morale liée à PATRICK VANDROMME, PRESIDENT CONSEILD'ADMINISTRATION</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : HEXAOM
+LEI : 969500AGQP2FXW6GMN75</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Growth Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0004159473</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500AGQP2FXW6GMN75</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 5&nbsp;312.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 35.1852&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 186&nbsp;903.7824&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378157" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148994/2213AC0669F50CF7BFF92B990DA73ED44365AF5845A3F1E9A2E1127CC844B57B.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0004159473" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148994">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/HEXAOM/" title="Voir les transactions de HEXAOM">HEXAOM</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148991">06/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148991">23/01/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148991">Acquisition</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148991">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148991">FR0004159473</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148991">1&nbsp;000.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148991">34.8229</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148991">34&nbsp;822.9000&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148991">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148991">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148991</h6>
+        <p class="card-text"></p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 23/01/2026<strong> et publiée le</strong> 06/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> MFC PROU INVESTISSEMENT SAS personne morale liée à Patrick VANDROMME, PRESIDENT DU CONSEILD'ADMINISTRATION</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : HEXAOM
+LEI : 969500AGQP2FXW6GMN75</li>
+            <li class="list-group-item"><strong>Nature :</strong> Acquisition</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Growth Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0004159473</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500AGQP2FXW6GMN75</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 1&nbsp;000.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 34.8229&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 34&nbsp;822.9000&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378161" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148991/57EFE46765906836678C8DBF1FEC5F5FAA1FB890275A52275FBAFA044E90F7E1.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0004159473" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148991">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/ABC+ARBITRAGE/" title="Voir les transactions de ABC ARBITRAGE">ABC ARBITRAGE</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148904">05/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148904">04/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148904">Cession</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148904">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148904">FR0004040608</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148904">3&nbsp;201.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148904">5.7628</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148904">18&nbsp;446.7228&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148904">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148904">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148904</h6>
+        <p class="card-text">Les ordres exécutés ont été passés par un prestataire de service d'investissement mandataire qui prend ses décisions
+
+d'intervention en toute indépendance</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 04/11/2026<strong> et publiée le</strong> 05/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> AUBEPAR INDUSTRIES SE SE, Membre du conseil d'administration</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : ABC ARBITRAGE
+LEI : 969500IZ7E6B3QVX2I11</li>
+            <li class="list-group-item"><strong>Nature :</strong> Cession</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0004040608</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500IZ7E6B3QVX2I11</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 3&nbsp;201.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 5.7628&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 18&nbsp;446.7228&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378082" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148904/30BB48A2CF4E5E5190A6DD31C6DE8A14932DC1EB17B87F6732F727DD8A108683.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0004040608" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148904">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/ABC+ARBITRAGE/" title="Voir les transactions de ABC ARBITRAGE">ABC ARBITRAGE</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148902">05/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148902">04/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148902">Cession</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148902">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148902">FR0004040608</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148902">11&nbsp;900.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148902">5.7628</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148902">68&nbsp;577.3200&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148902">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148902">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148902</h6>
+        <p class="card-text">Les ordres exécutés ont été passés par un prestataire de service d'investissement mandataire qui prend ses décisions
+
+d'intervention en toute indépendance</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 04/11/2026<strong> et publiée le</strong> 05/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> AUBEPAR INDUSTRIES SE SE, Membre du conseil d'adminsitration</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : ABC ARBITRAGE
+LEI : 969500IZ7E6B3QVX2I11</li>
+            <li class="list-group-item"><strong>Nature :</strong> Cession</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Dark Pools</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> FR0004040608</li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500IZ7E6B3QVX2I11</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 11&nbsp;900.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 5.7628&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 68&nbsp;577.3200&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378081" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148902/32BA520FE3AF5B4DC8B3EF080760A6A106B8B0FA23E6CCC3833942CE01C6B720.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                <a href="https://www.boursorama.com/recherche/FR0004040608" class="card-link" target="_blank">Cours&nbsp;bourse</a>
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148902">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr><tr>
+    <td><a href="/societes/CAPITAL+B/" title="Voir les transactions de CAPITAL B">CAPITAL B</a></td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148899">05/11/2026</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148899">04/11/2026</td>
+    <td data-toggle="collapse" data-target="#DET2026DD1148899">Cession</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148899">Action</td>
+    <td class="d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148899"></td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148899">12&nbsp;000.0000</td>
+    <td class="number d-none d-xl-table-cell" data-toggle="collapse" data-target="#DET2026DD1148899">6.3026</td>
+    <td class="number" data-toggle="collapse" data-target="#DET2026DD1148899">75&nbsp;631.2000&nbsp;&euro;</td>
+    <td><button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148899">+</button></td>
+</tr>
+
+<tr class="collapse" id="DET2026DD1148899">
+    <td></td>
+    <td colspan="20">
+        <h6 class="card-subtitle mb-2 text-muted">Déclaration n°2026DD1148899</h6>
+        <p class="card-text">Cessions faites dans le cadre d'un mandat de gestion avec Philippe Hottinguer Gestion.</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Opération réalisée le</strong> 04/11/2026<strong> et publiée le</strong> 05/11/2026</li>
+            <li class="list-group-item"><strong>Auteur :</strong> Jean-François DESCAVES, Président du conseil d'administration</li>
+            <li class="list-group-item"><strong>Coordonnées :</strong> NOM : CAPITAL B
+LEI : 969500EFNNFB2DRUC163</li>
+            <li class="list-group-item"><strong>Nature :</strong> Cession</li>
+            <li class="list-group-item"><strong>Lieu :</strong> Euronext Growth Paris</li>
+            <li class="list-group-item"><strong>Instrument :</strong> Action</li>
+            <li class="list-group-item"><strong>Code ISIN :</strong> </li>
+            <li class="list-group-item"><strong>LEI :</strong> 969500EFNNFB2DRUC163</li>
+            <li class="list-group-item"><strong>Volume aggrégé :</strong> 12&nbsp;000.0000</li>
+            <li class="list-group-item"><strong>Prix aggrégé :</strong> 6.3026&nbsp;&euro;</li>
+            <li class="list-group-item"><strong>Montant total (calculé) :</strong> 75&nbsp;631.2000&nbsp;&euro;</li>
+            <li class="list-group-item">
+                <a href="https://bdif.amf-france.org/Fiche-BDIF?docId=378080" class="card-link" target="_blank">Fiche AMF</a>
+                <a href="https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1148899/9D83CA930F01A7FE1B41D6C0BB07DE8C9765314491B68899E210E84FD9FF9DEA.pdf" class="card-link" target="_blank">Déclaration&nbsp;AMF</a>
+                
+            </li>
+            <li class="list-group-item text-center">
+                <button type="button" class="btn" data-toggle="collapse" data-target="#DET2026DD1148899">Fermer</button>
+            </li>
+        </ul>
+
+    </td>
+</tr>
+        </tbody>
+
+    </table>
+    <div class="row">
+    <div class="col-12 text-center">
+    <nav aria-label="Page navigation example">
+        <ul class="pagination justify-content-center">
+            <li class="page-item disabled">
+                <a class="page-link" href="?f_date_publication_debut=01/11/2026&f_date_publication_fin=09/11/2026&f_page=1"  aria-label="Page précédente">
+                    <span aria-hidden="true">&laquo;</span>
+                    <span class="sr-only">Page précédente</span>
+                </a>
+            </li>
+            <li class="page-item"><a class="page-link" href="#">Page 1 / 7</a></li>
+            <li class="page-item ">
+                <a class="page-link" href="?f_date_publication_debut=01/11/2026&f_date_publication_fin=09/11/2026&f_page=2"  aria-label="Page suivante">
+                    <span class="sr-only">Page suivante</span>
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    </div>
+</div>
+
+
+</div>
+
+    <div class="row text-muted text-center">
+        <p><small>Vous pouvez afficher la liste complète ou filtrer sur un mot-clé, une période de publication ou la nature de l'opération.
+                Les transactions sont classées par date de publication puis par date d'opération et enfin par numéro de déclaration. Cliquer sur le nom d'une société affiche les déclarations AMF de cette société.</small></p>
+        <p></p>
+        <p><small>
+            Avertissement : les informations présentées sont extraites automatiquement des déclarations AMF afin d'en faciliter l'exploitation et la consultation.
+            Ce service est indépendant de l'AMF. Les données sont traitées automatiquement et peuvent comporter des erreurs. </small></p>
+    </div>
+    <div class="row">
+        <div class="col-12 text-center" id="bloc_contact">
+            Transactions-AMF - <a href="mailto:contact@swaoo.com" title="Contacter">Contact</a>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>
