@@ -64,7 +64,7 @@
 <header>
   <div class="hrow">
     <h1>🇫🇷 CAC 40 <span>— classement d'achat</span></h1>
-    <span class="badge">Sentinelle perso · <b>v5.0.0</b></span>
+    <span class="badge">Sentinelle perso · <b>v5.0.1</b></span>
   </div>
 </header>
 
@@ -150,7 +150,7 @@ var CAC_REC = { strong_buy: "fort achat", buy: "achat", hold: "conserver", under
 // d'initiés, purement décoratifs, ont disparu avec les onglets) → score 🎯.
 // Percentiles sur TOUT le SBF coté, filtre cac40 APRÈS (périmètre automatique).
 function cacPipeline(list) {
-  return RI.cacScores(RI.sbfEnrich(RI.oppScores(RI.valScores(list)), { byName: {}, byIsin: {} }));
+  return RI.cacScores(RI.sbfEnrich(RI.oppScores(RI.valScores((list || []).filter(function (e) { return e != null; }))), { byName: {}, byIsin: {} }));   // v5.0.1 : une ligne null de la source est écartée, jamais un crash
 }
 
 function renderCacData(q) {

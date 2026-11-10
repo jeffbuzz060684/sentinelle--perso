@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-// Simulation DOM v5.0.0 : charge index.html (app MONOVUE 🇫🇷 CAC 40) avec des stubs, exécute logic.js
+// Simulation DOM v5.0.1 : charge index.html (app MONOVUE 🇫🇷 CAC 40) avec des stubs, exécute logic.js
 // puis les blocs inline, et vérifie le rendu final : classement 🎯 (TTE 57 🥈 devant Accor 46 🥉),
 // indice dédié, macro 🌍 en contexte, détail complet au tap, recherche, bouton Réessayer,
 // garde anti-skew, hors ligne sans cache (message honnête) et hors ligne AVEC cache (le classement survit).
@@ -100,7 +100,7 @@ module.exports = function simDom(cb) {
   while ((m = re.exec(html))) run(m[1], "index.html#inline" + (i++));
 
   // âge attendu du relevé macro (relevé d'hier, calcul identique à macroState)
-  var expAge = Math.floor((Date.now() - Date.parse(macroDay + "T12:00:00Z")) / 86400000);
+  var expAge = (function () { var d = new Date(); return Math.round((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.parse(macroDay + "T00:00:00Z")) / 86400000); })();   // v5.0.1 : âge en jours calendaires, comme macroState
   function txt(id) { return String((elements[id] && (elements[id].textContent || elements[id].innerHTML)) || ""); }
   function settle(fn) { setImmediate(function () { setImmediate(fn); }); }
 

@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "5.0.0";   // version unique de l'app (badge + footer la lisent) — v5.0.0 : app monovue 🇫🇷 CAC 40 (demande de Jade 10/11/2026 : « une seule et même application ») : les onglets initiés/SBF 120 cèdent la place au classement d'achat seul, design tableau compact + détail au tap identique au Radar ; le moteur (qualité 40 % + valorisation 25 % + consensus 35 %, percentiles SBF, filtre cac40, macroState) est inchangé ; v4.1.0 : classement + surprises EPS/prochaine publication + bandeau macro + indice CAC 40 dédié ; composition automatique (groupe cac40 de sbf120.json)
+  var VERSION = "5.0.1";   // version unique de l'app (badge + footer la lisent) — v5.0.1 : correctifs techniques du moteur suite à la revue du 10/11/2026 (isNum strict, vBase, pos52Of lo>0, upX tp>0, âge macro en jours calendaires, départage des ex æquo) — méthode et pondérations INCHANGÉES ; v5.0.0 : app monovue 🇫🇷 CAC 40 (demande de Jade 10/11/2026 : « une seule et même application ») : les onglets initiés/SBF 120 cèdent la place au classement d'achat seul, design tableau compact + détail au tap identique au Radar ; le moteur (qualité 40 % + valorisation 25 % + consensus 35 %, percentiles SBF, filtre cac40, macroState) est inchangé ; v4.1.0 : classement + surprises EPS/prochaine publication + bandeau macro + indice CAC 40 dédié ; composition automatique (groupe cac40 de sbf120.json)
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -620,11 +620,18 @@ var RI = (function () {
 
   // percentile 0-100 du champ sur la liste : lowerIsBetter -> le plus bas = 100.
   // PER/PB non positifs exclus du rang (perte, capitaux propres négatifs).
+  // v5.0.1 (revue du 10/11/2026) : validation numérique STRICTE du moteur. L'ancien
+  // `isFinite(v)` global convertit avant de tester — isFinite("") et isFinite(true)
+  // valent true, et des valeurs en texte se comparaient alphabétiquement ("10" < "9").
+  // Le moteur exige désormais de VRAIS nombres : typeof v === "number" && isFinite(v).
+  // Porté aux seules fonctions du moteur (rankPct → macroState) : les parseurs AMF/SEC
+  // gardent leur coercition isFinite volontaire, hors périmètre de la revue.
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
   function rankPct(list, field, lowerIsBetter) {
-    var vals = [], idx = {}, n = 0;
+    var idx = {}, n = 0;   // v5.0.1 : « vals » était un reste mort jamais lu (revue du 10/11)
     for (var i = 0; i < list.length; i++) {
       var v = list[i][field];
-      if (v == null || !isFinite(v)) continue;
+      if (v == null || !isNum(v)) continue;
       if (field !== "dY" && v <= 0) continue;
       idx[i] = v; n++;
     }
@@ -681,7 +688,7 @@ var RI = (function () {
       var n = 0;
       for (var k = 0; k < sub.length; k++) {
         var v = sub[k][field];
-        if (v == null || !isFinite(v)) continue;
+        if (v == null || !isNum(v)) continue;
         if (field !== "dY" && v <= 0) continue;
         n++;
       }
@@ -712,7 +719,7 @@ var RI = (function () {
       o.pDY = p.pDY != null ? p.pDY : null;
       o.pPb = p.pPb != null ? p.pPb : null;
       o.score = (p.pPer != null && w > 0) ? Math.round(s / w) : null;
-      o.vBase = p.pPer != null ? ((p.pPer != null ? 1 : 0) + (p.pDY != null ? 1 : 0) + (p.pPb != null ? 1 : 0)) : 0;
+      o.vBase = (p.pPer != null ? 1 : 0) + (p.pDY != null ? 1 : 0) + (p.pPb != null ? 1 : 0);   // v5.0.1 (revue du 10/11) : vBase compte les métriques DISPONIBLES même sans PER — le score reste null sans PER (une perte n'est pas « pas chère »), seule la couverture affichée est corrigée
       var modes = [];
       if (p.pPer != null) modes.push(p.mPer);
       if (p.pDY != null) modes.push(p.mDY);
@@ -748,7 +755,7 @@ var RI = (function () {
     var vals = {}, n = 0;
     for (var i = 0; i < list.length; i++) {
       var v = list[i][field];
-      if (v == null || !isFinite(v)) continue;
+      if (v == null || !isNum(v)) continue;
       vals[i] = v; n++;
     }
     var pcts = {};
@@ -771,12 +778,12 @@ var RI = (function () {
   // Un D/E négatif (fonds propres négatifs) est traité pareil. Les marges et croissances
   // NÉGATIVES restent des faits : elles participent (au bas du classement).
   function qMetricOf(e) {
-    var bad = (e.pb != null && isFinite(e.pb) && e.pb <= 0); // fonds propres négatifs
+    var bad = (e.pb != null && isNum(e.pb) && e.pb <= 0); // fonds propres négatifs
     return {
-      roe: (!bad && e.roe != null && isFinite(e.roe)) ? e.roe : null,
-      mOp: (e.mOp != null && isFinite(e.mOp)) ? e.mOp : null,
-      gRev: (e.gRev != null && isFinite(e.gRev)) ? e.gRev : null,
-      de: (!bad && e.de != null && isFinite(e.de) && e.de >= 0) ? e.de : null
+      roe: (!bad && e.roe != null && isNum(e.roe)) ? e.roe : null,
+      mOp: (e.mOp != null && isNum(e.mOp)) ? e.mOp : null,
+      gRev: (e.gRev != null && isNum(e.gRev)) ? e.gRev : null,
+      de: (!bad && e.de != null && isNum(e.de) && e.de >= 0) ? e.de : null
     };
   }
 
@@ -787,7 +794,7 @@ var RI = (function () {
   // position à l'extrémité — des bornes périmées ou un décrochage ne se lisent pas « au plus bas ».
   function pos52Of(e) {
     var lo = e.w52lo, hi = e.w52hi, px = e.px;
-    if (lo == null || hi == null || !(hi > lo) || !(px > 0)) return { pos: null, gapLo: null, dd: null, out: 0 };
+    if (lo == null || hi == null || !(hi > lo) || !(lo > 0) || !(px > 0)) return { pos: null, gapLo: null, dd: null, out: 0 };   // v5.0.1 : lo > 0 — un plus bas à 0 donnait gapLo = Infinity
     var pos = Math.max(0, Math.min(100, ((px - lo) / (hi - lo)) * 100));
     var out = px < lo ? -1 : (px > hi ? 1 : 0);
     return { pos: Math.round(pos), gapLo: Math.round((px / lo - 1) * 1000) / 10, dd: Math.round((px / hi - 1) * 1000) / 10, out: out };
@@ -939,7 +946,7 @@ var RI = (function () {
       o.ltScore = o.oScore == null ? null
         : Math.round(0.55 * o.qScore + 0.35 * o.score + 0.10 * o.insSc);
       // v4.0.6 : potentiel vs objectif de consensus (upside) — la carte 🎯 trie là-dessus.
-      o.upX = (e.tp != null && e.px > 0 && isFinite(e.tp) && isFinite(e.px)) ? Math.round((e.tp / e.px - 1) * 1000) / 10 : null;
+      o.upX = (e.tp != null && e.tp > 0 && e.px > 0 && isNum(e.tp) && isNum(e.px)) ? Math.round((e.tp / e.px - 1) * 1000) / 10 : null;   // v5.0.1 : tp strictement positif — une cible à 0 donnait un potentiel absurde de -100 %
       return o;
     });
   }
@@ -951,7 +958,7 @@ var RI = (function () {
     var key = view === "xins" ? "xScore" : (view === "cap" ? "cap" : (view === "obj" ? "upX" : (view === "opp" ? "oScore" : (view === "lt" ? "ltScore" : "score"))));
     return list.slice().sort(function (a, b) {
       var va = a[key], vb = b[key];
-      var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);
+      var na = va == null || !isNum(va), nb = vb == null || !isNum(vb);
       if (na && nb) return 0;
       if (na) return 1;
       if (nb) return -1;
@@ -1015,12 +1022,33 @@ var RI = (function () {
   function cacSort(list) {
     return list.slice().sort(function (a, b) {
       var va = a.aScore, vb = b.aScore;
-      var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);
-      if (na && nb) return 0;
+      var na = va == null || !isNum(va), nb = vb == null || !isNum(vb);
+      if (na && nb) return cacTie(a, b);
       if (na) return 1;
       if (nb) return -1;
-      return vb - va;
+      if (vb - va !== 0) return vb - va;
+      return cacTie(a, b);
     });
+  }
+
+  // v5.0.1 (revue du 10/11) : les scores sont des ENTIERS → ex æquo fréquents ; l'ancien tri
+  // laissait l'ORDRE D'ENTRÉE décider. Départage déterministe : base la plus complète d'abord
+  // (aBase décroissant), puis qualité (qScore décroissant, nulls en fin), puis nom (comparaison
+  // directe sur points de code — reproductible partout, sans dépendre de l'ICU de l'hôte).
+  function cacTie(a, b) {
+    var ba = a.aBase || 0, bb = b.aBase || 0;
+    if (ba !== bb) return bb - ba;
+    var qa = a.qScore, qb = b.qScore;
+    var nqa = qa == null || !isNum(qa), nqb = qb == null || !isNum(qb);
+    if (nqa && nqb) return cacNameCmp(a, b);
+    if (nqa) return 1;
+    if (nqb) return -1;
+    if (qb - qa !== 0) return qb - qa;
+    return cacNameCmp(a, b);
+  }
+  function cacNameCmp(a, b) {
+    var x = String(a.n || ""), y = String(b.n || "");
+    return x < y ? -1 : (x > y ? 1 : 0);
   }
 
   // macro du Radar Conjoncture (relevés publics data.json hebdo + data-daily.json) → état affichable :
@@ -1030,14 +1058,22 @@ var RI = (function () {
     if (!m || typeof m !== "object") return null;
     var out = { dateData: m.dateData || null, dateMacro: m.dateMacro || null, src: m.source || null };
     ["vix", "vix5", "bund10", "oat10", "bceDepot", "inflZE", "pmiZE", "cape"].forEach(function (k) {
-      out[k] = (m[k] != null && isFinite(m[k])) ? m[k] : null;
+      out[k] = (m[k] != null && isNum(m[k])) ? m[k] : null;
     });
     out.bceDir = ["hausse", "baisse", "stable"].indexOf(m.bceDir) >= 0 ? m.bceDir : null;
     out.spread = (out.oat10 != null && out.bund10 != null) ? Math.round((out.oat10 - out.bund10) * 100) : null;
     var age = null;
     if (out.dateData && /^\d{4}-\d{2}-\d{2}$/.test(out.dateData)) {
-      var t = Date.parse(out.dateData + "T12:00:00Z");
-      if (isFinite(t)) age = Math.floor(((nowMs || Date.now()) - t) / 86400000);
+      // v5.0.1 (revue du 10/11) : âge en JOURS CALENDAIRES. L'ancrage à midi UTC affichait
+      // -1 j pour un relevé du jour lu avant midi, et `nowMs || Date.now()` écrasait un
+      // nowMs légitimement égal à 0 (0 est une valeur, pas un « absent »).
+      var t = Date.parse(out.dateData + "T00:00:00Z");
+      if (isNum(t)) {
+        var now2 = (nowMs != null) ? nowMs : Date.now();
+        var nd = new Date(now2);
+        var today = Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth(), nd.getUTCDate());
+        age = Math.round((today - t) / 86400000);
+      }
     }
     out.ageDays = age;
     out.stale = age != null && age > 10;
