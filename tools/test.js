@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.1.0");
+  EQ(RI.VERSION, "5.0.0");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -682,70 +682,52 @@ T("fetch-insiders.js compile", function () {
 (function () {
   var html = fs.readFileSync(__dirname + "/../index.html", "utf8");
   T("index.html référence logic.js, sw, manifest et RI", function () {
-    A(html.indexOf('src="logic.js"') > -1, "logic.js chargé");
-    A(html.indexOf("navigator.serviceWorker.register") > -1, "service worker réellement enregistré (v3.1 — était du code mort)");
-    A(html.indexOf('manifest.webmanifest') > -1, "manifest lié");
-    A(html.indexOf("RI.esc") > -1, "esc RI utilisé (anti-XSS)");
+    A(html.indexOf('src="./logic.js"') > -1, "logic.js chargé");
+    A(html.indexOf("navigator.serviceWorker.register") > -1, "service worker réellement enregistré");
+    A(html.indexOf("manifest.webmanifest") > -1, "manifest lié");
+    A(html.indexOf("RI.cacScores") > -1, "moteur de scoring RI branché");
   });
-  T("v3.3 : version en UNE seule source (RI.VERSION) — badge et footer la lisent", function () {
-    A(html.indexOf('id="ver"') > -1, "badge version");
-    A(html.indexOf('id="footVer"') > -1, "version footer");
-    A(html.indexOf("RI.VERSION") > -1, "init lit RI.VERSION");
-    A(html.indexOf(">v3.2<") === -1 && html.indexOf(">v3<") === -1, "plus de version en dur périmée dans le HTML");
+  T("v5.0.0 : app MONOVUE 🇫🇷 CAC 40 — plus d'onglets ni de vues initiés/SBF (demande de Jade : « une seule et même application »)", function () {
+    A(html.indexOf("data-tab=") === -1, "plus de barre d'onglets");
+    A(html.indexOf('id="viewIns"') === -1 && html.indexOf('id="viewSbf"') === -1 && html.indexOf('id="viewCac"') === -1, "plus de vues séparées — le classement EST la page");
+    A(html.indexOf('id="segSide"') === -1 && html.indexOf('id="segSort"') === -1 && html.indexOf('id="segSb"') === -1, "plus de segments achats/ventes ni de vues SBF");
+    A(html.indexOf("fetch(\"data.json\")") === -1 && html.indexOf("FETCH_DATA") === -1, "plus de fetch data.json (les badges 🔥 initiés, décoratifs, ont disparu avec les onglets)");
+    A(html.indexOf('id="cacList"') > -1 && html.indexOf('id="cq"') > -1, "classement + recherche présents");
+    A(html.indexOf("<b>v5.0.0</b>") > -1, "badge v5.0.0");
+    A(html.indexOf("<b>v4.1.0</b>") === -1, "plus d'ancien badge");
   });
-  T("v3.3 : emoji 🆕 correct (🖕 de la v3.1.1 corrigé)", function () {
-    A(html.indexOf("\ud83c\udd95") > -1, "🆕 écrit en dur (UTF-8) présent");
-    A(html.indexOf("\ud83d\udd95") === -1, "plus de 🖔 (la séquence échappée de la v3.1.1)");
-    A(html.indexOf("\ud83d\udc1f") === -1, "plus de 🐟");
+  T("v5.0.0 : même design que le Radar — tableau compact (.crow/.csc) + détail complet au tap (.cdet)", function () {
+    A(html.indexOf(".crow") > -1 && html.indexOf(".csc") > -1 && html.indexOf(".cdet") > -1, "CSS du tableau compact porté du Radar");
+    A(html.indexOf('class="crow"') > -1, "lignes du classement");
+    A(html.indexOf("cacDetailHtml") > -1 && html.indexOf("cacRowToggle") > -1, "détail au tap branché");
+    A(html.indexOf("Composantes du score") > -1, "composantes affichées dans le détail");
+    A(html.indexOf("surprise EPS") > -1 && html.indexOf("prochaine publication") > -1, "résultats financiers (surprise + date) dans le détail");
+    A(html.indexOf("ROE") > -1 && html.indexOf("marge op.") > -1 && html.indexOf("dette/CP") > -1, "qualité détaillée");
+    A(html.indexOf("boursorama.com") > -1, "lien cote");
   });
-  T("v3.3 : pagination « Afficher plus » à 100 lignes", function () {
-    A(html.indexOf("Afficher plus") > -1, "bouton pagination");
-    A(html.indexOf('id="moreBtn"') > -1, "id moreBtn");
-    A(html.indexOf("state.limit") > -1, "limit pilotée par state");
+  T("v5.0.0 : indice, macro 🌍 en contexte, avertissements, fraîcheur", function () {
+    A(html.indexOf('id="cacIdxLine"') > -1 && html.indexOf('id="cacN"') > -1 && html.indexOf('id="cacRel"') > -1, "ligne indice + cotées + meta relevé");
+    A(html.indexOf('id="cacMacroCard"') > -1 && html.indexOf('id="cacChips"') > -1 && html.indexOf('id="cacMNote"') > -1, "carte macro (contexte, jamais notée)");
+    A(html.indexOf('id="cacBanner"') > -1, "bandeau d'avertissements");
+    A(html.indexOf("différé ~15 min") > -1, "mention honnête du différé");
+    A(html.indexOf("relevés publics du Radar Conjoncture") > -1, "source macro tracée");
+    A(html.indexOf("contextualise") > -1 && html.indexOf("jamais") > -1 && html.indexOf("score 🎯") > -1, "macro explicitement hors score");
+    A(html.indexOf('id="btnCacRetry"') > -1, "bouton Réessayer");
+    A(html.indexOf("sentinelle-cac-quotes-v1") > -1, "cache localStorage du dernier relevé");
+    A(html.indexOf('CAC_URL = "quotes.json"') > -1, "cotes same-origin quotes.json");
+    A(html.indexOf("visibilitychange") > -1, "re-vérification au retour sur l'app");
   });
-  T("v3.3 : multi-déclarants signalés, badges 10b5-1/levée retirés des lignes", function () {
-    A(html.indexOf("⚠ déclarants multiples") > -1, "badge ⚠ multi-déclarants (attribution incertaine)");
-    A(html.indexOf("r.p10b5 ?") === -1, "plus de badge ⚙ 10b5-1 sur les lignes (ventes douces non collectées)");
-    A(html.indexOf("r.opt ?") === -1, "plus de badge 🪜 levée sur les lignes");
+  T("v5.0.0 : pondérations + garde-fous affichés dans la méthode", function () {
+    A(html.indexOf("qualité 40 %") > -1 && html.indexOf("valorisation 25 %") > -1 && html.indexOf("consensus 35 %") > -1, "pondérations du score 🎯");
+    A(html.indexOf("≥ 2/3 exigées") > -1, "base minimale explicite");
+    A(html.indexOf("non éligible en principe") > -1, "badge URW (REIT, PEA)");
+    A(html.indexOf("Heuristique de tri jamais validée") > -1, "honnêteté : score = heuristique jamais validée");
+    A(html.indexOf("pas un conseil") > -1, "disclaimer");
   });
-  T("v3.3 : fenêtre signal 30 j + ventes US ≥ 50 k$ expliquées", function () {
-    A(html.indexOf("fenêtre 30 j") > -1, "cartes signal 30 j (90 j = bruit)");
-    A(html.indexOf("50 k$") > -1, "seuil ventes US expliqué");
-    A(html.indexOf("cessions sont exclues") === -1, "plus de texte périmé « cessions exclues »");
-    A(html.indexOf("Lignes publiées") > -1, "bandeau nouveaux parle de lignes publiées");
-  });
-  T("v3.1 : éléments UI achats/ventes, fraîcheur par source, défaut Achats", function () {
-    A(html.indexOf('id="segSide"') > -1, "segment Achats+ventes");
-    A(html.indexOf('id="segSort"') > -1, "segment tri par id");
-    A(html.indexOf('id="sigCardSell"') > -1, "carte ventes");
-    A(html.indexOf('id="nSell"') > -1, "stat ventes");
-    A(html.indexOf('id="srcBanner"') > -1, "bandeau d'état par source (frOk/usOk/frUpdated/usUpdated)");
-    A(html.indexOf('id="sigCard"') > -1, "carte accumulations");
-    A(html.indexOf('id="newBanner"') > -1, "bandeau nouveaux");
-    A(html.indexOf('id="newChip"') > -1, "filtre 🆕");
-    A(html.indexOf("state.newIds.indexOf") === -1, "newIds en objet");
-    A(html.indexOf("clearTimeout(debTimer)") > -1, "recherche debouncée");
-    A(html.indexOf("/^https:\\/\\//.test(r.url)") > -1, "liens source validés https:// (anti javascript:)");
-    A(html.indexOf("data-side=\"buy\"") > -1 && /data-side="buy"[^>]*class="[^"]*on"/.test(html.replace(/\n/g, " ")), "défaut 🟢 Achats actif");
-  });
-  T("v3.1.1 : recherche par société ignore le filtre Achats/Ventes", function () {
-    A(html.indexOf("var qTxt = String(state.prefs.q || \"\").trim();") > -1, "q trimé");
-    A(html.indexOf("qTxt ? buys.concat(sells)") > -1, "recherche => achats ET ventes");
-    A(html.indexOf("Aucune ligne pour « ") > -1, "message vide explicite");
-  });
-  T("v3.3 : carte pistes 💡 US /20 + FR /10", function () {
-    A(html.indexOf('id="picksCard"') > -1, "carte pistes");
-    A(html.indexOf('id="picksList"') > -1, "liste pistes");
-    A(html.indexOf("renderPicks") > -1, "rendu pistes branché sur render()");
-    A(html.indexOf("pk.us || pk.picks") > -1, "compat ancien format picks");
-    A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer recherche, pas conseil");
-    A(html.indexOf("data-sig=") > -1, "lien « voir les déclarations » réutilise le filtre recherche");
-  });
-  T("sw.js : cache v5 + timeout réseau 3,5 s", function () {
+  T("sw.js : cache v6 + timeout réseau 3,5 s", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf("sentinelle-perso-v5") > -1, "cache v5");
-    A(sw.indexOf("sentinelle-perso-v4") === -1, "plus d'ancien nom de cache v4 (sinon les installs v4.0.x gardent le vieux shell)");
-    A(sw.indexOf("sentinelle-perso-v3.3") === -1 && sw.indexOf("sentinelle-perso-v3.2") === -1, "plus d'ancien nom de cache");
+    A(sw.indexOf("sentinelle-perso-v6") > -1, "cache v6");
+    A(sw.indexOf("sentinelle-perso-v5") === -1, "plus d'ancien nom de cache v5 (sinon les installs v4.x gardent le vieux shell)");
     A(sw.indexOf("3500") > -1, "timeout réseau 3,5 s (repli cache si connexion morte)");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
   });
@@ -794,57 +776,6 @@ T("fetch-insiders.js compile", function () {
     A(p.indexOf("test -f quotes.json && cp quotes.json dist/") > -1, "quotes.json servi (cp tolérant tant que le premier cron n'a pas tourné)");
     A(p.indexOf("test -f sbf120.json && cp sbf120.json dist/") > -1, "sbf120.json servi");
     A(p.indexOf("validate-quotes.js") > -1, "validation quotes + composition AVANT déploiement");
-  });
-  T("v4.0 : structure de l'onglet SBF 120 dans index.html", function () {
-    var h = fs.readFileSync(__dirname + "/../index.html", "utf8");
-    A(h.indexOf('id="tabs"') > -1 && h.indexOf('data-tab="sbf"') > -1, "barre d'onglets 👁 Initiés / 📊 SBF 120");
-    A(h.indexOf('id="viewIns"') > -1 && h.indexOf('id="viewSbf"') > -1, "deux vues séparées");
-    A(h.indexOf('id="segSb"') > -1 && h.indexOf("🏆 Long terme — LA liste unique") > -1, "v4.0.11 : UN SEUL classement 🏆, titre statique");
-    A(h.indexOf('data-v="val"') === -1 && h.indexOf('data-v="xins"') === -1 && h.indexOf('data-v="obj"') === -1 && h.indexOf('data-v="lt"') === -1, "v4.0.11 : plus aucun segment de vue (📐 🔀 🎯 supprimés, demande de Jade)");
-    A(h.indexOf('id="sq"') > -1, "recherche d'une valeur");
-    A(h.indexOf('id="sbList"') > -1 && h.indexOf("sbLimit") > -1, "liste + pagination 100");
-    A(h.indexOf('id="sbIdxPx"') > -1 && h.indexOf('id="sbIdxChg"') > -1, "stats indice");
-    A(h.indexOf("sentinelle-perso-quotes-v4") > -1, "clé de cache localStorage des cotes");
-    A(h.indexOf("refreshQuotes") > -1, "rafraîchissement des cotes au chargement");
-    A(h.indexOf("différé ≈ 15 min") > -1, "mention honnête du différé (pas de temps réel officiel payant)");
-    A(h.indexOf("Percentiles internes") > -1 && h.indexOf("par secteur") > -1, "note méthodo dans la page (secteur + indice)");
-    A(h.indexOf("k/3 métriques") > -1, "note : base du score explicite");
-    A(h.indexOf("id=\"sbComp\"") > -1, "stat âge de la composition (univers)");
-    A(h.indexOf("id=\"sbTpN\"") > -1, "stat objectifs analystes (consensus)");
-    A(h.indexOf("≈ à vérifier") > -1, "badge approx visible sur les tickers approximatifs");
-    A(h.indexOf("vs secteur") > -1 && h.indexOf("vs indice") > -1, "référentiel du score affiché");
-    A(h.indexOf("UNE SEULE liste 🏆 Long terme") > -1, "v4.0.11 : note méthodo = un seul classement, vues séparées supprimées");
-    A(h.indexOf("📉 bas de fourchette 52 s.") > -1, "badge position 52 s. neutre (info, pas un signal d'achat)");
-    A(h.indexOf("qualité 55 %") > -1 && h.indexOf("valorisation relative 35 %") > -1 && h.indexOf("initiés FR 10 %") > -1, "note méthodo 🏆 : 55/35/10 affichés (v4.0.12 : « point d'entrée » renommé « valorisation relative »)");
-    A(h.indexOf("NEUTRE à 50/100") > -1, "v4.0.12 : initiés neutres à 50 sans signal expliqués (plus de pénalité d'absence)");
-    A(h.indexOf("≥ 5 observations valides") > -1 && h.indexOf("bases mixtes") > -1, "v4.0.12 : percentile sectoriel par métrique (≥ 8 pairs ET ≥ 5 observations), cas mixtes affichés");
-    A(h.indexOf("SOUS la fourchette 52 s.") > -1 && h.indexOf("AU-DESSUS de la fourchette 52 s.") > -1, "v4.0.12 : cours hors bornes 52 s. signalé, pas confondu avec une extrémité");
-    A(h.indexOf("trois composantes et leur couverture") > -1, "v4.0.12 : composantes + couverture affichées sur les cartes");
-    A(h.indexOf("affiché sans être noté") > -1, "v4.0.10 : contexte d'entrée (52 s., consensus 🎯) affiché mais hors score");
-    A(h.indexOf("George &amp; Hwang") > -1 || h.indexOf("George & Hwang") > -1, "référence littérature momentum citée");
-    A(h.indexOf("Un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n’est pas un plancher") > -1 || h.indexOf("un point bas n'est pas un plancher") > -1, "honnêteté : point bas ≠ plancher");
-    A(h.indexOf("⚠️ bénef. attendus en baisse") > -1, "garde-fou piège à valeur (fper > per) affiché");
-    A(h.indexOf('id="sbQ"') > -1, "stat couverture qualité (v4.0.8)");
-    A(h.indexOf("journal-scores.jsonl") > -1, "journal de validation mentionné dans l'aide");
-    A(h.indexOf("repli TradingView la croissance est absente") > -1 || h.indexOf("repli TradingView, la croissance") > -1, "v4.0.9 : repli TV qualité expliqué (3/4 sans croissance)");
-    A(h.indexOf("3 métriques sur 4") > -1 || h.indexOf("3 métriques qualité") > -1, "exigence 3/4 expliquée");
-    A(h.indexOf("contexte d'entrée") > -1 && h.indexOf("≠ notre score maison") > -1, "consensus 🎯 = contexte d'entrée, ≠ score maison (v4.0.11)");
-    A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
-  });
-  T("v4.1.0 : structure de l'onglet 🇫🇷 CAC 40 dans index.html", function () {
-    var h = fs.readFileSync(__dirname + "/../index.html", "utf8");
-    A(h.indexOf('data-tab="cac"') > -1, "bouton d'onglet cac");
-    A(h.indexOf('id="viewCac"') > -1, "vue dédiée");
-    A(h.indexOf('id="cacList"') > -1 && h.indexOf('id="cq"') > -1, "classement + recherche");
-    A(h.indexOf('id="macroCard"') > -1 && h.indexOf('id="macroChips"') > -1 && h.indexOf('id="macroNote"') > -1, "bandeau macro 🌍 (contexte, jamais noté)");
-    A(h.indexOf('id="caxPx"') > -1 && h.indexOf('id="cacMg"') > -1, "stats indice CAC 40 + fraîcheur macro");
-    A(h.indexOf("renderCac") > -1, "fonction de rendu branchée");
-    A(h.indexOf("qualité 40 %") > -1 && h.indexOf("valorisation 25 %") > -1 && h.indexOf("consensus 35 %") > -1, "pondérations du score 🎯 affichées dans la méthodo");
-    A(h.indexOf("⚠️ PEA : non éligible en principe") > -1, "badge URW (REIT, PEA) affiché");
-    A(h.indexOf("surprise EPS") > -1 && h.indexOf("prochain résultat") > -1, "résultats financiers (surprise + publication) sur les cartes");
-    A(h.indexOf("n'entre") > -1 && h.indexOf("jamais") > -1 && h.indexOf("score 🎯") > -1, "macro explicitement hors score");
-    A(h.indexOf("heuristique") > -1 && h.indexOf("jamais validée") > -1, "honnêteté : score = heuristique jamais validée");
-    A(h.indexOf("cacQ") > -1, "préférence de recherche cacQ persistée");
   });
   T("rankPct : percentiles, plus bas = 100, exclusion des non positifs", function () {
     var l = [
