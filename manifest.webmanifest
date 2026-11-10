@@ -1,7 +1,7 @@
 {
-  "name": "Sentinelle perso",
-  "short_name": "Sentinelle",
-  "description": "Achats d'initiés AMF (France) et SEC Form 4 (US) — relevé automatique toutes les 2 h en jours ouvrés",
+  "name": "CAC 40 — Sentinelle perso",
+  "short_name": "CAC 40",
+  "description": "Classement d'achat du CAC 40 : qualité + valorisation + consensus + macro, cotes rafraîchies en séance",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

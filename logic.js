@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.1.0";   // version unique de l'app (badge + footer la lisent) — v4.1.0 : onglet 🇫🇷 CAC 40, classement d'achat des 40 valeurs (qualité 40 % + valorisation 25 % + consensus 35 %) + surprises EPS/prochaine publication (calendarEvents Yahoo) + bandeau macro Radar Conjoncture + indice CAC 40 dédié ; composition automatique (groupe cac40 de sbf120.json)
+  var VERSION = "5.0.0";   // version unique de l'app (badge + footer la lisent) — v5.0.0 : app monovue 🇫🇷 CAC 40 (demande de Jade 10/11/2026 : « une seule et même application ») : les onglets initiés/SBF 120 cèdent la place au classement d'achat seul, design tableau compact + détail au tap identique au Radar ; le moteur (qualité 40 % + valorisation 25 % + consensus 35 %, percentiles SBF, filtre cac40, macroState) est inchangé ; v4.1.0 : classement + surprises EPS/prochaine publication + bandeau macro + indice CAC 40 dédié ; composition automatique (groupe cac40 de sbf120.json)
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)

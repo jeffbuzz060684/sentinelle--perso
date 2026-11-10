@@ -4,1004 +4,302 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#020617">
-<title>Sentinelle perso</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon-192.png">
+<title>CAC 40 — Sentinelle perso</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
 <style>
-:root{--bg:#020617;--card:#0f172a;--line:#1e293b;--txt:#e2e8f0;--mut:#94a3b8;--blue:#38bdf8;--green:#34d399;--amber:#fbbf24;--red:#fb7185}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);padding-bottom:40px;-webkit-tap-highlight-color:transparent}
-.wrap{max-width:720px;margin:0 auto;padding:14px 12px 0}
-header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-h1{font-size:21px;font-weight:700}
-.badge{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
-.chip{font-size:11.5px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
-.chip.stale{color:var(--amber);border-color:var(--amber)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px}
-.stats{display:flex;gap:8px;margin-top:10px}
-.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:0}
-.stat .v{font-size:19px;font-weight:700}
-.stat .l{font-size:11px;color:var(--mut);margin-top:1px}
-.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-.seg button{background:transparent;border:0;color:var(--mut);font-size:12.5px;padding:5px 11px;cursor:pointer}
-.seg button.on{background:var(--blue);color:#041022;font-weight:600}
-.seg button.on.g{background:var(--green);color:#04220f;font-weight:600}
-input[type=search]{flex:1;min-width:130px;background:var(--bg);border:1px solid var(--line);border-radius:999px;color:var(--txt);font-size:13px;padding:6px 12px;outline:none}
-.amts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.amt{background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--mut);font-size:12px;padding:4px 10px;cursor:pointer}
-.amt.on{border-color:var(--amber);color:var(--amber);font-weight:600}
-.row{display:flex;gap:10px;align-items:flex-start;padding:11px 2px;border-bottom:1px solid var(--line)}
-.row:last-child{border-bottom:0}
-.row .bar{width:3px;border-radius:2px;align-self:stretch;min-height:38px}
-.row.fr .bar{background:var(--blue)}
-.row.us .bar{background:var(--green)}
-.row.sell .bar{background:var(--red)}
-.row.sell .montant{color:var(--red)}
-.row .t{flex:1;min-width:0}
-.soc{font-weight:600;font-size:14.5px;overflow-wrap:break-word}
-.tk{font-size:11.5px;color:var(--blue);font-weight:600}
-.who{font-size:12.5px;color:var(--mut);margin-top:1px;overflow-wrap:break-word}
-.meta{font-size:11.5px;color:var(--mut);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
-.montant{font-size:15px;font-weight:700;white-space:nowrap;text-align:right}
-.src{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px}
-.src.fr{background:rgba(56,189,248,.16);color:var(--blue)}
-.src.us{background:rgba(52,211,153,.16);color:var(--green)}
-a{color:var(--blue);text-decoration:none;font-size:11.5px}
-.details{font-size:12px;color:var(--mut);margin-top:3px}
-h3{font-size:13px;margin-bottom:6px}
-.info p,.info li{font-size:12.5px;color:var(--mut);line-height:1.5}
-.info ul{padding-left:18px;margin-top:4px}
-.empty{text-align:center;color:var(--mut);font-size:13px;padding:24px 0}
-.hidden{display:none}
-#newBanner{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.4);font-size:13px;line-height:1.5}
-.sig{padding:9px 0;border-bottom:1px solid var(--line)}
-.sig:last-child{border-bottom:0}
-.sig .head{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}
-.sig .soc{font-weight:600;font-size:14px;overflow-wrap:break-word}
-.sig .lvl{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;white-space:nowrap}
-.sig .lvl.l3{background:rgba(251,113,133,.18);color:var(--red)}
-.sig .lvl.l2{background:rgba(251,191,36,.16);color:var(--amber)}
-.sig .lvl.l1{background:rgba(148,163,184,.14);color:var(--mut)}
-.sig.sell .lvl.l1{background:rgba(251,113,133,.10);color:var(--red)}
-.sig .lvl.pick{background:rgba(52,211,153,.14);color:#34d399}
-.sig .sum{font-size:12px;color:var(--txt);margin-top:3px;overflow-wrap:break-word}
-.sig .sum b{font-weight:700}
-.sig .sub{font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
-.x{font-size:10.5px;font-weight:700;background:rgba(251,191,36,.16);color:var(--amber);border-radius:5px;padding:1px 5px;white-space:nowrap}
-.xs{font-size:10.5px;font-weight:700;background:rgba(251,113,133,.14);color:var(--red);border-radius:5px;padding:1px 5px;white-space:nowrap}
-.newdot{font-size:10px;font-weight:700;background:rgba(52,211,153,.16);color:var(--green);border-radius:5px;padding:1px 5px;white-space:nowrap}
-.mut{font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5}
-.tabs{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:12px}
-.tabs button{flex:1;background:transparent;border:0;color:var(--mut);font-size:13px;padding:7px 6px;cursor:pointer}
-.tabs button.on{background:var(--blue);color:#041022;font-weight:700}
-.gb{font-size:10px;font-weight:700;background:rgba(148,163,184,.14);color:var(--mut);border-radius:5px;padding:1px 5px;white-space:nowrap}
-.up{color:var(--green)}.dn{color:var(--red)}
-.sbsc{font-size:16px;font-weight:700;white-space:nowrap;text-align:right}
-.sbsc small{display:block;font-size:9.5px;color:var(--mut);font-weight:500}
-details summary{cursor:pointer;color:var(--txt);font-weight:600;font-size:13.5px}
-footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-height:1.6}
-.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:12.5px;opacity:0;transition:opacity .4s;pointer-events:none;max-width:90vw}
-.toast.on{opacity:1}
+  :root {
+    --bg: #020617; --card: #0f1c33; --card2: #16263f; --line: #29405f;
+    --txt: #e2e8f0; --mut: #94a3b8; --acc: #38bdf8; --good: #34d399; --mid: #fbbf24; --bad: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--txt); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 15px; margin: 0; padding: 10px 10px 28px; }
+  header { max-width: 760px; margin: 0 auto 10px; }
+  .hrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 6px 0 2px; }
+  h1 span { color: var(--acc); }
+  .badge { font-size: 11px; color: var(--mut); border: 1px solid var(--line); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+  .badge b { color: var(--txt); font-weight: 600; }
+  main { max-width: 760px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 14px; color: var(--acc); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .chip { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--card2); }
+  .empty { text-align: center; color: var(--mut); padding: 18px 6px; font-size: 13px; line-height: 1.5; }
+  .mut { color: var(--mut); font-size: 12.5px; line-height: 1.45; }
+  .up { color: var(--good); } .dn { color: var(--bad); }
+  a { color: var(--acc); }
+  /* ---- classement CAC 40 (même design que l'onglet du Radar Conjoncture) ---- */
+  .cacIdx { font-size: 18px; font-weight: 700; }
+  .cacIdx b { color: var(--acc); }
+  .cacMeta { font-size: 12px; color: var(--mut); margin-top: 8px; }
+  .cacMeta b { color: var(--txt); }
+  .cacChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .cacMNote { font-size: 12px; color: var(--mut); margin-top: 8px; line-height: 1.45; }
+  .cacMNote b { color: var(--txt); }
+  .cacWarn { border: 1px solid var(--mid); color: var(--mid); background: rgba(251,191,36,.07); font-size: 12px; padding: 8px 10px; border-radius: 10px; margin-bottom: 10px; line-height: 1.45; }
+  .cacSearch { width: 100%; background: var(--card2); border: 1px solid var(--line); color: var(--txt); font-size: 14px; padding: 9px 12px; border-radius: 10px; margin-bottom: 10px; outline: none; }
+  .crow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; background: var(--card); cursor: pointer; }
+  .crow:active { background: var(--card2); }
+  .crk { width: 26px; font-size: 12px; color: var(--mut); text-align: center; flex: none; }
+  .cnm { flex: 1 1 auto; min-width: 0; }
+  .cn1 { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cn1 .mn { color: var(--mut); font-weight: 400; font-size: 11px; }
+  .cn2 { font-size: 11px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .csc { width: 46px; text-align: center; flex: none; }
+  .csc b { font-size: 16px; font-weight: 700; display: inline-block; min-width: 24px; }
+  .csc small { font-size: 11px; margin-left: 1px; }
+  .csc.strong b { color: var(--good); } .csc.good b { color: var(--acc); }
+  .csc.mid b { color: var(--mid); } .csc.wait b { color: var(--bad); } .csc.na b { color: var(--mut); }
+  .cpx { text-align: right; flex: none; }
+  .cpx .p { font-size: 13px; font-weight: 600; }
+  .cpx .v { font-size: 11px; }
+  .cdet { border-top: 1px dashed var(--line); margin: 8px 0 2px; padding: 10px 2px 6px; font-size: 12px; line-height: 1.5; cursor: default; }
+  .cdet .grp { margin-top: 7px; color: var(--mut); }
+  .cdet .grp b { color: var(--txt); }
+  .cdet .flg { color: var(--mid); }
+  footer { max-width: 760px; margin: 14px auto 0; font-size: 11px; color: var(--mut); line-height: 1.5; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>👁 Sentinelle perso</h1>
-    <span class="badge" id="ver">v3.3</span>
-    <span class="chip" id="fresh">chargement…</span>
-  </header>
-
-    <div class="tabs" id="tabs">
-    <button data-tab="ins" class="on">👁 Initiés</button>
-    <button data-tab="cac">🇫🇷 CAC 40</button>
-    <button data-tab="sbf">📊 SBF 120</button>
+<header>
+  <div class="hrow">
+    <h1>🇫🇷 CAC 40 <span>— classement d'achat</span></h1>
+    <span class="badge">Sentinelle perso · <b>v5.0.0</b></span>
   </div>
+</header>
 
-  <div id="viewIns">
-
-  <div class="stats">
-    <div class="stat"><div class="v" id="nFr">—</div><div class="l">achats AMF 🇫🇷 (90 j)</div></div>
-    <div class="stat"><div class="v" id="nUs">—</div><div class="l">achats SEC 🇺🇸 (90 j)</div></div>
-    <div class="stat"><div class="v" id="nSig" style="color:var(--amber)">—</div><div class="l">🔥 en accumulation</div></div>
-    <div class="stat"><div class="v" id="nSell" style="color:var(--red)">—</div><div class="l">🔴 ventes d'initiés</div></div>
+<main>
+  <div class="card">
+    <span id="cacIdxLine" class="cacIdx">CAC 40 <b id="cacPx">—</b> <span id="cacChg" class="mut">—</span></span>
+    <div class="cacMeta"><b id="cacN">—/40 cotées</b> · <span id="cacRel">relevé en attente — il arrive à l'ouverture en ligne.</span></div>
   </div>
-
-  <div class="card hidden" id="newBanner"></div>
-  <div class="card hidden" id="srcBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4)"></div>
-
-  <div class="card filters">
-    <div class="filters">
-      <div class="seg" id="segSrc">
-        <button data-src="all" class="on">Tous</button>
-        <button data-src="FR">🇫🇷 AMF</button>
-        <button data-src="US">🇺🇸 SEC</button>
-      </div>
-      <input type="search" id="q" placeholder="🔎 société, dirigeant, ISIN…" aria-label="Rechercher">
-      <div class="seg" id="segSort">
-        <button data-sort="date" class="on">Date</button>
-        <button data-sort="montant">Montant</button>
-      </div>
-    </div>
-    <div class="amts" id="amts">
-      <div class="seg" id="segSide">
-        <button data-side="all">Achats + ventes</button>
-        <button data-side="buy" class="on">🟢 Achats</button>
-        <button data-side="sell">🔴 Ventes</button>
-      </div>
-      <button class="amt on" data-m="0">Tous montants</button>
-      <button class="amt" data-m="10000">≥ 10 k</button>
-      <button class="amt" data-m="50000">≥ 50 k</button>
-      <button class="amt" data-m="100000">≥ 100 k</button>
-      <button class="amt" data-m="1000000">≥ 1 M</button>
-      <button class="amt" id="newChip" title="Lignes publiées depuis ta dernière visite">🆕 Nouveaux</button>
+  <div class="card" id="cacMacroCard" style="display:none">
+    <h2>🌍 Contexte macro — relevés du Radar</h2>
+    <div class="cacChips" id="cacChips"></div>
+    <div class="cacMNote" id="cacMNote"></div>
+  </div>
+  <div class="cacWarn" id="cacBanner" style="display:none"></div>
+  <input id="cq" class="cacSearch" type="search" placeholder="Rechercher une valeur du classement…" autocomplete="off">
+  <div id="cacList"><div class="empty">Cotes pas encore récupérées — le premier relevé arrive à l'ouverture en ligne.<br><button id="btnCacRetry" style="margin-top:10px;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer">Réessayer</button></div></div>
+  <div class="card">
+    <h2>🧮 Méthode</h2>
+    <div class="mut">
+      Score 🎯 par valeur = <b>qualité 40 %</b> (ROE, marge op., croissance, dette — par secteur) + <b>valorisation 25 %</b> (PER, rendement, P/B vs pairs) + <b>consensus 35 %</b> (potentiel vs objectif moyen des analystes). Composantes manquantes → poids renormalisés, <b>≥ 2/3 exigées</b> (base affichée au tap) ; percentiles calculés sur TOUT le SBF coté, périmètre = groupe « cac40 » reconstruit chaque mois — le classement suit l'indice même quand il change de composition. Verdicts : 🥇 ≥ 70 priorité d'achat · 🥈 55-69 opportunité · 🥉 40-54 neutre · ⏸ &lt; 40 attendre. La macro 🌍 frappe toutes les valeurs pareil : elle contextualise, elle n'entre jamais dans le score. ⚠️ URW.PA : non éligible en principe au PEA (foncière/REIT) — à vérifier avant tout ordre. Heuristique de tri jamais validée sur historique indépendant : pas un conseil.
     </div>
   </div>
+</main>
 
-  <div class="card hidden" id="sigCard">
-    <h3>🔥 Initiés en accumulation <span class="badge" style="font-weight:400">fenêtre 30 j</span></h3>
-    <div id="signals"></div>
-    <p class="mut">Clusters <b>nettoyés</b> : une même opération déclarée sous deux accessions compte pour <b>un</b> achat, et les véhicules « personne morale liée à X » comptent pour <b>une seule personne</b> (l'initié est X). Le prix moyen payé est un <b>constat</b>, pas une référence de valorisation — compare-le à la cote. 🔥🔥 = au moins deux personnes distinctes achètent la même société : le signal le plus fort. Un même initié qui rachète (×N) montre aussi sa conviction. Heuristique maison, pas une garantie.</p>
-  </div>
+<footer>
+  Cotes rafraîchies en séance par le pipeline (différé ~15 min) · composition automatique · ce classement est une lecture, pas un conseil.
+</footer>
 
-  <div class="card hidden" id="sigCardSell">
-    <h3>🔴 Initiés qui vendent <span class="badge" style="font-weight:400">fenêtre 30 j</span></h3>
-    <div id="signalsSell"></div>
-    <p class="mut">Les initiés vendent pour mille raisons (diversification, impôts…) — une vente isolée ne veut rien dire. C'est la vente <b>groupée de plusieurs personnes distinctes</b> (🔴🔴) qui est un signal d'alerte. Côté US, seules les ventes <b>≥ 50 k$</b> hors plan 10b5-1 et hors levée d'options sont collectées : les liquidations programmées ne sont pas des signaux. Le prix moyen vendu est un <b>constat</b>.</p>
-  </div>
-
-  <div class="card hidden" id="picksCard">
-    <h3>💡 Pistes à étudier <span class="badge" style="font-weight:400">clusters 30 j nettoyés · 🇺🇸 /20 · 🇫🇷 /10</span></h3>
-    <div id="picksList"></div>
-    <p class="mut">🇺🇸 <b>/20</b> : signal initiés /10 (clusters d'achats 🔥, personnes distinctes, moins les ventes « dures ») + fondamentaux /10 (croissance du CA, rentabilité et marge nette des comptes annuels <b>10-K</b> publics de la SEC). 🇫🇷 <b>/10</b> : signal initiés nettoyé seul — il n'existe pas d'équivalent public et gratuit du 10-K pour les sociétés françaises, les fondamentaux ne sont <b>pas évalués</b> (à vérifier toi-même dans les comptes annuels). <b>Outil de tri pour ta recherche, pas un conseil d'achat</b> : vérifie la cote, le secteur, la dette et les risques avant tout acte.</p>
-  </div>
-
-  <div id="list"></div>
-
-    </div><!-- /viewIns -->
-
-  <div id="viewCac" class="hidden">
-    <div class="stats">
-      <div class="stat"><div class="v" id="caxPx">—</div><div class="l" id="caxL">indice CAC 40</div></div>
-      <div class="stat"><div class="v" id="caxChg">—</div><div class="l">variation du jour</div></div>
-      <div class="stat"><div class="v" id="cacN">—</div><div class="l">valeurs classées / 40</div></div>
-      <div class="stat"><div class="v" id="cacRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
-      <div class="stat"><div class="v" id="cacSrc">—</div><div class="l">source des cotes</div></div>
-      <div class="stat"><div class="v" id="cacMg">—</div><div class="l">macro (Radar)</div></div>
-    </div>
-    <div class="card hidden" id="cacBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
-    <div class="card hidden" id="macroCard">
-      <h3>🌍 Macro — le contexte, pas un signal</h3>
-      <div id="macroChips" class="amts"></div>
-      <p class="mut" id="macroNote"></p>
-    </div>
-    <div class="card filters">
-      <div class="filters">
-        <div class="seg" id="segCac"><span style="font-weight:600;cursor:default">🎯 Classement d'achat — qualité 40 % + valorisation 25 % + consensus 35 %</span></div>
-        <input type="search" id="cq" placeholder="🔎 valeur du CAC 40…" aria-label="Rechercher">
-      </div>
-      <p class="mut">Les <b>40 valeurs de l'indice</b> (composition automatique depuis Wikipédia, reconstruite chaque mois — l'onglet suit l'indice <b>même quand il change</b>), classées par le score 🎯 d'achat : <b>qualité 40 %</b> (ROE, marge op., croissance, dette — par secteur, ≥ 3/4 métriques) + <b>valorisation 25 %</b> (PER/rendement/P/B vs pairs) + <b>consensus 35 %</b> (percentile du potentiel vs objectif moyen — il ENTRE dans ce score à ta demande, contrairement à l'onglet SBF 120 où il reste un contexte non noté). Les composantes manquantes <b>renormalisent</b> les poids, <b>≥ 2/3 exigées</b> — la base de chaque score est affichée ; les percentiles restent calculés sur <b>tout le SBF coté</b> (plus de pairs = rang plus stable). <b>Résultats financiers</b> : surprises EPS des derniers trimestres (✅ battu / ❌ manqué) et <b>prochaine date de publication</b>, affichées par valeur. La <b>macro frappe tout le monde pareil</b> : elle vit dans le bandeau 🌍, jamais dans le score. Heuristique de tri jamais validée sur historique — <b>pas un conseil</b> : réserve tactique, Radar Conjoncture et zones d'achat restent maîtres.</p>
-    </div>
-    <div id="cacList"></div>
-  </div><!-- /viewCac -->
-
-  <div id="viewSbf" class="hidden">
-    <div class="stats">
-      <div class="stat"><div class="v" id="sbIdxPx">—</div><div class="l" id="sbIdxL">indice SBF 120</div></div>
-      <div class="stat"><div class="v" id="sbIdxChg">—</div><div class="l">variation du jour</div></div>
-      <div class="stat"><div class="v" id="sbN">—</div><div class="l">valeurs cotées</div></div>
-      <div class="stat"><div class="v" id="sbRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
-      <div class="stat"><div class="v" id="sbSrc">—</div><div class="l">source des cotes</div></div>
-      <div class="stat"><div class="v" id="sbComp">—</div><div class="l">composition (univers)</div></div>
-      <div class="stat"><div class="v" id="sbTpN">—</div><div class="l">objectifs analystes</div></div>
-      <div class="stat"><div class="v" id="sbQ">—</div><div class="l">qualité mesurée</div></div>
-    </div>
-    <div class="card hidden" id="sbBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
-    <div class="card filters">
-      <div class="filters">
-        <div class="seg" id="segSb"><span style="font-weight:600;cursor:default">🏆 Long terme — LA liste unique · qualité 55 % + valorisation relative 35 % + initiés 10 %</span></div>
-        <input type="search" id="sq" placeholder="🔎 valeur du SBF 120…" aria-label="Rechercher">
-      </div>
-      <p class="mut">Percentiles internes : <b>par secteur</b> quand ≥ 8 pairs du même secteur sont cotés ET ≥ 5 observations valides de la métrique concernée (v4.0.12 — un percentile sectoriel calculé sur 2 valeurs est un bruit, pas un rang), sinon sur tout l’indice ; les <b>bases mixtes</b> (une métrique vs secteur, l’autre vs indice) sont affichées sur les cartes. Pondération PER 50 % · rendement 30 % · P/B 20 % — le score affiche sa base (k/3 métriques) et son référentiel (vs secteur ou vs indice). Le score exige un bénéfice net positif — une société en perte n’est pas « pas chère », elle est en perte. L'onglet classe les actions par <b>UNE SEULE liste 🏆 Long terme</b> (v4.0.12, demande de Jade : les 4 vues séparées n'existent plus) : <b>qualité 55 %</b> (ROE 35 %, marge op. 25 %, croissance CA 20 %, dette/CP 20 % — module Yahoo, classée <b>par secteur</b> comme la valorisation, ≥ 3 métriques sur 4 exigées ; en repli TradingView la croissance est absente : le score se calcule sur ROE, marge op. et dette/CP — 3/4) + <b>valorisation relative 35 %</b> (PER/rendement/P/B vs pairs — v4.0.12 : PER, rendement et P/B décrivent un écart de prix vs les pairs, pas le « bon moment d'acheter ») + <b>initiés FR 10 %</b> (conviction des dirigeants sur 30 j — clusters +15/10/4 ; <b>sans cluster la composante est NEUTRE à 50/100</b>, v4.0.12 : l'absence de signal n'est plus une pénalité de 5 points). Capitaux propres négatifs → métriques non mesurables ; PER prévisionnel au-dessus du PER passé → ⚠️ bénéfices attendus en baisse. Chaque carte affiche les <b>trois composantes et leur couverture</b> (nombre de métriques disponibles, référentiel) — des notes de couverture différente ne sont pas directement équivalentes. Le <b>contexte d'entrée est affiché sans être noté</b> : 📉 position dans la fourchette 52 semaines (un point bas n'est pas un plancher — pièges à valeur) et 🎯 potentiel consensus (l'avis du marché) restent des <b>informations</b> — la littérature (George &amp; Hwang) associe le momentum au <b>plus haut</b> 52 s., pas au plus bas ; ils ne seront notés que si le journal de validation le démontre. Le consensus 🎯 (prix cible moyen, nombre d'analystes, recommandation — module Yahoo financialData, rafraîchi ~2×/jour) est affiché sur les cartes comme <b>contexte d'entrée</b> — l'avis du marché, ≠ notre score maison. Sans fondamentaux, pas de score 🏆 — on n'invente rien. Outil de tri, pas un conseil.</p>
-    </div>
-    <div id="sbList"></div>
-  </div><!-- /viewSbf -->
-
-  <div class="card info">
-    <details>
-      <summary>Comment ça marche — délais honnêtes</summary>
-      <p style="margin-top:8px">L'app agrège les <b>achats ET ventes déclarés par les initiés</b> (dirigeants, membres de conseil, propriétaires 10 %). Les clusters et pistes sont <b>nettoyés</b> : opérations identiques dédoublonnées, véhicules « liés à X » regroupés sur la personne physique.</p>
-      <ul>
-        <li>🇫🇷 <b>AMF</b> : déclarations des dirigeants de sociétés cotées françaises, publiées sous <b>3 jours ouvrés</b> (art. L.621-18-2). Montants ≥ 1 000 €.</li>
-        <li>🇺🇸 <b>SEC</b> : formulaires <b>Form 4</b> déposés sous <b>2 jours ouvrés</b>, transactions d'argent réel <b>code P</b> (achats) et <b>code S</b> (ventes) — selon les instructions SEC, P/S couvrent le marché <b>ou des transactions privées</b> ; conversions, dons, cadeaux et levées d'options exclus. Achats ≥ 1 000 $ ; ventes ≥ 50 000 $ et uniquement hors plan 10b5-1 / hors levée d'options.</li>
-        <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
-        <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
-        <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext. 🏆 <b>Un seul classement — Long terme</b> (v4.0.12) : qualité 55 % (ROE, marge, croissance, dette — par secteur si ≥ 8 pairs et ≥ 5 observations de la métrique, sinon vs indice) + valorisation relative 35 % (PER/rendement/P/B vs pairs) + initiés FR 10 % (conviction des dirigeants — <b>50 neutre sans signal</b>, pas de pénalité d'absence) ; fondamentaux Yahoo, ou TradingView en repli sans la croissance (score sur 3/4). Le consensus 🎯 des analystes (prix cible moyen vs cours, nombre d'analystes, recommandation) est affiché comme <b>contexte d'entrée</b> sur chaque carte. La position dans la fourchette <b>52 semaines</b> est affichée comme <b>contexte d'entrée</b> aussi, mais <b>exclue du score</b> : George &amp; Hwang associent le momentum au plus HAUT 52 s., pas au plus bas. Chaque jour, le pipeline journalise le top 20 (fichier <code>journal-scores.jsonl</code>) pour mesurer un jour les rendements à 3/6/12 mois contre le benchmark — l'identité de l'indice est conservée dans chaque ligne et seules les périodes au <b>même indice</b> sont comparées — heuristique de tri <b>non validée sur historique</b>, à confronter au contexte d'entrée (initiés 🔀, consensus 🎯) et au journal avant toute décision.</li>
-        <li>🇫🇷 <b>CAC 40 — classement d'achat</b> (v4.1.0) : les 40 valeurs de l'indice — périmètre automatique (groupe cac40 de la composition Wikipédia, reconstruite chaque mois par workflow ou plan B, l'onglet suit l'indice même quand il change) — classées par le score 🎯 <b>qualité 40 % + valorisation 25 % + consensus 35 %</b> (renormalisé sur les composantes disponibles, ≥ 2/3 exigées, base affichée ; percentiles sur tout le SBF coté). <b>Résultats financiers</b> : surprises EPS (moyenne des derniers trimestres publiés) + prochaine date de publication (module Yahoo calendarEvents, même requête que les objectifs). <b>Macro</b> : bandeau 🌍 alimenté par les relevés publics du <a href="https://jeffbuzz060684.github.io/radar-conjoncture/" target="_blank" rel="noopener">Radar Conjoncture</a> (VIX, OAT/Bund, BCE, inflation) — un contexte commun à toutes les valeurs, jamais une composante du score. Indice CAC 40 dédié (^FCHI côté Yahoo, Euronext PX1 en repli TradingView). Verdicts 🥇🥈🥉⏸ = lecture du score, heuristique non validée ; l'URW (REIT) est signalé non éligible PEA en principe. Heure de publication, délais et sources honnêtes : cotes en différé ~15 min, consensus rafraîchi ~2×/jour, macro à son propre rythme (hebdo vérifié).</li>
-      </ul>
-      <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
-      <p style="margin-top:6px">⚠️ Outil d'information, pas un conseil en investissement. Les initiés vendent pour mille raisons et achètent pour une : leur achat est un signal, pas une garantie.</p>
-    </details>
-  </div>
-
-  <footer>
-    Sources : déclarations publiques <a href="https://transactions-amf.swaoo.com/" target="_blank" rel="noopener">Transactions AMF</a> · <a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany" target="_blank" rel="noopener">SEC EDGAR</a> · <a href="https://finance.yahoo.com/" target="_blank" rel="noopener">Yahoo Finance</a><br>
-    Sentinelle perso <span id="footVer">v3.3</span> · pipeline GitHub Actions · aucune donnée personnelle dans cette app
-  </footer>
-</div>
-<div class="toast" id="toast"></div>
-
-<script src="logic.js"></script>
+<script src="./logic.js"></script>
 <script>
 "use strict";
-(function () {
-  var DATA_KEY = "sentinelle-perso-data-v1";
-  var PREF_KEY = "sentinelle-perso-prefs-v1";
-  var SEEN_KEY = "sentinelle-perso-lastseen-v1";
-  var QKEY = "sentinelle-perso-quotes-v4";
-  var state = { data: null, quotes: null, newIds: {}, limit: 100, sbLimit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false, sbQ: "", cacQ: "", tab: "ins" } }; // v4.0.11 : plus de sbView — un seul classement 🏆 ; v4.1.0 : onglet cac + recherche cacQ
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
-  var $ = function (id) { return document.getElementById(id); };
-  var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
-
-  function toast(msg) {
-    var t = $("toast");
-    t.textContent = msg;
-    t.classList.add("on");
-    setTimeout(function () { t.classList.remove("on"); }, 2600);
-  }
-
-  function loadPrefs() {
-    try {
-      var p = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
-      if (p && typeof p === "object") {
-        if (p.src === "FR" || p.src === "US" || p.src === "all") state.prefs.src = p.src;
-        if (p.sort === "date" || p.sort === "montant") state.prefs.sort = p.sort;
-        if (typeof p.m === "number" && p.m >= 0) state.prefs.m = p.m;
-        if (typeof p.q === "string") state.prefs.q = p.q;
-        if (typeof p.new === "boolean") state.prefs.new = p.new;
-        if (p.side === "buy" || p.side === "sell" || p.side === "all") state.prefs.side = p.side;
-        if (p.tab === "ins" || p.tab === "sbf" || p.tab === "cac") state.prefs.tab = p.tab;
-        if (typeof p.sbQ === "string") state.prefs.sbQ = p.sbQ;
-        if (typeof p.cacQ === "string") state.prefs.cacQ = p.cacQ;
-      }
-    } catch (e) { }
-  }
-  function savePrefs() {
-    try { localStorage.setItem(PREF_KEY, JSON.stringify(state.prefs)); } catch (e) { }
-  }
-
-  // ---- « nouveaux depuis ta dernière visite » (granularité jour de publication) ----
-  function todayLocal() {
-    var d = new Date();
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  }
-  function seenGet() { try { return localStorage.getItem(SEEN_KEY) || null; } catch (e) { return null; } }
-  function seenSet(v) { try { localStorage.setItem(SEEN_KEY, v); } catch (e) { } }
-
-  function countNew(d) {
-    var ls = seenGet();
-    var ids = {};
-    var all = (d.fr || []).concat(d.us || []).concat(d.frS || []).concat(d.usS || []);
-    if (ls) {
-      for (var i = 0; i < all.length; i++) {
-        // >= le jour de la dernière visite inclus : les achats publiés ce jour-là
-        // restent marqués (jour de publication = granularité max des données).
-        if (String(all[i].datePub).slice(0, 10) >= ls) ids[all[i].id] = 1;
-      }
-    }
-    state.newIds = ids;
-    seenSet(todayLocal());
-    var nb = $("newBanner");
-    var nNew = Object.keys(ids).length;
-    if (nNew > 0) {
-      nb.classList.remove("hidden");
-      // 🆕 écrit en dur (UTF-8) : la séquence échappée \ud83d\udd95 de la v3.1.1 était 🖔,
-      // et le harnais ne testait que l'absence du mauvais emoji (leçon : tester la présence, pas l'absence)
-      nb.innerHTML = "🆕 <b>" + nNew + "</b> ligne" + (nNew > 1 ? "s" : "") +
-        " publiée" + (nNew > 1 ? "s" : "") +
-        " depuis ta dernière visite — filtre « 🆕 Nouveaux »";
-    } else {
-      nb.classList.add("hidden");
-    }
-  }
-
-  function applyData(d) {
-    if (!d || !d.fr || !d.us) return false;
-    var prevUpdated = state.data ? state.data.updated : null;
-    state.data = d;
-    // re-compter uniquement quand un nouveau relevé arrive (pas à chaque refresh)
-    if (prevUpdated !== d.updated) countNew(d);
-    try { localStorage.setItem(DATA_KEY, JSON.stringify(d)); } catch (e) { }
-    render();
-    return true;
-  }
-
-  function useCached() {
-    try {
-      var d = JSON.parse(localStorage.getItem(DATA_KEY) || "null");
-      if (d && d.fr && d.us) { state.data = d; render(); return true; }
-    } catch (e) { }
-    return false;
-  }
-
-  function applyQuotes(q) {
-    if (!q || !q.list) return false;
-    state.quotes = q;
-    try { localStorage.setItem(QKEY, JSON.stringify(q)); } catch (e) { }
-    if (state.prefs.tab === "sbf") renderSbf();
-    if (state.prefs.tab === "cac") renderCac();
-    return true;
-  }
-  function useCachedQuotes() {
-    try {
-      var q = JSON.parse(localStorage.getItem(QKEY) || "null");
-      if (q && q.list) { state.quotes = q; return true; }
-    } catch (e) { }
-    return false;
-  }
-  function refreshQuotes(silent) {
-    fetch("quotes.json?v=" + Date.now(), { cache: "no-store" })
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(function (q) { applyQuotes(q); })
-      .catch(function () {
-        if (!state.quotes) useCachedQuotes();
-        if (state.prefs.tab === "sbf") { renderSbf(); if (!silent) toast("Cotes hors ligne — dernier relevé affiché"); }
-        if (state.prefs.tab === "cac") { renderCac(); if (!silent) toast("Cotes hors ligne — dernier relevé affiché"); }
-      });
-  }
-
-  function refresh(silent) {
-    refreshQuotes(silent);
-    fetch("data.json?v=" + Date.now(), { cache: "no-store" })
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(function (d) {
-        var isNew = !state.data || state.data.updated !== d.updated;
-        applyData(d);
-        if (!silent) toast(isNew ? "🔄 Données à jour" : "✓ Déjà à jour");
-      })
-      .catch(function () {
-        if (!state.data) useCached();
-        if (!silent) toast("Hors ligne — dernier relevé affiché");
-      });
-  }
-
-  function fmtSigMontant(sig) {
-    return sig.source === "US" ? RI.fmtUSD(sig.total) : RI.fmtEUR(sig.total);
-  }
-  function lvlBadge(sig, sell) {
-    if (sig.level === 3) return '<span class="lvl l3" title="' + (sell ? "Plusieurs initiés distincts vendent la même société — signal d'alerte" : "Plusieurs initiés distincts achètent la même société") + '">' + (sell ? "\ud83d\udd34\ud83d\udd34" : "\ud83d\udd25\ud83d\udd25") + " cluster</span>";
-    if (sig.level === 2) return '<span class="lvl l2" title="' + (sell ? "Ventes répétées, plusieurs vendeurs ou total ≥ 1 M" : "Accumulation nette (achats répétés, plusieurs initiés ou total ≥ 1 M)") + '">' + (sell ? "\ud83d\udd34" : "\ud83d\udd25") + "</span>";
-    return '<span class="lvl l1" title="' + (sell ? "Deux ventes du même initié — à nuancer" : "Deux achats du même initié — à nuancer") + '">\u00d72</span>';
-  }
-  function renderSignals(sigs, sell) {
-    var card = sell ? $("sigCardSell") : $("sigCard");
-    var target = sell ? "signalsSell" : "signals";
-    if (!sigs || sigs.length === 0) {
-      card.classList.add("hidden");
-      return;
-    }
-    card.classList.remove("hidden");
-    var html = [];
-    for (var i = 0; i < sigs.length; i++) {
-      var s = sigs[i];
-      html.push(
-        '<div class="sig' + (sell ? " sell" : "") + '">' +
-        '<div class="head">' + lvlBadge(s, sell) +
-        '<span class="soc">' + esc(s.societe) + (s.ticker ? ' <span class="tk">' + esc(s.ticker) + "</span>" : "") + "</span></div>" +
-        '<div class="sum"><b>' + s.buys + " " + (sell ? "vente" : "achat") + (s.buys > 1 ? (sell ? "s" : "s") : "") + "</b> · " +
-        s.buyers + " initi\u00e9" + (s.buyers > 1 ? "s" : "") + " distinct" + (s.buyers > 1 ? "s" : "") +
-        " · total " + esc(fmtSigMontant(s)) +
-        " · prix moyen " + (sell ? "vendu" : "pay\u00e9") + " <b>" + esc(RI.fmtPx(s, s.avgPx)) + "</b></div>" +
-        '<div class="sub"><span>' + esc(RI.isoToDmY(s.first)) + " \u2192 " + esc(RI.isoToDmY(s.last)) + "</span>" +
-        ' · <a href="' + esc(RI.quoteUrl(s)) + '" target="_blank" rel="noopener">cote \u2197</a>' +
-        ' · <a href="#" data-sig="' + esc(s.societe) + '">voir</a>' +
-        "</div></div>"
-      );
-    }
-    $(target).innerHTML = html.join("");
-  }
-
-  // pistes v3.2 : clusters d'initiés × fondamentaux 10-K (précalculées par le workflow)
-  // pistes v3.3 : US = clusters initiés × fondamentaux 10-K (/20, précalculées par le workflow) ;
-  // FR = signal initiés nettoyé seul (/10) — pas d'équivalent public gratuit du 10-K en France.
-  function renderPicks(pk) {
-    var card = $("picksCard");
-    var us = (pk && (pk.us || pk.picks)) || []; // compat : ancien format data.picks.picks
-    var fr = (pk && pk.fr) || [];
-    if (us.length === 0 && fr.length === 0) { card.classList.add("hidden"); return; }
-    card.classList.remove("hidden");
-    var html = [];
-    for (var i = 0; i < us.length; i++) {
-      var p = us[i];
-      var f = p.fund || {};
-      var chips = [];
-      if (f.growth != null) chips.push("📈 CA annuel " + (f.growth >= 0 ? "+" : "") + esc(String(f.growth)) + " %");
-      else if (f.revEnd) chips.push("📈 dernier 10-K " + esc(String(f.revEnd).slice(0, 4)));
-      if (f.ni != null) {
-        chips.push(f.ni > 0
-          ? "💰 bénéficiaire" + (f.margin != null ? " · marge nette " + esc(String(f.margin)) + " %" : "")
-          : "📉 résultat net négatif");
-      }
-      var sl = p.sells || { n: 0, hard: 0 };
-      if (sl.hard > 0) chips.push("⚠️ " + sl.hard + " vente" + (sl.hard > 1 ? "s" : "") + " dure" + (sl.hard > 1 ? "s" : "") + " sur la fenêtre");
-      html.push(
-        '<div class="sig pick">' +
-        '<div class="head"><span class="lvl pick">#' + (i + 1) + " · " + esc(String(p.score)) + '/20</span>' +
-        '<span class="soc">' + esc(p.societe) + ' <span class="tk">' + esc(p.ticker) + "</span></span></div>" +
-        '<div class="sum"><b>🔥 ' + p.insider.buys + " achat" + (p.insider.buys > 1 ? "s" : "") + " · " + p.insider.buyers + " initié" + (p.insider.buyers > 1 ? "s" : "") + " distinct" + (p.insider.buyers > 1 ? "s" : "") + "</b> · " +
-        "px moyen payé <b>" + esc(RI.fmtNum(p.insider.avgPx)) + " $</b> · total initié " + esc(RI.fmtUSD(p.insider.total)) +
-        " · signal initiés " + esc(String(p.insider.score)) + "/10" +
-        " · fondamentaux " + esc(String(f.score)) + "/10</div>" +
-        '<div class="sub"><span>' + chips.join(" · ") + "</span>" +
-        ' · <a href="' + esc(RI.quoteUrl({ source: "US", ticker: p.ticker, societe: p.societe })) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        ' · <a href="#" data-sig="' + esc(p.societe) + '">voir les déclarations</a>' +
-        "</div></div>"
-      );
-    }
-    for (var j = 0; j < fr.length; j++) {
-      var q = fr[j];
-      var qs = q.sells || { n: 0, hard: 0 };
-      var qchips = [];
-      if (qs.hard > 0) qchips.push("⚠️ " + qs.hard + " vente" + (qs.hard > 1 ? "s" : "") + " dure" + (qs.hard > 1 ? "s" : ""));
-      html.push(
-        '<div class="sig pick">' +
-        '<div class="head"><span class="lvl pick">🇫🇷 ' + esc(String(q.score)) + '/10</span>' +
-        '<span class="soc">' + esc(q.societe) + (q.isin ? ' <span class="tk">' + esc(q.isin) + "</span>" : "") + "</span></div>" +
-        '<div class="sum"><b>🔥 ' + q.insider.buys + " achat" + (q.insider.buys > 1 ? "s" : "") + " · " + q.insider.buyers + " initié" + (q.insider.buyers > 1 ? "s" : "") + " distinct" + (q.insider.buyers > 1 ? "s" : "") + "</b> · " +
-        "px moyen payé <b>" + esc(RI.fmtNum(q.insider.avgPx)) + " €</b> · total initié " + esc(RI.fmtEUR(q.insider.total)) +
-        " · signal initiés " + esc(String(q.insider.score)) + "/10</div>" +
-        '<div class="sub"><span>' + qchips.join(" · ") + "</span>" +
-        ' · <a href="' + esc(RI.quoteUrl({ source: "FR", isin: q.isin, societe: q.societe })) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        ' · <a href="#" data-sig="' + esc(q.societe) + '">voir les déclarations</a>' +
-        "</div></div>"
-      );
-    }
-    $("picksList").innerHTML = html.join("");
-  }
-
-  function render() {
-    var d = state.data;
-    if (!d) return;
-    $("nFr").textContent = String((d.fr || []).length);
-    $("nUs").textContent = String((d.us || []).length);
-
-    var f = RI.freshness(d.updated, Date.now());
-    var c = $("fresh");
-    c.textContent = "vérifié " + f.label;
-    c.className = "chip" + (f.stale ? " stale" : "");
-
-    // état réel de chaque source : un relevé « ancien » peut cacher une source figée
-    var msgs = [];
-    var srcState = function (ok, upd, name) {
-      if (ok === false) {
-        msgs.push("⚠️ <b>" + name + "</b> : échec du dernier relevé" +
-          (upd ? " — données conservées au " + esc(RI.isoToDmY(String(upd).slice(0, 10))) : "") + ".");
-      } else if (upd && RI.freshness(upd, Date.now()).stale) {
-        msgs.push("⚠️ <b>" + name + "</b> : aucun relevé réussi depuis le " + esc(RI.isoToDmY(String(upd).slice(0, 10))) + ".");
-      }
-    };
-    srcState(d.frOk, d.frUpdated, "AMF 🇫🇷");
-    srcState(d.usOk, d.usUpdated, "SEC 🇺🇸");
-    var sb = $("srcBanner");
-    if (msgs.length > 0) {
-      sb.innerHTML = msgs.join(" ");
-      sb.classList.remove("hidden");
-    } else {
-      sb.classList.add("hidden");
-    }
-
-    var buys = (d.fr || []).concat(d.us || []);
-    var sells = (d.frS || []).concat(d.usS || []);
-    $("nSell").textContent = String(sells.length);
-
-    // signaux : suivent le filtre source uniquement (pas montant/recherche/côté)
-    var sigRows = RI.filterRows(buys, { source: state.prefs.src });
-    var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000)); // clusters 30 j, pas 90
-    var sigs = RI.signalsFrom(sigRows, { since: since30 });
-    $("nSig").textContent = String(sigs.length);
-    renderSignals(sigs, false);
-    renderSignals(RI.signalsFrom(RI.filterRows(sells, { source: state.prefs.src }), { since: since30 }), true);
-    renderPicks(d.picks); // v3.3 : { updated, us: [...], fr: [...] } — compat ancien { picks: [...] }
-
-    var cnt = RI.signalCountByKey(buys);
-    var cntS = RI.signalCountByKey(sells);
-
-    // une recherche est une consultation ponctuelle : elle ignore le filtre Achats/Ventes
-    // (sinon chercher une société qui n'a que des ventes en mode 🟢 Achats => « aucune ligne » trompeur)
-    var qTxt = String(state.prefs.q || "").trim();
-    var all = qTxt ? buys.concat(sells) : (state.prefs.side === "buy" ? buys : (state.prefs.side === "sell" ? sells : buys.concat(sells)));
-    var rows = RI.filterRows(all, { source: state.prefs.src, minMontant: state.prefs.m, q: qTxt });
-    if (state.prefs.new) {
-      rows = rows.filter(function (r) { return state.newIds[r.id]; });
-    }
-    rows = RI.sortRows(rows, state.prefs.sort);
-
-    var el = $("list");
-    var LIMIT = state.limit || 100; // v3.3 : « Achats + ventes » affichait ~545 lignes d'un coup
-    if (rows.length === 0) {
-      el.innerHTML = qTxt
-        ? '<div class="empty">Aucune ligne pour « ' + esc(qTxt) + ' » sur la fenêtre 90 j — vérifie l\'orthographe, ou elle n\'a aucune déclaration d\'initié (AMF/SEC) dans les seuils suivis.</div>'
-        : '<div class="empty">Aucune ligne avec ces filtres.</div>';
-      return;
-    }
-    var html = [];
-    var shown = rows.slice(0, LIMIT);
-    for (var i = 0; i < shown.length; i++) {
-      var r = shown[i];
-      var lag = RI.lagLabel(r);
-      var sell = r.side === "sell";
-      var n = sell ? cntS[RI.sigKey(r)] : cnt[RI.sigKey(r)];
-      var isNew = state.newIds[r.id];
-      html.push(
-        '<div class="card"><div class="row ' + (r.source === "FR" ? "fr" : "us") + (sell ? " sell" : "") + '">' +
-        '<div class="bar"></div>' +
-        '<div class="t">' +
-        '<div class="soc">' + esc(r.societe) + (r.ticker ? ' <span class="tk">' + esc(r.ticker) + "</span>" : "") +
-        (n >= 2 ? ' <span class="' + (sell ? "xs" : "x") + '" title="Nombre de ' + (sell ? "ventes" : "achats") + ' de cette société dans la liste (90 j) — voir la carte ' + (sell ? "ventes" : "accumulation") + '">×' + n + "</span>" : "") +
-        (isNew ? ' <span class="newdot">🆕</span>' : "") +
-        "</div>" +
-        '<div class="who">' + esc(r.auteur) + (r.role ? " · " + esc(r.role) : "") + "</div>" +
-        '<div class="meta"><span>' + (sell ? "vente" : "achat") + " du " + esc(RI.isoToDmY(r.dateOp)) + "</span>" +
-        (r.multi ? "<span title=\"Form 4 déposé par plusieurs déclarants — ligne attribuée au premier, attribution incertaine (instructions SEC)\">⚠ déclarants multiples</span>" : "") +
-        (lag ? "<span>" + esc(lag) + "</span>" : "") +
-        (r.instrument ? "<span>" + esc(String(r.instrument).slice(0, 40)) + "</span>" : "") +
-        "</div>" +
-        '<div class="details">' + esc(RI.fmtNum(r.volume)) + " × " + esc(r.source === "US" ? "$" + r.prix : r.prix + " €") +
-        ' · <a href="' + esc(RI.quoteUrl(r)) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        (r.url && /^https:\/\//.test(r.url) ? ' · <a href="' + esc(r.url) + '" target="_blank" rel="noopener">source</a>' : "") + "</div>" +
-        "</div>" +
-        '<div style="text-align:right"><div class="montant">' + esc(RI.fmtMontant(r)) + '</div><div style="margin-top:4px"><span class="src ' + (r.source === "FR" ? "fr" : "us") + '">' + r.source + "</span></div></div>" +
-        "</div></div>"
-      );
-    }
-    if (rows.length > shown.length) {
-      html.push('<div class="card" style="text-align:center"><button class="amt" id="moreBtn">Afficher plus — ' +
-        (rows.length - shown.length) + " ligne" + (rows.length - shown.length > 1 ? "s" : "") + " restante" + (rows.length - shown.length > 1 ? "s" : "") + "</button></div>");
-    }
-    el.innerHTML = html.join("");
-  }
-
-  // « voir » d'une carte signal → filtre la liste sur la société (pression complète achat+vente)
-  function onSigLink(e) {
-    var a = e.target.closest("a[data-sig]");
-    if (!a) return;
-    e.preventDefault();
-    var q = a.getAttribute("data-sig") || "";
-    state.prefs.q = q;
-    state.prefs.side = "all";
-    var inp = document.getElementById("q");
-    if (inp) inp.value = q;
-    savePrefs();
-    reflectPrefs();
-    render();
-  }
-  $("signals").addEventListener("click", onSigLink);
-  $("signalsSell").addEventListener("click", onSigLink);
-
-  function wire() {
-    var segSrc = $("segSrc");
-    segSrc.addEventListener("click", function (e) {
-      var b = e.target.closest("button");
-      if (!b) return;
-      state.prefs.src = b.getAttribute("data-src");
-      Array.prototype.forEach.call(segSrc.querySelectorAll("button"), function (x) {
-        x.classList.toggle("on", x === b);
-      });
-      savePrefs(); render();
-    });
-    var segSort = $("segSort");
-    segSort.addEventListener("click", function (e) {
-      var b = e.target.closest("button");
-      if (!b) return;
-      state.prefs.sort = b.getAttribute("data-sort");
-      Array.prototype.forEach.call(segSort.querySelectorAll("button"), function (x) {
-        x.classList.toggle("on", x === b);
-      });
-      savePrefs(); render();
-    });
-    var segSide = $("segSide");
-    segSide.addEventListener("click", function (e) {
-      var b = e.target.closest("button");
-      if (!b) return;
-      state.prefs.side = b.getAttribute("data-side") || "all";
-      Array.prototype.forEach.call(segSide.querySelectorAll("button"), function (x) {
-        x.classList.toggle("on", x === b);
-      });
-      savePrefs(); render();
-    });
-    $("amts").addEventListener("click", function (e) {
-      var b = e.target.closest("button");
-      if (!b) return;
-      if (b.getAttribute("data-m") === null) return; // 🆕 Nouveaux a son propre handler
-      state.prefs.m = parseInt(b.getAttribute("data-m"), 10) || 0;
-      Array.prototype.forEach.call($("amts").querySelectorAll("button"), function (x) {
-        if (x.getAttribute("data-m") !== null) x.classList.toggle("on", x === b);
-      });
-      savePrefs(); render();
-    });
-    $("newChip").addEventListener("click", function () {
-      state.prefs.new = !state.prefs.new;
-      $("newChip").classList.toggle("on", state.prefs.new);
-      savePrefs(); render();
-    });
-    var debTimer = null;
-    $("q").addEventListener("input", function (e) {
-      var v = e.target.value || "";
-      if (debTimer) clearTimeout(debTimer);
-      debTimer = setTimeout(function () { state.prefs.q = v; savePrefs(); render(); }, 150);
-    });
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) refresh(true);
-    });
-    $("list").addEventListener("click", function (e) {
-      var b = e.target.closest("#moreBtn");
-      if (!b) return;
-      state.limit += 100; // pagination par centaines
-      render();
-    });
-    $("sbList").addEventListener("click", function (e) {
-      var b = e.target && e.target.closest ? e.target.closest("#sbMore") : null;
-      if (!b) return;
-      state.sbLimit += 100;
-      renderSbf();
-    });
-    $("tabs").addEventListener("click", function (e) {
-      var b = e.target && e.target.closest ? e.target.closest("button[data-tab]") : null;
-      if (!b) return;
-      state.prefs.tab = b.getAttribute("data-tab");
-      savePrefs();
-      reflectPrefs();
-      if (state.prefs.tab === "sbf") renderSbf();
-      if (state.prefs.tab === "cac") renderCac();
-    });
-    $("cq").addEventListener("input", function (e) {
-      state.prefs.cacQ = e.target.value;
-      savePrefs();
-      renderCac();
-    });
-    $("sq").addEventListener("input", function (e) {
-      state.prefs.sbQ = e.target.value;
-      state.sbLimit = 100;
-      savePrefs();
-      renderSbf();
-    });
-  }
-
-  function sbGroupLabel(g) { return g === "cac40" ? "CAC 40" : (g === "next20" ? "Next 20" : "Mid 60"); }
-  function sbQuoteUrl(e) {
-    var q = String(e.isin || e.mn || e.n).trim();
-    return "https://www.boursorama.com/recherche/?query=" + encodeURIComponent(q);
-  }
-  function renderSbf() {
-    var q = state.quotes;
-    if (!q || !q.list || !q.list.length) {
-      $("sbList").innerHTML = '<div class="empty">Cotes du SBF 120 pas encore chargées — rafraîchis dans un instant.</div>';
-      return;
-    }
-    if (q.idx && q.idx.px != null) {
-      $("sbIdxPx").textContent = RI.fmtNum(Math.round(q.idx.px * 100) / 100);
-      // honnêteté : en relevé de repli, idx.name dit ce qui est vraiment affiché (ex. CAC 40)
-      $("sbIdxL").textContent = (q.idx.name ? q.idx.name : "indice SBF 120");
-      var chg = q.idx.chg;
-      var el = $("sbIdxChg");
-      el.textContent = RI.fmtPct(chg);
-      el.className = "v " + (chg > 0 ? "up" : (chg < 0 ? "dn" : ""));
-    }
-    $("sbN").textContent = String(q.list.length);
-    $("sbRel").textContent = q.updated ? String(q.updated).slice(11, 16) + " UTC" : "—";
-    // v4.0.4 : transparence totale — le fournisseur réel des cotes est affiché (Yahoo, ou repli TradingView)
-    $("sbSrc").textContent = (q.source ? (String(q.source).indexOf("TradingView") > -1 ? "TradingView" : "Yahoo") : "—");
-    // v4.0.5 : âge de la COMPOSITION (l'univers peut être périmé alors que les cours sont frais)
-    var msgs = [];
-    if (q.sbUpdated && !isNaN(new Date(q.sbUpdated).getTime())) {
-      var sbAge = Math.floor((Date.now() - new Date(q.sbUpdated).getTime()) / 86400000);
-      $("sbComp").textContent = RI.isoToDmY(String(q.sbUpdated).slice(0, 10)) + " (" + sbAge + " j)";
-      if (sbAge > 90) msgs.push("⚠️ <b>composition ancienne</b> — univers du " + esc(RI.isoToDmY(String(q.sbUpdated).slice(0, 10))) + " (" + sbAge + " j) : vérifier les mouvements d'indice.");
-    } else {
-      $("sbComp").textContent = "—";
-    }
-    // v4.0.6 : objectifs de consensus analystes (module Yahoo financialData — 1 requête/valeur,
-    // rafraîchi ~1×/12 h ; absent du relevé TradingView, la colonne y est null)
-    var nTp = 0;
-    q.list.forEach(function (e) { if (e.tp != null) nTp++; });
-    $("sbTpN").textContent = nTp > 0 ? (nTp + (q.tpUpdated ? " (" + RI.isoToDmY(String(q.tpUpdated).slice(0, 10)) + ")" : "")) : "—";
-    // v4.0.8 : couverture de la composante qualité (transparence — combien de scores 💎 sont calculables)
-    $("sbQ").textContent = (function () {
-      var nQ = 0;
-      if (q.list) RI.oppScores(RI.valScores(q.list)).forEach(function (e) { if (e.qScore != null) nQ++; });
-      return (q.list ? nQ + "/" + q.list.length : "—");
-    })();
-    if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
-    if (q.missing && q.missing.length) msgs.push("⚠️ " + q.missing.length + " valeur" + (q.missing.length > 1 ? "s" : "") + " sans cote (" + esc(q.missing.slice(0, 6).join(", ")) + (q.missing.length > 6 ? "…" : "") + ").");
-    var sb = $("sbBanner");
-    if (msgs.length) { sb.innerHTML = msgs.join(" "); sb.classList.remove("hidden"); }
-    else sb.classList.add("hidden");
-    var val = RI.oppScores(RI.valScores(q.list));
-    var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000));
-    var bonus = RI.insiderFrBonus((state.data && state.data.fr) || [], { since: since30 });
-    var enr = RI.sbfEnrich(val, bonus);
-    var qTxt = String(state.prefs.sbQ || "").trim().toLowerCase();
-    var rows = RI.sbfSort(enr, "lt"); // v4.0.11 : UN SEUL classement — qualité/opportunité
-    if (qTxt) rows = rows.filter(function (e) {
-      return String(e.n).toLowerCase().indexOf(qTxt) >= 0 || String(e.mn).toLowerCase().indexOf(qTxt) >= 0;
-    });
-    if (rows.length === 0) {
-      $("sbList").innerHTML = '<div class="empty">Aucune valeur du SBF 120 pour « ' + esc(qTxt) + ' ».</div>';
-      return;
-    }
-    var shown = rows.slice(0, state.sbLimit);
-    var html = [];
-    var recFr = { strong_buy: "fort achat", buy: "achat", hold: "conserver", underperform: "sous-perf.", sell: "vente" };
-    function fmtPctSigned(v) { return (v > 0 ? "+" : "") + String(Math.round(v * 10) / 10).replace(".", ",") + " %"; }
-    for (var i = 0; i < shown.length; i++) {
-      var e = shown[i];
-      var sc = e.ltScore;
-      var up = e.chg > 0, dn = e.chg < 0;
-      html.push(
-        '<div class="card"><div class="row fr"><div class="bar"></div>' +
-        '<div class="t">' +
-        '<div class="soc"><span style="color:var(--mut);font-size:11px;font-weight:500">' + (i + 1) + '</span> ' + esc(e.n) +
-        ' <span class="tk">' + esc(e.mn) + '</span> <span class="gb">' + sbGroupLabel(e.g) + '</span>' +
-        (e.approx ? ' <span class="gb" title="Ticker résolu approximativement (correspondance de nom incertaine) — cours à vérifier avant toute décision">≈ à vérifier</span>' : "") +
-        (e.ins > 0 ? ' <span class="lvl l' + e.insLvl + '" title="Initiés FR en accumulation sur 30 j (vue 🔰)">' + (e.insLvl >= 2 ? "🔥" : "×2") + " +" + e.ins + "</span>" : "") +
-        (e.out52 === -1
-          ? ' <span class="gb" title="Cours SOUS la borne basse de la fourchette 52 semaines fournie (' + (e.gapLo != null ? esc(fmtPctSigned(Math.round(e.gapLo * 10) / 10)) + " de son plus bas" : "") + ') — bornes probablement périmées ou décrochage du cours : ce n\u2019est pas « au plus bas de l\u2019année », c\u2019est HORS bornes (v4.0.12). Information, pas un signal d\u2019achat ; la position 52 s. n\u2019entre pas dans le score 🏆.">📉 SOUS la fourchette 52 s.</span>'
-          : e.out52 === 1
-          ? ' <span class="gb" title="Cours AU-DESSUS de la borne haute de la fourchette 52 semaines fournie (' + (e.dd52 != null ? esc(fmtPctSigned(Math.round(e.dd52 * 10) / 10)) + " de son plus haut" : "") + ') — bornes probablement périmées, ou plus haut en cours de formation. George &amp; Hwang associent le momentum au PLUS HAUT 52 s. : information, pas un signal ; la position 52 s. n\u2019entre pas dans le score 🏆.">📈 AU-DESSUS de la fourchette 52 s.</span>'
-          : (e.pos52 != null && e.pos52 <= 20
-          ? ' <span class="gb" title="Cours dans le bas de sa fourchette 52 semaines (' + (e.gapLo != null ? esc(fmtPctSigned(Math.round(e.gapLo * 10) / 10)) + " de son plus bas" : "position " + e.pos52 + "/100") + '). Information AFFICHÉE, pas un signal d\u2019achat : George &amp; Hwang associent le momentum au PLUS HAUT 52 s., pas au plus bas ; un point bas n\u2019est pas un plancher. La position 52 s. n\u2019entre pas dans le score 🏆 (exclu en v4.0.8 avant validation).">📉 bas de fourchette 52 s.</span>'
-          : "")) +
-        (e.earnWarn
-          ? ' <span class="gb" title="Le PER prévisionnel est AU-DESSUS du PER passé : le consensus s\u2019attend à des bénéfices en baisse. Le profil « pas chère » qui va avec est typique du piège à valeur — croiser avec 🔀 initiés et 🎯 objectifs.">⚠️ bénef. attendus en baisse</span>'
-          : "") +
-        "</div>" +
-        '<div class="meta"><span>cours <b>' + esc(RI.fmtNum(e.px)) + ' €</b> <span class="' + (up ? "up" : (dn ? "dn" : "")) + '">' + esc(RI.fmtPct(e.chg)) + "</span></span>" +
-        "<span>cap. " + esc(RI.fmtCap(e.cap)) + "</span></div>" +
-        '<div class="details">PER ' + (e.per != null ? esc(String(Math.round(e.per * 100) / 100).replace(".", ",")) : "—") +
-        " · projeté " + (e.fper != null ? esc(String(Math.round(e.fper * 100) / 100).replace(".", ",")) : "—") +
-        " · rendement " + (e.dY != null ? esc(String(Math.round(e.dY * 100) / 100).replace(".", ",")) + " %" : "—") +
-        " · P/B " + (e.pb != null ? esc(String(Math.round(e.pb * 100) / 100).replace(".", ",")) : "—") +
-        (e.sec ? " · secteur " + esc(e.sec) : "") +
-        ' · <a href="' + esc(sbQuoteUrl(e)) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        "</div>" +
-        (e.tp != null
-          ? '<div class="details">🎯 objectif <b>' + esc(String(Math.round(e.tp * 100) / 100).replace(".", ",")) + " €</b> (" +
-            (e.upX != null ? '<span class="' + (e.upX > 0 ? "up" : (e.upX < 0 ? "dn" : "")) + '">' + esc(fmtPctSigned(e.upX)) + "</span>" : "—") + ")" +
-            (e.tpN != null ? " · " + e.tpN + " analyste" + (e.tpN > 1 ? "s" : "") : "") +
-            (recFr[e.rec] ? " · " + esc(recFr[e.rec]) : "") +
-            (e.gRev != null ? " · CA " + esc(fmtPctSigned(Math.round(e.gRev * 1000) / 10)) : "") +
-            (e.mOp != null ? " · marge op. " + esc(String(Math.round(e.mOp * 1000) / 10).replace(".", ",")) + " %" : "") +
-            (e.roe != null ? " · ROE " + esc(String(Math.round(e.roe * 1000) / 10).replace(".", ",")) + " %" : "") +
-            (e.de != null ? " · dette/CP " + esc(String(Math.round(e.de)).replace(".", ",")) + " %" : "") +
-            "</div>"
-          : "") +
-        (e.w52lo != null && e.w52hi != null
-          ? '<div class="details">📉 52 s. : ' + esc(String(Math.round(e.w52lo * 100) / 100).replace(".", ",")) + " – " + esc(String(Math.round(e.w52hi * 100) / 100).replace(".", ",")) + " €" +
-            (e.gapLo != null ? " · cours à " + esc(fmtPctSigned(Math.round(e.gapLo * 10) / 10)) + " du plus bas" : "") +
-            (e.dd52 != null ? " · " + esc(fmtPctSigned(Math.round(e.dd52 * 10) / 10)) + " du plus haut" : "") +
-            "</div>"
-          : "") +
-        "</div>" +
-        '<div class="sbsc">' + (sc == null
-          ? '<span title="Qualité non mesurable (fondamentaux indisponibles ou moins de 3 métriques sur 4) ou valorisation non mesurable (perte) — pas de score 🏆, on n’invente rien">—</span>'
-          : '<b title="Score 🏆 Long terme = qualité ' + e.qScore + '/100 × 55 % (ROE/marge op./croissance/dette, ' + (e.qMode === "sector" ? "vs pairs du même secteur" : (e.qMode === "mix" ? "bases mixtes secteur/indice (par métrique)" : "vs indice")) + ', base ' + e.qBase + '/4) + valorisation relative ' + e.score + '/100 × 35 % (PER/rendement/P/B, ' + (e.vMode === "sector" ? "vs pairs du même secteur" : (e.vMode === "mix" ? "bases mixtes secteur/indice (par métrique)" : "vs indice")) + ', base ' + e.vBase + '/3) + initiés FR ' + e.insSc + '/100 × 10 % (50 = neutre sans signal ; un cluster monte jusqu\u2019à 100). Composantes et couverture affichées sous le score. La position 52 s. et le consensus 🎯 sont AFFICHÉS comme contexte d’entrée, pas notés. Heuristique de tri jamais validée sur historique indépendant — pas un conseil.">' + sc + "</b>") +
-        "<small>" + (sc == null
-          ? (e.ins > 0 ? "+" + e.ins + " initiés — composantes incomplètes" : "qualité+valorisation+initiés — composantes incomplètes")
-          : "qualité " + e.qScore + "/100 (" + e.qBase + "/4 · " + (e.qMode === "sector" ? "vs secteur" : (e.qMode === "mix" ? "mixte" : "vs indice")) + ") · valorisation " + e.score + "/100 (" + e.vBase + "/3 · " + (e.vMode === "sector" ? "vs secteur" : (e.vMode === "mix" ? "mixte" : "vs indice")) + ") · initiés " + e.insSc + "/100" + (e.ins > 0 ? " (+" + e.ins + ")" : " (neutre)")) + "</small>" +
-        "</div>" +
-        "</div></div>"
-      );
-    }
-    if (rows.length > shown.length) {
-      html.push('<div class="card" style="text-align:center"><button class="amt" id="sbMore">Afficher plus — ' +
-        (rows.length - shown.length) + " restante" + (rows.length - shown.length > 1 ? "s" : "") + "</button></div>");
-    }
-    $("sbList").innerHTML = html.join("");
-  }
-
-  // v4.1.0 : rendu de l'onglet 🇫🇷 CAC 40 — le classement d'achat des 40 valeurs de l'indice
-  function renderCac() {
-    var q = state.quotes;
-    if (!q || !q.list || !q.list.length) {
-      $("cacList").innerHTML = '<div class="empty">Cotes pas encore chargées — rafraîchis dans un instant.</div>';
-      return;
-    }
-    // indice CAC 40 : champ dédié (Yahoo ^FCHI ou repli TV EURONEXT:PX1) ; en repli TradingView,
-    // l'indice du relevé EST déjà le CAC 40 (nommé dans idx.name) — on l'affiche tel quel.
-    var cIdx = q.cacIdx || (q.idx && q.idx.name && String(q.idx.name).indexOf("CAC 40") > -1 ? q.idx : null);
-    if (cIdx && cIdx.px != null) {
-      $("caxPx").textContent = RI.fmtNum(Math.round(cIdx.px * 100) / 100);
-      $("caxL").textContent = cIdx.name || "indice CAC 40";
-      var cch = cIdx.chg;
-      var cel = $("caxChg");
-      cel.textContent = RI.fmtPct(cch);
-      cel.className = "v " + (cch > 0 ? "up" : (cch < 0 ? "dn" : ""));
-    }
-    $("cacRel").textContent = q.updated ? String(q.updated).slice(11, 16) + " UTC" : "—";
-    $("cacSrc").textContent = (q.source ? (String(q.source).indexOf("TradingView") > -1 ? "TradingView" : "Yahoo") : "—");
-    // scores : percentiles sur TOUT le SBF coté (base stable, identique aux autres scores),
-    // puis filtrage du groupe cac40 — le périmètre suit la composition automatiquement.
-    var val = RI.oppScores(RI.valScores(q.list));
-    var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000));
-    var bonus = RI.insiderFrBonus((state.data && state.data.fr) || [], { since: since30 });
-    var enr = RI.sbfEnrich(val, bonus);
-    var scored = RI.cacScores(enr);
-    var rows = RI.cacSort(RI.cacFilter(scored));
-    $("cacN").textContent = String(rows.length) + "/40";
-    // bandeau macro 🌍 (relevés publics du Radar Conjoncture — contexte commun, jamais noté)
-    var m = RI.macroState(q.macro, Date.now());
-    var msgs = [];
-    if (m) {
-      $("macroCard").classList.remove("hidden");
-      var chips = [];
-      function chip(txt) { chips.push('<span class="amt" style="cursor:default">' + txt + "</span>"); }
-      function fr(v) { return (v == null || !isFinite(v)) ? "—" : String(Math.round(v * 100) / 100).replace(".", ","); }
-      if (m.vix != null) chip("VIX " + esc(fr(m.vix)) + (m.vix5 != null ? " · lissé 5 j " + esc(fr(m.vix5)) : ""));
-      if (m.oat10 != null) chip("OAT 10 ans " + esc(fr(m.oat10)) + " %");
-      if (m.bund10 != null) chip("Bund 10 ans " + esc(fr(m.bund10)) + " %");
-      if (m.spread != null) chip("spread France-Allemagne " + m.spread + " pb");
-      if (m.bceDepot != null) chip("BCE dépôt " + esc(fr(m.bceDepot)) + " %" + (m.bceDir ? " (" + esc(m.bceDir) + ")" : ""));
-      if (m.inflZE != null) chip("inflation ZE " + esc(fr(m.inflZE)) + " %");
-      if (m.pmiZE != null) chip("PMI ZE " + esc(fr(m.pmiZE)));
-      if (m.cape != null) chip("CAPE " + esc(fr(m.cape)));
-      $("macroChips").innerHTML = chips.join("");
-      $("macroNote").innerHTML = "Source : " + (m.src ? esc(m.src) : "Radar Conjoncture") + " — relevé du <b>" + esc(RI.isoToDmY(m.dateData)) + "</b>" + (m.ageDays != null ? " (" + m.ageDays + " j)" : "") +
-        ". La macro frappe toutes les valeurs pareil : elle contextualise le classement, elle n'entre <b>jamais</b> dans le score 🎯 d'une valeur." +
-        (m.stale ? " ⚠️ <b>Relevé ancien</b> — rafraîchi au prochain relevé du Radar." : "");
-      $("cacMg").textContent = m.dateData ? RI.isoToDmY(m.dateData) + (m.ageDays != null ? " (" + m.ageDays + " j)" : "") : "—";
-      if (m.stale) msgs.push("⚠️ <b>macro ancienne</b> (" + m.ageDays + " j) — données du Radar du " + esc(RI.isoToDmY(m.dateData)) + ".");
-    } else {
-      $("macroCard").classList.add("hidden");
-      $("cacMg").textContent = "—";
-      msgs.push("ℹ️ Bandeau macro pas encore intégré — il apparaîtra au prochain relevé des cotes.");
-    }
-    if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
-    if (rows.length < 40) msgs.push("⚠️ " + (40 - rows.length) + " valeur" + (40 - rows.length > 1 ? "s" : "") + " du CAC 40 sans cote — classée" + (40 - rows.length > 1 ? "s" : "") + " sur les " + rows.length + " cotée" + (rows.length > 1 ? "s" : "") + ".");
-    var cb = $("cacBanner");
-    if (msgs.length) { cb.innerHTML = msgs.join(" "); cb.classList.remove("hidden"); }
-    else cb.classList.add("hidden");
-    // recherche
-    var qTxt = String(state.prefs.cacQ || "").trim().toLowerCase();
-    if (qTxt) rows = rows.filter(function (e) {
-      return String(e.n).toLowerCase().indexOf(qTxt) >= 0 || String(e.mn).toLowerCase().indexOf(qTxt) >= 0;
-    });
-    if (rows.length === 0) {
-      $("cacList").innerHTML = '<div class="empty">Aucune valeur du CAC 40 pour « ' + esc(String(state.prefs.cacQ || "").trim()) + ' ».</div>';
-      return;
-    }
-    // cartes
-    var VERD = { strong: "🥇 priorité d'achat", good: "🥈 opportunité", mid: "🥉 neutre", wait: "⏸ attendre" };
-    var VERDC = { strong: "var(--green)", good: "var(--blue)", mid: "var(--mut)", wait: "var(--red)" };
-    var VERDT = {
-      strong: "Score 🎯 ≥ 70/100 — en tête du classement composite (qualité+valorisation+consensus). Lecture HEURISTIQUE jamais validée : vérifie le contexte de la carte avant tout acte.",
-      good: "Score 🎯 55-69 — opportunité selon le classement composite. Heuristique non validée.",
-      mid: "Score 🎯 40-54 — ni évidence ni rejet selon le classement composite. Heuristique non validée.",
-      wait: "Score 🎯 < 40 — le classement composite ne voit pas d'opportunité aujourd'hui (souvent : qualité ou consensus dégradé, ou valorisation tendue). Pas un ordre de vente."
-    };
-    var recFr = { strong_buy: "fort achat", buy: "achat", hold: "conserver", underperform: "sous-perf.", sell: "vente" };
-    function fmtPctSigned(v) { return (v > 0 ? "+" : "") + String(Math.round(v * 10) / 10).replace(".", ",") + " %"; }
-    var html = [];
-    for (var i = 0; i < rows.length; i++) {
-      var e = rows[i];
-      var up = e.chg > 0, dn = e.chg < 0;
-      var parts = [];
-      // composantes du score — affichées seulement si elles ont servi
-      if (e.qScore != null) parts.push("qualité " + e.qScore + "/100 (" + e.qBase + "/4 · " + (e.qMode === "sector" ? "vs secteur" : (e.qMode === "mix" ? "mixte" : "vs indice")) + ")");
-      if (e.score != null) parts.push("valorisation " + e.score + "/100 (" + e.vBase + "/3 · " + (e.vMode === "sector" ? "vs secteur" : (e.vMode === "mix" ? "mixte" : "vs indice")) + ")");
-      if (e.pUp != null) parts.push("consensus " + e.pUp + "/100" + (e.upX != null ? " (potentiel " + esc(fmtPctSigned(e.upX)) + ")" : ""));
-      var breakdown = parts.length ? parts.join(" · ") : "composantes insuffisantes";
-      html.push(
-        '<div class="card"><div class="row fr"><div class="bar"></div>' +
-        '<div class="t">' +
-        '<div class="soc"><span style="color:var(--mut);font-size:11px;font-weight:500">' + (i + 1) + '</span> ' + esc(e.n) +
-        ' <span class="tk">' + esc(e.mn) + '</span>' +
-        (e.verdict ? ' <span class="gb" style="color:' + VERDC[e.verdict] + '" title="' + VERDT[e.verdict] + '">' + VERD[e.verdict] + '</span>' : "") +
-        (e.ins > 0 ? ' <span class="lvl l' + e.insLvl + '" title="Initiés FR en accumulation sur 30 j — conviction des dirigeants">' + (e.insLvl >= 2 ? "🔥" : "×2") + " +" + e.ins + "</span>" : "") +
-        (e.approx ? ' <span class="gb" title="Ticker résolu approximativement — cours à vérifier">≈ à vérifier</span>' : "") +
-        (e.y === "URW.PA" ? ' <span class="gb" style="color:var(--red)" title="Unibail-Rodamco-Westfield est une foncière (REIT) : actions de société de placement immobiliers — NON éligibles au PEA en principe (article 217 quater du CGI, regime fisc spécifique). À vérifier auprès de Bourse Direct avant tout ordre.">⚠️ PEA : non éligible en principe</span>' : "") +
-        (e.earnWarn ? ' <span class="gb" title="Le PER prévisionnel est AU-DESSUS du PER passé : le consensus s\'attend à des bénéfices en baisse — piège à valeur classique.">⚠️ bénef. attendus en baisse</span>' : "") +
-        (e.pos52 != null && e.pos52 <= 20 && e.out52 === 0 ? ' <span class="gb" title="Cours dans le bas de sa fourchette 52 semaines — information AFFICHÉE, pas un signal (un point bas n\'est pas un plancher).">📉 bas de fourchette 52 s.</span>' : "") +
-        "</div>" +
-        '<div class="meta"><span>cours <b>' + esc(RI.fmtNum(e.px)) + ' €</b> <span class="' + (up ? "up" : (dn ? "dn" : "")) + '">' + esc(RI.fmtPct(e.chg)) + "</span></span>" +
-        "<span>cap. " + esc(RI.fmtCap(e.cap)) + "</span></div>" +
-        '<div class="details">PER ' + (e.per != null ? esc(String(Math.round(e.per * 100) / 100).replace(".", ",")) : "—") +
-        " · projeté " + (e.fper != null ? esc(String(Math.round(e.fper * 100) / 100).replace(".", ",")) : "—") +
-        " · rendement " + (e.dY != null ? esc(String(Math.round(e.dY * 100) / 100).replace(".", ",")) + " %" : "—") +
-        " · P/B " + (e.pb != null ? esc(String(Math.round(e.pb * 100) / 100).replace(".", ",")) : "—") +
-        (e.sec ? " · secteur " + esc(e.sec) : "") +
-        ' · <a href="' + esc(sbQuoteUrl(e)) + '" target="_blank" rel="noopener">cote ↗</a>' +
-        "</div>" +
-        (e.tp != null
-          ? '<div class="details">🎯 objectif <b>' + esc(String(Math.round(e.tp * 100) / 100).replace(".", ",")) + " €</b> (" +
-            (e.upX != null ? '<span class="' + (e.upX > 0 ? "up" : (e.upX < 0 ? "dn" : "")) + '">' + esc(fmtPctSigned(e.upX)) + "</span>" : "—") + ")" +
-            (e.tpN != null ? " · " + e.tpN + " analyste" + (e.tpN > 1 ? "s" : "") : "") +
-            (recFr[e.rec] ? " · " + esc(recFr[e.rec]) : "") +
-            "</div>"
-          : "") +
-        ((e.roe != null || e.mOp != null || e.gRev != null || e.de != null)
-          ? '<div class="details">🧪 ' +
-            (e.roe != null ? "ROE " + esc(String(Math.round(e.roe * 1000) / 10).replace(".", ",")) + " % · " : "") +
-            (e.mOp != null ? "marge op. " + esc(String(Math.round(e.mOp * 1000) / 10).replace(".", ",")) + " % · " : "") +
-            (e.gRev != null ? "croissance CA " + esc(fmtPctSigned(Math.round(e.gRev * 1000) / 10)) + " · " : "") +
-            (e.de != null ? "dette/CP " + esc(String(Math.round(e.de)).replace(".", ",")) + " %" : "") +
-            "</div>"
-          : "") +
-        ((e.nextRes != null || e.surp != null)
-          ? '<div class="details">📅 ' +
-            (e.nextRes != null ? "prochain résultat le <b>" + esc(RI.isoToDmY(e.nextRes)) + "</b>" : "prochaine publication non communiquée") +
-            (e.surp != null
-              ? ' · surprise EPS <b>' + (e.surp > 0 ? '<span class="up">✅ +' : (e.surp < 0 ? '<span class="dn">❌ ' : "")) +
-                esc(fmtPctSigned(Math.round(e.surp * 10) / 10)) + (e.surp !== 0 ? "</span>" : "") + "</b> (moyenne des derniers trimestres)" : "") +
-            "</div>"
-          : "") +
-        (e.w52lo != null && e.w52hi != null
-          ? '<div class="details">📉 52 s. : ' + esc(String(Math.round(e.w52lo * 100) / 100).replace(".", ",")) + " – " + esc(String(Math.round(e.w52hi * 100) / 100).replace(".", ",")) + " €" +
-            (e.gapLo != null ? " · cours à " + esc(fmtPctSigned(Math.round(e.gapLo * 10) / 10)) + " du plus bas" : "") +
-            (e.dd52 != null ? " · " + esc(fmtPctSigned(Math.round(e.dd52 * 10) / 10)) + " du plus haut" : "") +
-            "</div>"
-          : "") +
-        "</div>" +
-        '<div class="sbsc">' + (e.aScore == null
-          ? '<span title="Moins de 2 composantes sur 3 (qualité, valorisation, consensus) — pas de score 🎯, on n\'invente rien">—</span>'
-          : '<b title="Score 🎯 d\'achat = ' + parts.join(" + ") + " — composantes disponibles renormalisées (base " + e.aBase + "/3). Heuristique de tri jamais validée sur historique indépendant — pas un conseil.\">" + e.aScore + "</b>") +
-        "<small>" + (e.aScore == null ? breakdown : breakdown + (e.aBase < 3 ? " · base " + e.aBase + "/3" : "")) + "</small>" +
-        "</div>" +
-        "</div></div>"
-      );
-    }
-    $("cacList").innerHTML = html.join("");
-  }
-
-  function reflectPrefs() {
-    var segSrc = $("segSrc");
-    Array.prototype.forEach.call(segSrc.querySelectorAll("button"), function (b) {
-      b.classList.toggle("on", b.getAttribute("data-src") === state.prefs.src);
-    });
-    Array.prototype.forEach.call($("segSort").querySelectorAll("button"), function (b) {
-      b.classList.toggle("on", b.getAttribute("data-sort") === state.prefs.sort);
-    });
-    Array.prototype.forEach.call($("segSide").querySelectorAll("button"), function (b) {
-      b.classList.toggle("on", (b.getAttribute("data-side") || "all") === (state.prefs.side || "all"));
-    });
-    Array.prototype.forEach.call($("amts").querySelectorAll("button"), function (b) {
-      if (b.getAttribute("data-m") === null) return;
-      b.classList.toggle("on", (parseInt(b.getAttribute("data-m"), 10) || 0) === state.prefs.m);
-    });
-    $("newChip").classList.toggle("on", state.prefs.new === true);
-    $("q").value = state.prefs.q;
-    Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
-      b.classList.toggle("on", b.getAttribute("data-tab") === state.prefs.tab);
-    });
-    $("viewIns").classList.toggle("hidden", state.prefs.tab !== "ins");
-    $("viewSbf").classList.toggle("hidden", state.prefs.tab !== "sbf");
-    $("viewCac").classList.toggle("hidden", state.prefs.tab !== "cac");
-    $("sq").value = state.prefs.sbQ || "";
-    $("cq").value = state.prefs.cacQ || "";
-  }
-
-  // version écrite à UN seul endroit : RI.VERSION (logic.js) — badge et footer la lisent ici
-  try {
-    $("ver").textContent = "v" + RI.VERSION;
-    $("footVer").textContent = "v" + RI.VERSION;
-  } catch (e) { }
-  loadPrefs();
-  reflectPrefs();
-  wire();
-  useCached();
-  useCachedQuotes();
-  if (state.prefs.tab === "sbf" && state.quotes) renderSbf();
-  if (state.prefs.tab === "cac" && state.quotes) renderCac();
-  refresh(true);
-  // PWA : enregistrement du service worker (cache v3.1, secours hors ligne)
-  if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.register) {
-    try { navigator.serviceWorker.register("./sw.js").catch(function () { }); } catch (e) { }
-  }
-
-  setInterval(function () { refresh(true); }, 10 * 60 * 1000);
+// ---- cotes : quotes.json (même origine, rafraîchi en séance par les pings horaires) ----
+var CAC_URL = "quotes.json";
+var CAC_CACHE = "sentinelle-cac-quotes-v1";
+var cacState = { q: null, loading: false, lastTry: 0, query: "" };
+(function cacInit() {
+  try { var raw = localStorage.getItem(CAC_CACHE); if (raw) cacState.q = JSON.parse(raw); } catch (e) {}
 })();
+function cacSave(q) { try { localStorage.setItem(CAC_CACHE, JSON.stringify(q)); } catch (e) {} }
+
+function loadCac(force) {
+  renderCacData(cacState.q);
+  var now = Date.now();
+  if (cacState.loading) return;
+  var fresh = !!(cacState.q && cacState.q.updated && isFinite(Date.parse(cacState.q.updated)) && (now - Date.parse(cacState.q.updated)) < 10 * 60000);
+  if (!force && fresh) return;
+  if (!force && now - cacState.lastTry < 60000) return;   // ne martèle pas quand le réseau échoue
+  cacState.loading = true; cacState.lastTry = now;
+  fetch(CAC_URL).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (q) {
+      cacState.loading = false;
+      if (!q || !q.list || !q.list.length) throw new Error("relevé vide");
+      cacState.q = q; cacSave(q); renderCacData(q);
+    })
+    .catch(function () {
+      cacState.loading = false;
+      if (!cacState.q) $("cacList").innerHTML = '<div class="empty">Relevé indisponible (hors ligne ou pipeline en pause) — le classement apparaîtra au prochain passage en ligne.</div>';
+    });
+}
+
+// formats locaux (virgule décimale, signe)
+function cacFr(v, d) {
+  if (v == null || !isFinite(v)) return "—";
+  var m = Math.pow(10, d == null ? 2 : d);
+  return String(Math.round(v * m) / m).replace(".", ",");
+}
+function cacPct(v) { return (v == null || !isFinite(v)) ? "—" : ((v > 0 ? "+" : "") + cacFr(v, 1) + " %"); }
+function cacPct2(v) { return (v == null || !isFinite(v)) ? "—" : ((v > 0 ? "+" : "") + cacFr(v, 2) + " %"); }
+function cacIsoDm(iso) { if (!iso || iso.length < 10) return null; return iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4); }
+var CAC_VERD = {
+  strong: { ic: "🥇", cls: "strong", lbl: "priorité d'achat" },
+  good: { ic: "🥈", cls: "good", lbl: "opportunité" },
+  mid: { ic: "🥉", cls: "mid", lbl: "neutre" },
+  wait: { ic: "⏸", cls: "wait", lbl: "attendre" }
+};
+var CAC_REC = { strong_buy: "fort achat", buy: "achat", hold: "conserver", underperform: "sous-perf.", sell: "vente" };
+
+// pipeline : quotes.list → valorisation → qualité → sbfEnrich (upX + bonus initiés NEUTRES :
+// plus de fetch data.json dans cette app monovue — le score est identique, les badges 🔥
+// d'initiés, purement décoratifs, ont disparu avec les onglets) → score 🎯.
+// Percentiles sur TOUT le SBF coté, filtre cac40 APRÈS (périmètre automatique).
+function cacPipeline(list) {
+  return RI.cacScores(RI.sbfEnrich(RI.oppScores(RI.valScores(list)), { byName: {}, byIsin: {} }));
+}
+
+function renderCacData(q) {
+  if (typeof RI === "undefined" || !RI.cacScores) return;   // garde anti-skew : logic.js absent/périmé → page squelette, jamais un crash
+  if (!q || !q.list || !q.list.length) return;   // état d'attente déjà en place
+  // indice CAC 40 : champ dédié (Yahoo ^FCHI ou repli TradingView EURONEXT:PX1 — l'idx du repli EST le CAC 40)
+  var cIdx = q.cacIdx || (q.idx && q.idx.name && String(q.idx.name).indexOf("CAC 40") > -1 ? q.idx : null);
+  if (cIdx && cIdx.px != null) {
+    $("cacIdxLine").innerHTML = esc(String(cIdx.name || "CAC 40")) + " <b>" + cacFr(cIdx.px, 2) + "</b> " +
+      '<span class="' + (cIdx.chg > 0 ? "up" : (cIdx.chg < 0 ? "dn" : "mut")) + '">' + cacPct2(cIdx.chg) + "</span>";
+  } else { $("cacIdxLine").innerHTML = "CAC 40 <b>—</b>"; }
+  // classement : percentiles sur TOUT le SBF coté (base stable), filtre cac40 APRÈS (périmètre auto)
+  var rows = RI.cacSort(RI.cacFilter(cacPipeline(q.list)));
+  $("cacN").textContent = rows.length + "/40 cotées";
+  // meta : relevé + source + composition
+  var relParts = [];
+  if (q.updated) relParts.push("relevé du " + (cacIsoDm(String(q.updated).slice(0, 10)) || "—") + " " + String(q.updated).slice(11, 16) + " UTC");
+  relParts.push("source : " + (q.source ? (String(q.source).indexOf("TradingView") > -1 ? "TradingView" : "Yahoo") : "—") + " (différé ~15 min)");
+  if (q.sbUpdated) relParts.push("composition du " + (cacIsoDm(String(q.sbUpdated).slice(0, 10)) || "—"));
+  $("cacRel").textContent = relParts.join(" · ");
+  // bandeau macro 🌍 (relevés publics du Radar Conjoncture, transportés par quotes.json) — contexte, jamais notée
+  var warns = [];
+  var m = RI.macroState(q.macro, Date.now());
+  if (m) {
+    $("cacMacroCard").style.display = "";
+    var chips = [];
+    if (m.vix != null) chips.push("VIX " + cacFr(m.vix) + (m.vix5 != null ? " · lissé 5 j " + cacFr(m.vix5) : ""));
+    if (m.oat10 != null) chips.push("OAT 10 ans " + cacFr(m.oat10) + " %");
+    if (m.bund10 != null) chips.push("Bund 10 ans " + cacFr(m.bund10) + " %");
+    if (m.spread != null) chips.push("spread France-Allemagne " + m.spread + " pb");
+    if (m.bceDepot != null) chips.push("BCE dépôt " + cacFr(m.bceDepot) + " %" + (m.bceDir ? " (" + m.bceDir + ")" : ""));
+    if (m.inflZE != null) chips.push("inflation ZE " + cacFr(m.inflZE) + " %");
+    if (m.pmiZE != null) chips.push("PMI ZE " + cacFr(m.pmiZE, 1));
+    if (m.cape != null) chips.push("CAPE " + cacFr(m.cape, 1));
+    $("cacChips").innerHTML = chips.map(function (c) { return '<span class="chip">' + esc(c) + "</span>"; }).join("");
+    $("cacMNote").innerHTML = "Source : relevés publics du Radar Conjoncture — relevé du <b>" + esc(cacIsoDm(m.dateData) || "—") + "</b>" +
+      (m.ageDays != null ? " (" + m.ageDays + " j)" : "") +
+      ". La macro frappe toutes les valeurs pareil : elle contextualise le classement, elle n'entre <b>jamais</b> dans le score 🎯." +
+      (m.stale ? " ⚠️ <b>Relevé ancien</b> — rafraîchi au prochain relevé du Radar." : "");
+    if (m.stale) warns.push("⚠️ <b>macro ancienne</b> (" + m.ageDays + " j) — bandeau 🌍 à prendre avec prudence.");
+  } else {
+    $("cacMacroCard").style.display = "none";
+  }
+  // avertissements : cotes anciennes / valeurs sans cote / relevé incomplet
+  var ageH = (q.updated && isFinite(Date.parse(q.updated))) ? (Date.now() - Date.parse(q.updated)) / 3600000 : null;
+  if (ageH != null && ageH > 26) warns.push("⚠️ <b>cotes anciennes</b> — dernier relevé il y a " + Math.round(ageH) + " h.");
+  if (rows.length < 40) warns.push("⚠️ " + (40 - rows.length) + " valeur" + (40 - rows.length > 1 ? "s" : "") + " du CAC 40 sans cote — classement sur les " + rows.length + " cotées.");
+  if (q.ok === false) warns.push("⚠️ dernier relevé incomplet — les cotes affichées sont le dernier relevé valide.");
+  var bw = $("cacBanner");
+  if (warns.length) { bw.innerHTML = warns.join(" "); bw.style.display = ""; } else { bw.style.display = "none"; }
+  // recherche
+  var query = cacState.query;
+  if (query) rows = rows.filter(function (e) {
+    return String(e.n).toLowerCase().indexOf(query) >= 0 || String(e.mn).toLowerCase().indexOf(query) >= 0;
+  });
+  if (!rows.length) { $("cacList").innerHTML = '<div class="empty">Aucune valeur du CAC 40 pour « ' + esc(query) + ' ».</div>'; return; }
+  // tableau compact : rang · nom (PER/rend./P/B en 2e ligne) · score+verdict · cours+variation
+  var html = [];
+  for (var i = 0; i < rows.length; i++) {
+    var e = rows[i];
+    var v = e.verdict ? CAC_VERD[e.verdict] : null;
+    html.push(
+      '<div class="crow" data-i="' + i + '">' +
+      '<div class="crk">' + (i + 1) + "</div>" +
+      '<div class="cnm">' +
+      '<div class="cn1">' + esc(e.n) + ' <span class="mn">' + esc(e.mn || "") + "</span></div>" +
+      '<div class="cn2">PER ' + (e.per != null ? cacFr(e.per, 1) : "—") + " · rend. " + (e.dY != null ? cacFr(e.dY, 1) + " %" : "—") + " · P/B " + (e.pb != null ? cacFr(e.pb, 1) : "—") +
+      (e.upX != null ? " · 🎯 " + cacPct(e.upX) : "") + "</div>" +
+      "</div>" +
+      '<div class="csc ' + (v ? v.cls : "na") + '">' + (e.aScore != null ? "<b>" + e.aScore + "</b><small>" + (v ? v.ic : "") + "</small>" : "<b>—</b>") + "</div>" +
+      '<div class="cpx"><div class="p">' + cacFr(e.px, 2) + " €</div>" +
+      '<div class="v ' + (e.chg > 0 ? "up" : (e.chg < 0 ? "dn" : "mut")) + '">' + cacPct2(e.chg) + "</div></div>" +
+      "</div>" +
+      cacDetailHtml(e, i)
+    );
+  }
+  $("cacList").innerHTML = html.join("");
+}
+
+// détail complet d'une ligne — déplié au tap sur la ligne (toutes les informations)
+function cacDetailHtml(e, i) {
+  var parts = [];
+  if (e.qScore != null) parts.push("qualité " + e.qScore + "/100 (" + e.qBase + "/4 · " + (e.qMode === "sector" ? "vs secteur" : (e.qMode === "mix" ? "mixte" : "vs indice")) + ")");
+  if (e.score != null) parts.push("valorisation " + e.score + "/100 (" + e.vBase + "/3 · " + (e.vMode === "sector" ? "vs secteur" : (e.vMode === "mix" ? "mixte" : "vs indice")) + ")");
+  if (e.pUp != null) parts.push("consensus " + e.pUp + "/100");
+  var head = parts.length
+    ? "<b>Composantes du score 🎯</b> (base " + e.aBase + "/3) : " + parts.join(" · ")
+    : "<b>Composantes insuffisantes</b> (base " + (e.aBase || 0) + "/3) — pas de score, on n'invente rien.";
+  var g = [];
+  g.push("📐 Valorisation : PER " + (e.per != null ? cacFr(e.per, 1) : "—") + " · projeté " + (e.fper != null ? cacFr(e.fper, 1) : "—") +
+    " · rendement " + (e.dY != null ? cacFr(e.dY, 1) + " %" : "—") + " · P/B " + (e.pb != null ? cacFr(e.pb, 1) : "—"));
+  if (e.roe != null || e.mOp != null || e.gRev != null || e.de != null)
+    g.push("🧪 Qualité : " +
+      (e.roe != null ? "ROE " + cacFr(e.roe * 100, 1) + " % · " : "") +
+      (e.mOp != null ? "marge op. " + cacFr(e.mOp * 100, 1) + " % · " : "") +
+      (e.gRev != null ? "croissance CA " + cacPct(Math.round(e.gRev * 1000) / 10) + " · " : "") +
+      (e.de != null ? "dette/CP " + cacFr(e.de, 0) + " %" : ""));
+  if (e.tp != null)
+    g.push("🎯 Consensus : objectif <b>" + cacFr(e.tp, 2) + " €</b> (" + cacPct(e.upX) + ")" +
+      (e.tpN != null ? " · " + e.tpN + " analyste" + (e.tpN > 1 ? "s" : "") : "") +
+      (CAC_REC[e.rec] ? " · " + CAC_REC[e.rec] : ""));
+  if (e.nextRes != null || e.surp != null)
+    g.push("📅 Résultats : " + (e.nextRes != null ? "prochaine publication le <b>" + (cacIsoDm(e.nextRes) || "—") + "</b>" : "prochaine publication non communiquée") +
+      (e.surp != null ? " · surprise EPS <b>" + (e.surp > 0 ? '<span class="up">✅ +' : (e.surp < 0 ? '<span class="dn">❌ ' : "")) + cacFr(e.surp, 1) + " %" + (e.surp !== 0 ? "</span>" : "") + "</b> (moyenne des derniers trimestres)" : ""));
+  if (e.w52lo != null && e.w52hi != null)
+    g.push("📉 52 s. : " + cacFr(e.w52lo, 2) + " – " + cacFr(e.w52hi, 2) + " €" +
+      (e.gapLo != null ? " · cours à " + cacPct(e.gapLo) + " du plus bas" : "") +
+      (e.dd52 != null ? " · " + cacPct(e.dd52) + " du plus haut" : "") +
+      (e.pos52 != null ? " · position " + e.pos52 + "/100" : ""));
+  var flags = [];
+  if (e.y === "URW.PA") flags.push("⚠️ PEA : non éligible en principe (foncière/REIT) — à vérifier avant tout ordre");
+  if (e.earnWarn) flags.push("⚠️ bénéfices attendus en baisse (PER projeté au-dessus du PER passé)");
+  if (e.approx) flags.push("≈ ticker résolu approximativement — cours à vérifier");
+  if (e.pos52 != null && e.pos52 <= 20 && e.out52 === 0) flags.push("📉 bas de fourchette 52 s. (information, pas un signal — un point bas n'est pas un plancher)");
+  if (flags.length) g.push('<span class="flg">' + flags.join("<br>") + "</span>");
+  var link = "https://www.boursorama.com/recherche/?query=" + encodeURIComponent(String(e.isin || e.mn || e.n || "").trim());
+  g.push("Cap. " + (e.cap != null ? (e.cap >= 1e9 ? cacFr(e.cap / 1e9, 1) + " Md€" : cacFr(e.cap / 1e6, 0) + " M€") : "—") +
+    (e.sec ? " · secteur " + e.sec : "") +
+    ' · <a href="' + link + '" target="_blank" rel="noopener">cote ↗</a>');
+  return '<div class="cdet" id="cdet' + i + '" style="display:none">' + head + g.map(function (x) { return '<div class="grp">' + x + "</div>"; }).join("") + "</div>";
+}
+
+// tap sur une ligne → déplie/replie son détail
+function cacRowToggle(ev) {
+  var t = ev && ev.target;
+  while (t && !(t.classList && t.classList.contains && t.classList.contains("crow"))) {
+    if (t.getAttribute && t.getAttribute("id") === "cacList") { t = null; break; }
+    t = t.parentNode;
+    if (!t) break;
+  }
+  if (!t) return;
+  var det = $("cdet" + t.getAttribute("data-i"));
+  if (!det) return;
+  det.style.display = det.style.display === "none" ? "" : "none";
+}
+$("cacList").addEventListener("click", cacRowToggle);
+$("cq").addEventListener("input", function (e) {
+  cacState.query = String(e.target.value || "").trim().toLowerCase();
+  renderCacData(cacState.q);
+});
+$("btnCacRetry").addEventListener("click", function () { loadCac(true); });
+
+// chargement : cache affiché instantanément, puis rafraîchissement réseau
+loadCac();
+document.addEventListener("visibilitychange", function () { if (!document.hidden) loadCac(); });
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(function () {});
+}
 </script>
 </body>
 </html>
