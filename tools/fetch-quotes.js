@@ -111,16 +111,53 @@ function finDataRow(fd) {
   };
 }
 
-// Requête v10 pour un symbole (null si la réponse est vide/mal formée).
+// v4.1.0 : module calendarEvents (même requête v10 que les objectifs — zéro requête en plus) :
+//   nextRes — prochaine date de publication de résultats (earningsDate[0].raw, en ISO YYYY-MM-DD)
+//   surp    — surprise EPS MOYENNE des trimestres publiés disponibles (surprisePercent, en %)
+// Une surprise positive = l'entreprise bat le consensus ; c'est le fil « résultats financiers »
+// du classement d'achat. Champs absents → null, jamais de faux zéro.
+function calRow(cal) {
+  var nr = null;
+  try {
+    var ed = cal && cal.earnings && cal.earnings.earningsDate;
+    if (ed && ed[0] && typeof ed[0].raw === "number" && isFinite(ed[0].raw)) {
+      var d = new Date(ed[0].raw * 1000);
+      var p = function (n) { return (n < 10 ? "0" : "") + n; };
+      nr = d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate());
+    }
+  } catch (e) { nr = null; }
+  var surp = null;
+  try {
+    var hist = cal && cal.earningsHistory && cal.earningsHistory.history;
+    if (hist && hist.length) {
+      var s = 0, n = 0;
+      for (var i = 0; i < hist.length; i++) {
+        var sp = hist[i] && hist[i].surprisePercent;
+        if (sp && typeof sp.raw === "number" && isFinite(sp.raw)) { s += sp.raw; n++; }
+      }
+      if (n > 0) surp = Math.round((s / n) * 100) / 100;
+    }
+  } catch (e2) { surp = null; }
+  return { nextRes: nr, surp: surp };
+}
+
+// Requête v10 pour un symbole (null si la réponse est vide/mal formée). v4.1.0 : le module
+// calendarEvents est demandé DANS la même requête que financialData — les résultats financiers
+// et le consensus voyagent ensemble, sans augmenter le nombre de requêtes.
 async function finDataFor(sym, sess) {
   var host = (Math.random() < 0.5) ? "query1" : "query2";
   var url = "https://" + host + ".finance.yahoo.com/v10/finance/quoteSummary/" + encodeURIComponent(sym) +
-    "?modules=financialData&crumb=" + encodeURIComponent(sess.crumb);
+    "?modules=financialData,calendarEvents&crumb=" + encodeURIComponent(sess.crumb);
   var r = await rawFetch(url, { headers: { "User-Agent": UA, "Accept": "application/json", "Cookie": sess.cookie } });
   if (r.status !== 200) { var e = new Error("v10 HTTP " + r.status); e.status = r.status; throw e; }
   var body = JSON.parse(await r.text());
   var res = body && body.quoteSummary && body.quoteSummary.result && body.quoteSummary.result[0];
-  return (res && res.financialData) ? finDataRow(res.financialData) : null;
+  if (!res) return null;
+  var row = (res.financialData) ? finDataRow(res.financialData) : { tp: null, tpLo: null, tpHi: null, tpN: null, rec: null, gRev: null, gEps: null, mOp: null, roe: null, de: null };
+  var cal = calRow(res.calendarEvents);
+  row.nextRes = cal.nextRes;
+  row.surp = cal.surp;
+  return row;
 }
 
 // Collecte des objectifs pour tous les tickers. Retour { rows: {ticker: champs}, got, errors }.
@@ -133,7 +170,13 @@ async function fetchTargets(symbols, sess, opts) {
     var sym = symbols[i];
     try {
       var row = await finDataFor(sym, sess);
-      if (row && row.tp != null) { rows[sym] = row; got++; }
+      // v4.1.0 : une ligne SANS objectif mais avec résultats (nextRes/surp) est conservée —
+      // le fil « résultats financiers » ne doit pas disparaître quand les objectifs manquent ;
+      // le compteur `got` (couverture tpUpdated) ne compte toujours QUE les objectifs.
+      if (row && (row.tp != null || row.nextRes != null || row.surp != null)) {
+        rows[sym] = row;
+        if (row.tp != null) got++;
+      }
     } catch (e) {
       if (e && e.status === 429) { log("[targets] 429 Yahoo au symbole " + (i + 1) + "/" + symbols.length + " — étape interrompue, le relevé des cotes reste valide"); aborted = true; break; }
       errors++;
@@ -211,9 +254,14 @@ async function fetchQuotes(sb, opts) {
     log("[quotes] batch " + (Math.floor(i / batch) + 1) + "/" + Math.ceil(symbols.length / batch) + " : " + res.length + "/" + part.length + " réponses");
     if (i + batch < symbols.length) await sleep(350);
   }
-  // l'indice
-  var idxRes = await quotesBatch(["^SBF120"], sess);
-  var idx = idxRes && idxRes[0] ? quoteRow(idxRes[0]) : null;
+  // les indices : SBF 120 (onglet SBF) + CAC 40 (onglet 🇫🇷, v4.1.0) — MÊME batch, pas de requête en plus
+  var idxRes = await quotesBatch(["^SBF120", "^FCHI"], sess);
+  var sbIdx = null, cacIdx = null;
+  (idxRes || []).forEach(function (q) {
+    if (q.symbol === "^SBF120") sbIdx = quoteRow(q);
+    else if (q.symbol === "^FCHI") cacIdx = quoteRow(q);
+  });
+  var idx = (sbIdx && sbIdx.px != null) ? sbIdx : null;
 
   var list = [], missing = [];
   sb.list.forEach(function (e) {
@@ -238,6 +286,8 @@ async function fetchQuotes(sb, opts) {
     missing: missing,
     sbUpdated: sb.updated || null,
     idx: idx && idx.px != null ? { px: idx.px, chg: idx.chg, t: idx.t } : null,
+    // v4.1.0 : indice CAC 40 dédié (onglet 🇫🇷) — ^FCHI côté Yahoo
+    cacIdx: cacIdx && cacIdx.px != null ? { px: cacIdx.px, chg: cacIdx.chg, t: cacIdx.t, name: "CAC 40" } : null,
     list: list
   };
 }
@@ -348,6 +398,9 @@ async function fetchQuotesTv(sb, opts) {
     missing: missing,
     sbUpdated: sb.updated || null,
     idx: idx,
+    // v4.1.0 : en repli TradingView, l'indice déjà relevé EST le CAC 40 (EURONEXT:PX1) —
+    // l'onglet 🇫🇷 l'affiche directement, zéro requête en plus.
+    cacIdx: { px: idx.px, chg: idx.chg, t: null, name: "CAC 40 (Euronext via TradingView)" },
     list: list
   };
 }
@@ -381,6 +434,71 @@ function ageMinutesOf(updatedIso) {
   return Math.max(0, Math.round((Date.now() - t) / 60000));
 }
 
+// ---------- v4.1.0 : macro (bandeau 🌍 de l'onglet CAC 40) ----------
+// Source : les relevés PUBLICS du Radar Conjoncture de Jade (GitHub Pages) — data.json (relevé
+// hebdomadaire vérifié par la tâche planifiée du lundi) et data-daily.json (relevé quotidien
+// automatique). Réutiliser ces sources garantit la COHÉRENCE entre les deux apps (jamais deux
+// chiffres contradictoires pour la même donnée). Chaque champ vient du relevé LE PLUS FRAIS ;
+// les deux fichiers sont complémentaires (l'hebdo porte OAT/Bund/BCE/inflation/PMI, le quotidien
+// porte les spots marché VIX). Échec = silencieux : la macro précédente est conservée, les cotes
+// restent valides (même convention que les objectifs).
+var RADAR_BASE = "https://jeffbuzz060684.github.io/radar-conjoncture/";
+
+async function radarJson(file) {
+  var r = await rawFetch(RADAR_BASE + file, { headers: { "User-Agent": UA, "Accept": "application/json" } });
+  if (r.status !== 200) throw new Error(file + " HTTP " + r.status);
+  return JSON.parse(await r.text());
+}
+
+async function fetchMacro() {
+  var weekly = null, daily = null;
+  try { weekly = await radarJson("data.json"); }
+  catch (e) { log("[macro] data.json Radar indisponible : " + e.message); }
+  if (weekly) {
+    try { daily = await radarJson("data-daily.json"); }
+    catch (e2) { log("[macro] data-daily.json Radar indisponible : " + e2.message); }
+  }
+  if (!weekly && !daily) throw new Error("Radar Conjoncture injoignable");
+  var wd = (weekly && weekly.data) || {}, dd = (daily && daily.data) || {};
+  var wDate = String((weekly && weekly.dateData) || ""), dDate = String((daily && daily.dateData) || "");
+  var dailyNewer = dDate > wDate; // dates ISO : comparaison lexicographique valide
+  function pick(k) {
+    if (dailyNewer && dd[k] != null && isFinite(dd[k])) return dd[k];
+    if (wd[k] != null && isFinite(wd[k])) return wd[k];
+    if (dd[k] != null && isFinite(dd[k])) return dd[k];
+    return null;
+  }
+  var m = {
+    updated: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+    source: "Radar Conjoncture — relevés publics data.json (hebdo vérifié) + data-daily.json",
+    dateData: (dailyNewer ? dDate : wDate) || null,
+    dateMacro: (wd.dateMacro != null) ? wd.dateMacro : null
+  };
+  ["vix", "vix5", "bund10", "oat10", "bceDepot", "inflZE", "pmiZE", "cape"].forEach(function (k) { m[k] = pick(k); });
+  m.bceDir = ((typeof wd.bceDir === "string" && wd.bceDir) || (typeof dd.bceDir === "string" && dd.bceDir) || null);
+  return m;
+}
+
+// applique la macro à un relevé : la macro précédente est reportée si fraîche (< maxAgeMacroMin,
+// défaut 60 min — 2 petites requêtes), sinon re-fetch ; échec → macro précédente conservée.
+// Toujours non bloquant : un relevé de cotes ne doit JAMAIS échouer à cause de la macro.
+async function applyMacro(q, prev, opts) {
+  opts = opts || {};
+  var maxAge = (opts.maxAgeMacroMin != null) ? opts.maxAgeMacroMin : 60;
+  if (prev && prev.macro && ageMinutesOf(prev.macro.updated) != null && ageMinutesOf(prev.macro.updated) < maxAge) {
+    q.macro = prev.macro;
+    return q;
+  }
+  try {
+    q.macro = await fetchMacro();
+    log("[macro] Radar Conjoncture intégré (données du " + q.macro.dateData + ")");
+  } catch (e) {
+    if (prev && prev.macro) { q.macro = prev.macro; log("[macro] échec — macro précédente conservée : " + e.message); }
+    else log("[macro] échec — bandeau macro absent : " + e.message);
+  }
+  return q;
+}
+
 // v4.0.8 : alertes de panne ntfy pour les cotes (topic en secret, jamais en dur dans un dépôt public)
 async function alertOps(alerts) {
   var topic = String(process.env.NTFY_TOPIC || "").trim();
@@ -409,13 +527,17 @@ async function main() {
   // couvre déjà la cadence). Sans l'option, on collecte toujours (workflow cotes dédié).
   // v4.0.6 : --max-age-targets-min=N — les objectifs d'analystes bougent lentement : si le
   // tpUpdated du fichier existant a moins de N minutes, l'étape objectifs est sautée (le module
-  // v10 est PAR valeur : 120 requêtes à ne refaire que 1×/12 h).
-  var maxAge = null, maxAgeTargets = null;
+  // v10 est PAR valeur : 120 requêtes à ne refaire que 1x/12 h).
+  // v4.1.0 : --max-age-macro-min=N — la macro du Radar Conjoncture est re-téléchargée si la
+  // précédente a plus de N minutes (défaut 60 : 2 petites requêtes vers GitHub Pages).
+  var maxAge = null, maxAgeTargets = null, maxAgeMacro = null;
   process.argv.forEach(function (a) {
     var m = /^--max-age-min=(\d+)$/.exec(a);
     if (m) maxAge = parseInt(m[1], 10);
     var t = /^--max-age-targets-min=(\d+)$/.exec(a);
     if (t) maxAgeTargets = parseInt(t[1], 10);
+    var g = /^--max-age-macro-min=(\d+)$/.exec(a);
+    if (g) maxAgeMacro = parseInt(g[1], 10);
   });
   try {
     var sb = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "sbf120.json"), "utf8"));
@@ -429,18 +551,28 @@ async function main() {
       var age = ageMinutesOf(prev.updated);
       if (age !== null && age < maxAge) {
         log("[quotes] relevé précédent frais (" + age + " min < " + maxAge + ") — pas de nouvelle collecte (anti-doublon)");
-        // les cotes sont fraîches mais les objectifs peuvent être périmés : étape ciblée,
+        // les cotes sont fraîches mais les objectifs/macro peuvent être périmés : étapes ciblées,
         // on ne touche à RIEN d'autre du fichier (cotes, indice, composition d'origine).
-        if (targetsFresh()) { log("[targets] objectifs précédents frais — rien à faire"); await opsSuccess(); return; }
-        if (!prev.list || !prev.list.length) { await opsSuccess(); return; }
-        try {
-          var t0 = await fetchTargetsAuto(prev.list.map(function (e) { return e.y; }), {});
-          if (t0.got > 0) {
-            mergeTargets(prev, t0);
-            fs.writeFileSync(dest, JSON.stringify(prev));
-            log("[targets] écrit : " + t0.got + " objectifs (relevé des cotes inchangé)");
-          } else log("[targets] aucun objectif récupéré — fichier inchangé");
-        } catch (eT) { log("[targets] étape en échec (non bloquant) : " + eT.message); }
+        var dirty = false;
+        if (!targetsFresh() && prev.list && prev.list.length) {
+          try {
+            var t0 = await fetchTargetsAuto(prev.list.map(function (e) { return e.y; }), {});
+            if (t0.got > 0) {
+              mergeTargets(prev, t0);
+              dirty = true;
+              log("[targets] écrit : " + t0.got + " objectifs (relevé des cotes inchangé)");
+            } else log("[targets] aucun objectif récupéré");
+          } catch (eT) { log("[targets] étape en échec (non bloquant) : " + eT.message); }
+        } else if (targetsFresh()) { log("[targets] objectifs précédents frais — rien à faire"); }
+        // v4.1.0 : la macro est rafraîchie MÊME quand cotes et objectifs sont frais (elle vit
+        // dans un autre fichier côté Radar et suit son propre rythme — hebdo vérifié + quotidien)
+        var mBefore = (prev.macro && prev.macro.updated) || null;
+        await applyMacro(prev, prev, { maxAgeMacroMin: maxAgeMacro });
+        if (prev.macro && prev.macro.updated !== mBefore) {
+          dirty = true;
+          log("[macro] relevé macro écrit (cotes inchangées)");
+        }
+        if (dirty) fs.writeFileSync(dest, JSON.stringify(prev));
         await opsSuccess();
         return;
       }
@@ -452,7 +584,13 @@ async function main() {
     // sinon on collecte (Yahoo v10 — le repli TradingView n'a pas d'objectifs, la colonne est null).
     if (prev && targetsFresh() && prev.list) {
       var carried = { rows: {}, got: 0 };
-      prev.list.forEach(function (e) { if (e.tp != null) { carried.rows[e.y] = { tp: e.tp, tpLo: e.tpLo, tpHi: e.tpHi, tpN: e.tpN, rec: e.rec, gRev: e.gRev, gEps: e.gEps, mOp: e.mOp, roe: e.roe, de: e.de }; carried.got++; } });
+      prev.list.forEach(function (e) {
+        if (e.tp != null) {
+          // v4.1.0 : les résultats financiers (nextRes/surp) voyagent avec les objectifs
+          carried.rows[e.y] = { tp: e.tp, tpLo: e.tpLo, tpHi: e.tpHi, tpN: e.tpN, rec: e.rec, gRev: e.gRev, gEps: e.gEps, mOp: e.mOp, roe: e.roe, de: e.de, nextRes: e.nextRes != null ? e.nextRes : null, surp: e.surp != null ? e.surp : null };
+          carried.got++;
+        }
+      });
       if (carried.got >= Math.ceil(out.list.length * 0.6)) {
         mergeTargets(out, carried); out.tpUpdated = prev.tpUpdated;
         log("[targets] objectifs précédents reportés sur le nouveau relevé (" + carried.got + ")");
@@ -465,6 +603,8 @@ async function main() {
         log("[targets] " + t1.got + "/" + out.list.length + " objectifs intégrés" + (out.tpUpdated ? "" : " (couverture insuffisante — tpUpdated non posé)"));
       } catch (eT) { log("[targets] étape en échec (non bloquant) : " + eT.message); }
     }
+    // v4.1.0 : macro du Radar Conjoncture (bandeau 🌍 de l'onglet CAC 40) — non bloquante
+    await applyMacro(out, prev, { maxAgeMacroMin: maxAgeMacro });
     fs.writeFileSync(dest, JSON.stringify(out));
     log("[quotes] écrit : " + out.n + " valeurs" + (out.missing.length ? " (manquantes : " + out.missing.join(", ") + ")" : "") + " -> " + dest);
     await opsSuccess();
@@ -480,6 +620,5 @@ async function main() {
     process.exit(1);
   }
 }
-
 if (require.main === module) main();
-module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker, fetchQuotesAuto: fetchQuotesAuto, ageMinutesOf: ageMinutesOf, setDeadline: setDeadline, finDataRow: finDataRow, finDataFor: finDataFor, fetchTargets: fetchTargets, fetchTargetsAuto: fetchTargetsAuto, mergeTargets: mergeTargets };
+module.exports = { yahooSession: yahooSession, quotesBatch: quotesBatch, quoteRow: quoteRow, fetchQuotes: fetchQuotes, setFetchForTests: setFetchForTests, fetchQuotesTv: fetchQuotesTv, tvScan: tvScan, tvTicker: tvTicker, fetchQuotesAuto: fetchQuotesAuto, ageMinutesOf: ageMinutesOf, setDeadline: setDeadline, finDataRow: finDataRow, finDataFor: finDataFor, fetchTargets: fetchTargets, fetchTargetsAuto: fetchTargetsAuto, mergeTargets: mergeTargets, calRow: calRow, radarJson: radarJson, fetchMacro: fetchMacro, applyMacro: applyMacro };

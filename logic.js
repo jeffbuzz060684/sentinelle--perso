@@ -4,7 +4,7 @@ var RI = (function () {
   "use strict";
 
   // ---------- configuration du pipeline ----------
-  var VERSION = "4.0.12";   // version unique de l'app (badge + footer la lisent) — v4.0.12 (audit) : initiés NEUTRES à 50 sans signal, percentiles sectoriels par MÉTRIQUE (≥ 8 pairs ET ≥ 5 observations), composantes visibles, « point d'entrée » → « valorisation relative », 52 s. hors bornes signalée, journal benchmark
+  var VERSION = "4.1.0";   // version unique de l'app (badge + footer la lisent) — v4.1.0 : onglet 🇫🇷 CAC 40, classement d'achat des 40 valeurs (qualité 40 % + valorisation 25 % + consensus 35 %) + surprises EPS/prochaine publication (calendarEvents Yahoo) + bandeau macro Radar Conjoncture + indice CAC 40 dédié ; composition automatique (groupe cac40 de sbf120.json)
   var CFG = {
     FR_MIN_EUR: 1000,      // montant min des acquisitions FR (filtre côté service + re-vérifié ici)
     US_MIN_USD: 1000,      // montant min des achats US (filtre local)
@@ -959,6 +959,91 @@ var RI = (function () {
     });
   }
 
+  // ---------- v4.1.0 : 🇫🇷 CAC 40 — le classement d'achat (demande de Jade 10/11/2026) ----------
+  // « Reprendre toutes les informations de chaque action et les classer selon l'importance
+  // de l'avis d'achat, la meilleure opportunité — selon les résultats financiers, le consensus
+  // et la macroéconomie. » Le score 🎯 d'achat du CAC 40 COMPOSE les briques déjà validées par
+  // les revues de Jade (v4.0.5-v4.0.12) :
+  //   qualité 40 %        → résultats financiers : ROE/marge op./croissance/dette, PAR SECTEUR (qScore)
+  //   valorisation 25 %   → PER/rendement/P/B vs pairs (score de valScores)
+  //   consensus 35 %     → percentile du potentiel vs objectif moyen (upX) — ENTRE dans le score
+  //                        à la demande expresse de Jade pour CE classement. Note : l'onglet SBF 120
+  //                        garde le consensus comme CONTEXTE non noté (décision v4.0.12) — les deux
+  //                        lectures cohabitent volontairement, chacune affichée pour ce qu'elle est.
+  // Les composantes manquantes RENORMALISENT les poids (convention vBase/qBase : la base est
+  // affichée) ; ≥ 2 composantes sur 3 EXIGÉES (une seule = pas d'avis). Les percentiles restent
+  // calculés sur TOUT le SBF coté (base identique aux autres scores, plus de pairs = rang plus
+  // stable qu'un percentile calculé sur 40 valeurs seules). Les surprises EPS et la prochaine
+  // date de publication (calendarEvents Yahoo) + la position 52 s. + les initiés restent des
+  // ÉTIQUETTES de contexte AFFICHÉES, jamais notées — la macro frappe tout le monde pareil,
+  // elle vit dans le bandeau 🌍. Heuristique de tri jamais validée sur historique : pas un conseil.
+
+  // percentile du potentiel consensus (upX) sur la base fournie — higherIsBetter, ex æquo rang moyen
+  function consPct(list) {
+    return rankPctAny(list, "upX", false);
+  }
+
+  // enrichit la sortie de sbfEnrich : pUp (percentile consensus), aScore (composite renormalisé),
+  // aBase (nb de composantes utilisées), verdict (🥇/🥈/🥉/⏸ — lecture, heuristique non validée)
+  function cacScores(list) {
+    var W = { q: 0.40, v: 0.25, c: 0.35 };
+    var pUp = consPct(list);
+    return list.map(function (e, i) {
+      var o = {};
+      for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
+      o.pUp = pUp[i] != null ? pUp[i] : null;
+      var s = 0, w = 0, base = 0;
+      if (o.qScore != null) { s += W.q * o.qScore; w += W.q; base++; }
+      if (o.score != null) { s += W.v * o.score; w += W.v; base++; }
+      if (o.pUp != null) { s += W.c * o.pUp; w += W.c; base++; }
+      o.aBase = base;
+      o.aScore = (base >= 2 && w > 0) ? Math.round(s / w) : null;
+      o.verdict = o.aScore == null ? null
+        : (o.aScore >= 70 ? "strong" : (o.aScore >= 55 ? "good" : (o.aScore >= 40 ? "mid" : "wait")));
+      return o;
+    });
+  }
+
+  // le groupe « cac40 » de la composition : LA source de vérité du périmètre — reconstruite chaque
+  // mois par sbf120.yml (Wikipédia FR), l'onglet suit l'indice MÊME quand il change de composition.
+  function cacFilter(list) {
+    return (list || []).filter(function (e) { return e && e.g === "cac40"; });
+  }
+
+  // tri du classement d'achat : aScore décroissant, les scores null (composantes insuffisantes)
+  // restent en fin de liste — jamais cachés
+  function cacSort(list) {
+    return list.slice().sort(function (a, b) {
+      var va = a.aScore, vb = b.aScore;
+      var na = va == null || !isFinite(va), nb = vb == null || !isFinite(vb);
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      return vb - va;
+    });
+  }
+
+  // macro du Radar Conjoncture (relevés publics data.json hebdo + data-daily.json) → état affichable :
+  // champs validés, spread OAT-Bund en pb, direction BCE en liste blanche, âge en jours, périmé > 10 j.
+  // La macro est un CONTEXTE affiché (bandeau 🌍), jamais une composante du score par valeur.
+  function macroState(m, nowMs) {
+    if (!m || typeof m !== "object") return null;
+    var out = { dateData: m.dateData || null, dateMacro: m.dateMacro || null, src: m.source || null };
+    ["vix", "vix5", "bund10", "oat10", "bceDepot", "inflZE", "pmiZE", "cape"].forEach(function (k) {
+      out[k] = (m[k] != null && isFinite(m[k])) ? m[k] : null;
+    });
+    out.bceDir = ["hausse", "baisse", "stable"].indexOf(m.bceDir) >= 0 ? m.bceDir : null;
+    out.spread = (out.oat10 != null && out.bund10 != null) ? Math.round((out.oat10 - out.bund10) * 100) : null;
+    var age = null;
+    if (out.dateData && /^\d{4}-\d{2}-\d{2}$/.test(out.dateData)) {
+      var t = Date.parse(out.dateData + "T12:00:00Z");
+      if (isFinite(t)) age = Math.floor(((nowMs || Date.now()) - t) / 86400000);
+    }
+    out.ageDays = age;
+    out.stale = age != null && age > 10;
+    return out;
+  }
+
   function fmtCap(cap) {
     if (cap == null || !isFinite(cap)) return "—";
     if (cap >= 1e12) return (cap / 1e12).toFixed(2).replace(".", ",") + " T€";
@@ -1001,7 +1086,8 @@ var RI = (function () {
     pickBuyRows: pickBuyRows,
     sellStatsByKey: sellStatsByKey, insiderScoreFor: insiderScoreFor, fundScore: fundScore,
     xbrlAnnuals: xbrlAnnuals, fundFromXbrl: fundFromXbrl, pickCandidates: pickCandidates, picksFrom: picksFrom, picksFromFr: picksFromFr,
-    rankPct: rankPct, valScores: valScores, oppScores: oppScores, rankPctAny: rankPctAny, pos52Of: pos52Of, qMetricOf: qMetricOf, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct
+    rankPct: rankPct, valScores: valScores, oppScores: oppScores, rankPctAny: rankPctAny, pos52Of: pos52Of, qMetricOf: qMetricOf, insiderFrBonus: insiderFrBonus, sbfEnrich: sbfEnrich, sbfSort: sbfSort, fmtCap: fmtCap, fmtPct: fmtPct,
+    consPct: consPct, cacScores: cacScores, cacFilter: cacFilter, cacSort: cacSort, macroState: macroState
   };
 })();
 if (typeof module !== "undefined" && module.exports) { module.exports = RI; }

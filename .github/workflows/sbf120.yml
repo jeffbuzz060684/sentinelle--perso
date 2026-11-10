@@ -3,7 +3,13 @@ on:
   schedule:
     # Révisions Euronext : mars, juin, septembre, décembre — on reconstruit le 3 du mois
     # à 04:37 UTC pour être prêt avant les révisions, et le fichier ne bouge sinon pas.
+    # ⚠️ Les schedules de ce compte ne partent pas (constat v4.0.x) : le cron est conservé
+    # par sécurité, mais le déclencheur réel est le push sur .github/ping-compo (tâche Vibe
+    # mensuelle qui commit un fichier d'horodatage — v4.1.0).
     - cron: "37 4 3 * *"
+  push:
+    branches: [main]
+    paths: [".github/ping-compo"]
   workflow_dispatch:
 # v4.0.5 : permissions au niveau JOB uniquement (rien au niveau workflow)
 concurrency:

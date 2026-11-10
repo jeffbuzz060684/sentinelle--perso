@@ -96,6 +96,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
     <div class="tabs" id="tabs">
     <button data-tab="ins" class="on">👁 Initiés</button>
+    <button data-tab="cac">🇫🇷 CAC 40</button>
     <button data-tab="sbf">📊 SBF 120</button>
   </div>
 
@@ -161,6 +162,31 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
 
     </div><!-- /viewIns -->
 
+  <div id="viewCac" class="hidden">
+    <div class="stats">
+      <div class="stat"><div class="v" id="caxPx">—</div><div class="l" id="caxL">indice CAC 40</div></div>
+      <div class="stat"><div class="v" id="caxChg">—</div><div class="l">variation du jour</div></div>
+      <div class="stat"><div class="v" id="cacN">—</div><div class="l">valeurs classées / 40</div></div>
+      <div class="stat"><div class="v" id="cacRel">—</div><div class="l">relevé des cotes (UTC)</div></div>
+      <div class="stat"><div class="v" id="cacSrc">—</div><div class="l">source des cotes</div></div>
+      <div class="stat"><div class="v" id="cacMg">—</div><div class="l">macro (Radar)</div></div>
+    </div>
+    <div class="card hidden" id="cacBanner" style="background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.4);font-size:13px;line-height:1.5"></div>
+    <div class="card hidden" id="macroCard">
+      <h3>🌍 Macro — le contexte, pas un signal</h3>
+      <div id="macroChips" class="amts"></div>
+      <p class="mut" id="macroNote"></p>
+    </div>
+    <div class="card filters">
+      <div class="filters">
+        <div class="seg" id="segCac"><span style="font-weight:600;cursor:default">🎯 Classement d'achat — qualité 40 % + valorisation 25 % + consensus 35 %</span></div>
+        <input type="search" id="cq" placeholder="🔎 valeur du CAC 40…" aria-label="Rechercher">
+      </div>
+      <p class="mut">Les <b>40 valeurs de l'indice</b> (composition automatique depuis Wikipédia, reconstruite chaque mois — l'onglet suit l'indice <b>même quand il change</b>), classées par le score 🎯 d'achat : <b>qualité 40 %</b> (ROE, marge op., croissance, dette — par secteur, ≥ 3/4 métriques) + <b>valorisation 25 %</b> (PER/rendement/P/B vs pairs) + <b>consensus 35 %</b> (percentile du potentiel vs objectif moyen — il ENTRE dans ce score à ta demande, contrairement à l'onglet SBF 120 où il reste un contexte non noté). Les composantes manquantes <b>renormalisent</b> les poids, <b>≥ 2/3 exigées</b> — la base de chaque score est affichée ; les percentiles restent calculés sur <b>tout le SBF coté</b> (plus de pairs = rang plus stable). <b>Résultats financiers</b> : surprises EPS des derniers trimestres (✅ battu / ❌ manqué) et <b>prochaine date de publication</b>, affichées par valeur. La <b>macro frappe tout le monde pareil</b> : elle vit dans le bandeau 🌍, jamais dans le score. Heuristique de tri jamais validée sur historique — <b>pas un conseil</b> : réserve tactique, Radar Conjoncture et zones d'achat restent maîtres.</p>
+    </div>
+    <div id="cacList"></div>
+  </div><!-- /viewCac -->
+
   <div id="viewSbf" class="hidden">
     <div class="stats">
       <div class="stat"><div class="v" id="sbIdxPx">—</div><div class="l" id="sbIdxL">indice SBF 120</div></div>
@@ -193,6 +219,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         <li>🔥 <b>Accumulations</b> : les sociétés où les initiés achètent plusieurs fois sont regroupées en haut — c'est là que le signal est le plus fort (surtout avec des initiés <b>distincts</b>).</li>
         <li>⏱ Relevé automatique <b>toutes les 2 h en jours ouvrés</b> (workflow GitHub Actions) ; l'app se rafraîchit à l'ouverture puis toutes les 10 min.</li>
         <li>📊 <b>SBF 120</b> : cotes + valorisation (PER, rendement, P/B) via Yahoo Finance avec <b>repli automatique TradingView</b> quand Yahoo sature (la source réelle et l'indice utilisé — SBF 120 ou repli CAC 40 — sont affichés en haut de l'onglet), Euronext en <b>différé ≈ 15 min</b> (le temps réel officiel est payant), relevé toutes les <b>15 min pendant la cotation</b> (workflow dédié). Composition : Wikipédia FR (révision indices du 22/12/2025), tickers Euronext. 🏆 <b>Un seul classement — Long terme</b> (v4.0.12) : qualité 55 % (ROE, marge, croissance, dette — par secteur si ≥ 8 pairs et ≥ 5 observations de la métrique, sinon vs indice) + valorisation relative 35 % (PER/rendement/P/B vs pairs) + initiés FR 10 % (conviction des dirigeants — <b>50 neutre sans signal</b>, pas de pénalité d'absence) ; fondamentaux Yahoo, ou TradingView en repli sans la croissance (score sur 3/4). Le consensus 🎯 des analystes (prix cible moyen vs cours, nombre d'analystes, recommandation) est affiché comme <b>contexte d'entrée</b> sur chaque carte. La position dans la fourchette <b>52 semaines</b> est affichée comme <b>contexte d'entrée</b> aussi, mais <b>exclue du score</b> : George &amp; Hwang associent le momentum au plus HAUT 52 s., pas au plus bas. Chaque jour, le pipeline journalise le top 20 (fichier <code>journal-scores.jsonl</code>) pour mesurer un jour les rendements à 3/6/12 mois contre le benchmark — l'identité de l'indice est conservée dans chaque ligne et seules les périodes au <b>même indice</b> sont comparées — heuristique de tri <b>non validée sur historique</b>, à confronter au contexte d'entrée (initiés 🔀, consensus 🎯) et au journal avant toute décision.</li>
+        <li>🇫🇷 <b>CAC 40 — classement d'achat</b> (v4.1.0) : les 40 valeurs de l'indice — périmètre automatique (groupe cac40 de la composition Wikipédia, reconstruite chaque mois par workflow ou plan B, l'onglet suit l'indice même quand il change) — classées par le score 🎯 <b>qualité 40 % + valorisation 25 % + consensus 35 %</b> (renormalisé sur les composantes disponibles, ≥ 2/3 exigées, base affichée ; percentiles sur tout le SBF coté). <b>Résultats financiers</b> : surprises EPS (moyenne des derniers trimestres publiés) + prochaine date de publication (module Yahoo calendarEvents, même requête que les objectifs). <b>Macro</b> : bandeau 🌍 alimenté par les relevés publics du <a href="https://jeffbuzz060684.github.io/radar-conjoncture/" target="_blank" rel="noopener">Radar Conjoncture</a> (VIX, OAT/Bund, BCE, inflation) — un contexte commun à toutes les valeurs, jamais une composante du score. Indice CAC 40 dédié (^FCHI côté Yahoo, Euronext PX1 en repli TradingView). Verdicts 🥇🥈🥉⏸ = lecture du score, heuristique non validée ; l'URW (REIT) est signalé non éligible PEA en principe. Heure de publication, délais et sources honnêtes : cotes en différé ~15 min, consensus rafraîchi ~2×/jour, macro à son propre rythme (hebdo vérifié).</li>
       </ul>
       <p style="margin-top:6px">Personne ne peut faire plus vite : ces délais sont la loi. Ce que tu vois est déjà « au plus tôt légalement possible » — les parlementaires (STOCK Act, 45 jours) ne sont PAS suivis ici, car leur signal est périmé à la publication.</p>
       <p style="margin-top:6px">⚠️ Outil d'information, pas un conseil en investissement. Les initiés vendent pour mille raisons et achètent pour une : leur achat est un signal, pas une garantie.</p>
@@ -214,7 +241,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   var PREF_KEY = "sentinelle-perso-prefs-v1";
   var SEEN_KEY = "sentinelle-perso-lastseen-v1";
   var QKEY = "sentinelle-perso-quotes-v4";
-  var state = { data: null, quotes: null, newIds: {}, limit: 100, sbLimit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false, sbQ: "", tab: "ins" } }; // v4.0.11 : plus de sbView — un seul classement 🏆
+  var state = { data: null, quotes: null, newIds: {}, limit: 100, sbLimit: 100, prefs: { src: "all", side: "buy", sort: "date", m: 0, q: "", new: false, sbQ: "", cacQ: "", tab: "ins" } }; // v4.0.11 : plus de sbView — un seul classement 🏆 ; v4.1.0 : onglet cac + recherche cacQ
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = typeof RI !== "undefined" ? RI.esc : function (s) { return String(s); };
@@ -236,8 +263,9 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
         if (typeof p.q === "string") state.prefs.q = p.q;
         if (typeof p.new === "boolean") state.prefs.new = p.new;
         if (p.side === "buy" || p.side === "sell" || p.side === "all") state.prefs.side = p.side;
-        if (p.tab === "ins" || p.tab === "sbf") state.prefs.tab = p.tab;
+        if (p.tab === "ins" || p.tab === "sbf" || p.tab === "cac") state.prefs.tab = p.tab;
         if (typeof p.sbQ === "string") state.prefs.sbQ = p.sbQ;
+        if (typeof p.cacQ === "string") state.prefs.cacQ = p.cacQ;
       }
     } catch (e) { }
   }
@@ -304,6 +332,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     state.quotes = q;
     try { localStorage.setItem(QKEY, JSON.stringify(q)); } catch (e) { }
     if (state.prefs.tab === "sbf") renderSbf();
+    if (state.prefs.tab === "cac") renderCac();
     return true;
   }
   function useCachedQuotes() {
@@ -320,6 +349,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       .catch(function () {
         if (!state.quotes) useCachedQuotes();
         if (state.prefs.tab === "sbf") { renderSbf(); if (!silent) toast("Cotes hors ligne — dernier relevé affiché"); }
+        if (state.prefs.tab === "cac") { renderCac(); if (!silent) toast("Cotes hors ligne — dernier relevé affiché"); }
       });
   }
 
@@ -625,6 +655,12 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
       savePrefs();
       reflectPrefs();
       if (state.prefs.tab === "sbf") renderSbf();
+      if (state.prefs.tab === "cac") renderCac();
+    });
+    $("cq").addEventListener("input", function (e) {
+      state.prefs.cacQ = e.target.value;
+      savePrefs();
+      renderCac();
     });
     $("sq").addEventListener("input", function (e) {
       state.prefs.sbQ = e.target.value;
@@ -766,6 +802,159 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     $("sbList").innerHTML = html.join("");
   }
 
+  // v4.1.0 : rendu de l'onglet 🇫🇷 CAC 40 — le classement d'achat des 40 valeurs de l'indice
+  function renderCac() {
+    var q = state.quotes;
+    if (!q || !q.list || !q.list.length) {
+      $("cacList").innerHTML = '<div class="empty">Cotes pas encore chargées — rafraîchis dans un instant.</div>';
+      return;
+    }
+    // indice CAC 40 : champ dédié (Yahoo ^FCHI ou repli TV EURONEXT:PX1) ; en repli TradingView,
+    // l'indice du relevé EST déjà le CAC 40 (nommé dans idx.name) — on l'affiche tel quel.
+    var cIdx = q.cacIdx || (q.idx && q.idx.name && String(q.idx.name).indexOf("CAC 40") > -1 ? q.idx : null);
+    if (cIdx && cIdx.px != null) {
+      $("caxPx").textContent = RI.fmtNum(Math.round(cIdx.px * 100) / 100);
+      $("caxL").textContent = cIdx.name || "indice CAC 40";
+      var cch = cIdx.chg;
+      var cel = $("caxChg");
+      cel.textContent = RI.fmtPct(cch);
+      cel.className = "v " + (cch > 0 ? "up" : (cch < 0 ? "dn" : ""));
+    }
+    $("cacRel").textContent = q.updated ? String(q.updated).slice(11, 16) + " UTC" : "—";
+    $("cacSrc").textContent = (q.source ? (String(q.source).indexOf("TradingView") > -1 ? "TradingView" : "Yahoo") : "—");
+    // scores : percentiles sur TOUT le SBF coté (base stable, identique aux autres scores),
+    // puis filtrage du groupe cac40 — le périmètre suit la composition automatiquement.
+    var val = RI.oppScores(RI.valScores(q.list));
+    var since30 = RI.isoDay(new Date(Date.now() - RI.CFG.SIGN_DAYS * 86400000));
+    var bonus = RI.insiderFrBonus((state.data && state.data.fr) || [], { since: since30 });
+    var enr = RI.sbfEnrich(val, bonus);
+    var scored = RI.cacScores(enr);
+    var rows = RI.cacSort(RI.cacFilter(scored));
+    $("cacN").textContent = String(rows.length) + "/40";
+    // bandeau macro 🌍 (relevés publics du Radar Conjoncture — contexte commun, jamais noté)
+    var m = RI.macroState(q.macro, Date.now());
+    var msgs = [];
+    if (m) {
+      $("macroCard").classList.remove("hidden");
+      var chips = [];
+      function chip(txt) { chips.push('<span class="amt" style="cursor:default">' + txt + "</span>"); }
+      function fr(v) { return (v == null || !isFinite(v)) ? "—" : String(Math.round(v * 100) / 100).replace(".", ","); }
+      if (m.vix != null) chip("VIX " + esc(fr(m.vix)) + (m.vix5 != null ? " · lissé 5 j " + esc(fr(m.vix5)) : ""));
+      if (m.oat10 != null) chip("OAT 10 ans " + esc(fr(m.oat10)) + " %");
+      if (m.bund10 != null) chip("Bund 10 ans " + esc(fr(m.bund10)) + " %");
+      if (m.spread != null) chip("spread France-Allemagne " + m.spread + " pb");
+      if (m.bceDepot != null) chip("BCE dépôt " + esc(fr(m.bceDepot)) + " %" + (m.bceDir ? " (" + esc(m.bceDir) + ")" : ""));
+      if (m.inflZE != null) chip("inflation ZE " + esc(fr(m.inflZE)) + " %");
+      if (m.pmiZE != null) chip("PMI ZE " + esc(fr(m.pmiZE)));
+      if (m.cape != null) chip("CAPE " + esc(fr(m.cape)));
+      $("macroChips").innerHTML = chips.join("");
+      $("macroNote").innerHTML = "Source : " + (m.src ? esc(m.src) : "Radar Conjoncture") + " — relevé du <b>" + esc(RI.isoToDmY(m.dateData)) + "</b>" + (m.ageDays != null ? " (" + m.ageDays + " j)" : "") +
+        ". La macro frappe toutes les valeurs pareil : elle contextualise le classement, elle n'entre <b>jamais</b> dans le score 🎯 d'une valeur." +
+        (m.stale ? " ⚠️ <b>Relevé ancien</b> — rafraîchi au prochain relevé du Radar." : "");
+      $("cacMg").textContent = m.dateData ? RI.isoToDmY(m.dateData) + (m.ageDays != null ? " (" + m.ageDays + " j)" : "") : "—";
+      if (m.stale) msgs.push("⚠️ <b>macro ancienne</b> (" + m.ageDays + " j) — données du Radar du " + esc(RI.isoToDmY(m.dateData)) + ".");
+    } else {
+      $("macroCard").classList.add("hidden");
+      $("cacMg").textContent = "—";
+      msgs.push("ℹ️ Bandeau macro pas encore intégré — il apparaîtra au prochain relevé des cotes.");
+    }
+    if (q.updated && RI.freshness(q.updated, Date.now()).stale) msgs.push("⚠️ <b>cotes anciennes</b> — dernier relevé réussi le " + esc(RI.isoToDmY(String(q.updated).slice(0, 10))) + ".");
+    if (rows.length < 40) msgs.push("⚠️ " + (40 - rows.length) + " valeur" + (40 - rows.length > 1 ? "s" : "") + " du CAC 40 sans cote — classée" + (40 - rows.length > 1 ? "s" : "") + " sur les " + rows.length + " cotée" + (rows.length > 1 ? "s" : "") + ".");
+    var cb = $("cacBanner");
+    if (msgs.length) { cb.innerHTML = msgs.join(" "); cb.classList.remove("hidden"); }
+    else cb.classList.add("hidden");
+    // recherche
+    var qTxt = String(state.prefs.cacQ || "").trim().toLowerCase();
+    if (qTxt) rows = rows.filter(function (e) {
+      return String(e.n).toLowerCase().indexOf(qTxt) >= 0 || String(e.mn).toLowerCase().indexOf(qTxt) >= 0;
+    });
+    if (rows.length === 0) {
+      $("cacList").innerHTML = '<div class="empty">Aucune valeur du CAC 40 pour « ' + esc(String(state.prefs.cacQ || "").trim()) + ' ».</div>';
+      return;
+    }
+    // cartes
+    var VERD = { strong: "🥇 priorité d'achat", good: "🥈 opportunité", mid: "🥉 neutre", wait: "⏸ attendre" };
+    var VERDC = { strong: "var(--green)", good: "var(--blue)", mid: "var(--mut)", wait: "var(--red)" };
+    var VERDT = {
+      strong: "Score 🎯 ≥ 70/100 — en tête du classement composite (qualité+valorisation+consensus). Lecture HEURISTIQUE jamais validée : vérifie le contexte de la carte avant tout acte.",
+      good: "Score 🎯 55-69 — opportunité selon le classement composite. Heuristique non validée.",
+      mid: "Score 🎯 40-54 — ni évidence ni rejet selon le classement composite. Heuristique non validée.",
+      wait: "Score 🎯 < 40 — le classement composite ne voit pas d'opportunité aujourd'hui (souvent : qualité ou consensus dégradé, ou valorisation tendue). Pas un ordre de vente."
+    };
+    var recFr = { strong_buy: "fort achat", buy: "achat", hold: "conserver", underperform: "sous-perf.", sell: "vente" };
+    function fmtPctSigned(v) { return (v > 0 ? "+" : "") + String(Math.round(v * 10) / 10).replace(".", ",") + " %"; }
+    var html = [];
+    for (var i = 0; i < rows.length; i++) {
+      var e = rows[i];
+      var up = e.chg > 0, dn = e.chg < 0;
+      var parts = [];
+      // composantes du score — affichées seulement si elles ont servi
+      if (e.qScore != null) parts.push("qualité " + e.qScore + "/100 (" + e.qBase + "/4 · " + (e.qMode === "sector" ? "vs secteur" : (e.qMode === "mix" ? "mixte" : "vs indice")) + ")");
+      if (e.score != null) parts.push("valorisation " + e.score + "/100 (" + e.vBase + "/3 · " + (e.vMode === "sector" ? "vs secteur" : (e.vMode === "mix" ? "mixte" : "vs indice")) + ")");
+      if (e.pUp != null) parts.push("consensus " + e.pUp + "/100" + (e.upX != null ? " (potentiel " + esc(fmtPctSigned(e.upX)) + ")" : ""));
+      var breakdown = parts.length ? parts.join(" · ") : "composantes insuffisantes";
+      html.push(
+        '<div class="card"><div class="row fr"><div class="bar"></div>' +
+        '<div class="t">' +
+        '<div class="soc"><span style="color:var(--mut);font-size:11px;font-weight:500">' + (i + 1) + '</span> ' + esc(e.n) +
+        ' <span class="tk">' + esc(e.mn) + '</span>' +
+        (e.verdict ? ' <span class="gb" style="color:' + VERDC[e.verdict] + '" title="' + VERDT[e.verdict] + '">' + VERD[e.verdict] + '</span>' : "") +
+        (e.ins > 0 ? ' <span class="lvl l' + e.insLvl + '" title="Initiés FR en accumulation sur 30 j — conviction des dirigeants">' + (e.insLvl >= 2 ? "🔥" : "×2") + " +" + e.ins + "</span>" : "") +
+        (e.approx ? ' <span class="gb" title="Ticker résolu approximativement — cours à vérifier">≈ à vérifier</span>' : "") +
+        (e.y === "URW.PA" ? ' <span class="gb" style="color:var(--red)" title="Unibail-Rodamco-Westfield est une foncière (REIT) : actions de société de placement immobiliers — NON éligibles au PEA en principe (article 217 quater du CGI, regime fisc spécifique). À vérifier auprès de Bourse Direct avant tout ordre.">⚠️ PEA : non éligible en principe</span>' : "") +
+        (e.earnWarn ? ' <span class="gb" title="Le PER prévisionnel est AU-DESSUS du PER passé : le consensus s\'attend à des bénéfices en baisse — piège à valeur classique.">⚠️ bénef. attendus en baisse</span>' : "") +
+        (e.pos52 != null && e.pos52 <= 20 && e.out52 === 0 ? ' <span class="gb" title="Cours dans le bas de sa fourchette 52 semaines — information AFFICHÉE, pas un signal (un point bas n\'est pas un plancher).">📉 bas de fourchette 52 s.</span>' : "") +
+        "</div>" +
+        '<div class="meta"><span>cours <b>' + esc(RI.fmtNum(e.px)) + ' €</b> <span class="' + (up ? "up" : (dn ? "dn" : "")) + '">' + esc(RI.fmtPct(e.chg)) + "</span></span>" +
+        "<span>cap. " + esc(RI.fmtCap(e.cap)) + "</span></div>" +
+        '<div class="details">PER ' + (e.per != null ? esc(String(Math.round(e.per * 100) / 100).replace(".", ",")) : "—") +
+        " · projeté " + (e.fper != null ? esc(String(Math.round(e.fper * 100) / 100).replace(".", ",")) : "—") +
+        " · rendement " + (e.dY != null ? esc(String(Math.round(e.dY * 100) / 100).replace(".", ",")) + " %" : "—") +
+        " · P/B " + (e.pb != null ? esc(String(Math.round(e.pb * 100) / 100).replace(".", ",")) : "—") +
+        (e.sec ? " · secteur " + esc(e.sec) : "") +
+        ' · <a href="' + esc(sbQuoteUrl(e)) + '" target="_blank" rel="noopener">cote ↗</a>' +
+        "</div>" +
+        (e.tp != null
+          ? '<div class="details">🎯 objectif <b>' + esc(String(Math.round(e.tp * 100) / 100).replace(".", ",")) + " €</b> (" +
+            (e.upX != null ? '<span class="' + (e.upX > 0 ? "up" : (e.upX < 0 ? "dn" : "")) + '">' + esc(fmtPctSigned(e.upX)) + "</span>" : "—") + ")" +
+            (e.tpN != null ? " · " + e.tpN + " analyste" + (e.tpN > 1 ? "s" : "") : "") +
+            (recFr[e.rec] ? " · " + esc(recFr[e.rec]) : "") +
+            "</div>"
+          : "") +
+        ((e.roe != null || e.mOp != null || e.gRev != null || e.de != null)
+          ? '<div class="details">🧪 ' +
+            (e.roe != null ? "ROE " + esc(String(Math.round(e.roe * 1000) / 10).replace(".", ",")) + " % · " : "") +
+            (e.mOp != null ? "marge op. " + esc(String(Math.round(e.mOp * 1000) / 10).replace(".", ",")) + " % · " : "") +
+            (e.gRev != null ? "croissance CA " + esc(fmtPctSigned(Math.round(e.gRev * 1000) / 10)) + " · " : "") +
+            (e.de != null ? "dette/CP " + esc(String(Math.round(e.de)).replace(".", ",")) + " %" : "") +
+            "</div>"
+          : "") +
+        ((e.nextRes != null || e.surp != null)
+          ? '<div class="details">📅 ' +
+            (e.nextRes != null ? "prochain résultat le <b>" + esc(RI.isoToDmY(e.nextRes)) + "</b>" : "prochaine publication non communiquée") +
+            (e.surp != null
+              ? ' · surprise EPS <b>' + (e.surp > 0 ? '<span class="up">✅ +' : (e.surp < 0 ? '<span class="dn">❌ ' : "")) +
+                esc(fmtPctSigned(Math.round(e.surp * 10) / 10)) + (e.surp !== 0 ? "</span>" : "") + "</b> (moyenne des derniers trimestres)" : "") +
+            "</div>"
+          : "") +
+        (e.w52lo != null && e.w52hi != null
+          ? '<div class="details">📉 52 s. : ' + esc(String(Math.round(e.w52lo * 100) / 100).replace(".", ",")) + " – " + esc(String(Math.round(e.w52hi * 100) / 100).replace(".", ",")) + " €" +
+            (e.gapLo != null ? " · cours à " + esc(fmtPctSigned(Math.round(e.gapLo * 10) / 10)) + " du plus bas" : "") +
+            (e.dd52 != null ? " · " + esc(fmtPctSigned(Math.round(e.dd52 * 10) / 10)) + " du plus haut" : "") +
+            "</div>"
+          : "") +
+        "</div>" +
+        '<div class="sbsc">' + (e.aScore == null
+          ? '<span title="Moins de 2 composantes sur 3 (qualité, valorisation, consensus) — pas de score 🎯, on n\'invente rien">—</span>'
+          : '<b title="Score 🎯 d\'achat = ' + parts.join(" + ") + " — composantes disponibles renormalisées (base " + e.aBase + "/3). Heuristique de tri jamais validée sur historique indépendant — pas un conseil.\">" + e.aScore + "</b>") +
+        "<small>" + (e.aScore == null ? breakdown : breakdown + (e.aBase < 3 ? " · base " + e.aBase + "/3" : "")) + "</small>" +
+        "</div>" +
+        "</div></div>"
+      );
+    }
+    $("cacList").innerHTML = html.join("");
+  }
+
   function reflectPrefs() {
     var segSrc = $("segSrc");
     Array.prototype.forEach.call(segSrc.querySelectorAll("button"), function (b) {
@@ -788,7 +977,9 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
     });
     $("viewIns").classList.toggle("hidden", state.prefs.tab !== "ins");
     $("viewSbf").classList.toggle("hidden", state.prefs.tab !== "sbf");
+    $("viewCac").classList.toggle("hidden", state.prefs.tab !== "cac");
     $("sq").value = state.prefs.sbQ || "";
+    $("cq").value = state.prefs.cacQ || "";
   }
 
   // version écrite à UN seul endroit : RI.VERSION (logic.js) — badge et footer la lisent ici
@@ -802,6 +993,7 @@ footer{text-align:center;color:#475569;font-size:10.5px;margin-top:18px;line-hei
   useCached();
   useCachedQuotes();
   if (state.prefs.tab === "sbf" && state.quotes) renderSbf();
+  if (state.prefs.tab === "cac" && state.quotes) renderCac();
   refresh(true);
   // PWA : enregistrement du service worker (cache v3.1, secours hors ligne)
   if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.register) {

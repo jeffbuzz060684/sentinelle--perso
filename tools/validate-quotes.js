@@ -39,7 +39,9 @@ if (sbf) {
   console.log("  note : sbf120.json absent — l'onglet SBF restera vide jusqu'au premier build");
 }
 
-// ---------- quotes.json : { updated, source, ok, n, missing, idx, list } ----------
+// ---------- quotes.json : { updated, source, ok, n, missing, idx, cacIdx?, macro?, list } ----------
+// v4.1.0 : cacIdx (indice CAC 40 dédié, Yahoo ^FCHI) et macro (relevés Radar Conjoncture) sont
+// OPTIONNELS — le repli TradingView n'en produit pas (idx tient lieu de CAC 40, bandeau absent).
 var q = load("quotes.json");
 if (q) {
   if (!q || typeof q !== "object") fail("quotes.json : pas un objet");
@@ -64,8 +66,26 @@ if (q) {
     if (r.w52lo != null && r.w52hi != null && !(r.w52hi > r.w52lo)) fail(w + "fourchette 52 s. incohérente (lo " + r.w52lo + " >= hi " + r.w52hi + ")");
     if (r.tp != null && r.tpLo != null && r.tpHi != null && !(r.tpLo <= r.tp && r.tp <= r.tpHi)) fail(w + "objectif hors bornes (tp " + r.tp + ", " + r.tpLo + "-" + r.tpHi + ")");
     if (r.tp != null && r.tp <= 0) fail(w + "objectif non positif : " + r.tp);
+    // v4.1.0 : résultats financiers — prochaine publication (date ISO stricte) + surprise EPS (finie)
+    if (r.nextRes !== null && r.nextRes !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(r.nextRes))) fail(w + "nextRes non YYYY-MM-DD : " + r.nextRes);
+    if (r.surp !== null && r.surp !== undefined && !isFinite(r.surp)) fail(w + "surp invalide : " + r.surp);
     if (!r.n || !r.mn || !r.g) fail(w + "champ n/mn/g manquant");
   });
+  // v4.1.0 : indice CAC 40 dédié — toléré absent (repli TV : idx EST le CAC 40), sinon px positif
+  if (q.cacIdx !== undefined && q.cacIdx !== null) {
+    if (typeof q.cacIdx !== "object" || !isFinite(q.cacIdx.px) || q.cacIdx.px <= 0) fail("quotes.json : cacIdx invalide (px) : " + JSON.stringify(q.cacIdx));
+  }
+  // v4.1.0 : bandeau macro (relevés publics du Radar Conjoncture) — toléré absent, sinon champs finis
+  if (q.macro !== undefined && q.macro !== null) {
+    var mg = q.macro, mw = "quotes.macro : ";
+    if (typeof mg !== "object") fail(mw + "pas un objet");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(mg.dateData || ""))) fail(mw + "dateData absent ou non YYYY-MM-DD : " + mg.dateData);
+    ["vix", "vix5", "oat10", "bund10", "spread", "bceDepot", "inflZE", "pmiZE", "cape"].forEach(function (k) {
+      if (mg[k] !== null && mg[k] !== undefined && !isFinite(mg[k])) fail(mw + k + " invalide : " + mg[k]);
+    });
+    if (mg.bceDir !== null && mg.bceDir !== undefined && ["hausse", "baisse", "stable"].indexOf(mg.bceDir) < 0) fail(mw + "bceDir inconnu : " + mg.bceDir);
+    if (mg.src !== null && mg.src !== undefined && typeof mg.src !== "string") fail(mw + "src non chaîne");
+  }
   // si le relevé s'est bien passé, il doit couvrir l'essentiel de l'indice (garde 90 % côté fetch,
   // on re-vérifie ici : ok=true avec la moitié des valeurs manquantes = incohérence)
   if (q.ok && q.list.length < 108) fail("quotes.json : ok=true mais seulement " + q.list.length + "/120 cotes");

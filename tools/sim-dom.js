@@ -92,16 +92,26 @@ module.exports = function simDom(cb) {
       }]
     }
   };
-  // v4.0 : cotes du SBF 120 (4 valeurs couvrant les cas : PER bas + initiés 🔥, société du CAC 40,
+  // v4.0/v4.1 : cotes du SBF 120 (4 valeurs couvrant les cas : PER bas + initiés 🔥, société du CAC 40,
   // valeur en perte sans PER → « — », et TOTALENERGIES qui ne doit PAS recevoir de bonus initiés
   // (ses initiés ne font que VENDRE — le bonus ne récompense que les achats).
+  // v4.1.0 : cacIdx (indice CAC 40 dédié), macro (bandeau 🌍, dateData = hier → jamais périmée),
+  // champs qualité/tp/nextRes/surp sur les 2 cac40 → le score 🎯 de l'onglet CAC est calculable :
+  //   • TOTALENERGIES gagne ROE/marge/croissance, perd dette → qScore 80 ; PER bas, rendement haut,
+  //     P/B le plus bas (0,8) → val 100 ; upX 11,7 % < Accor → consensus 0 → aScore 57 (🥈)
+  //   • Accor perd presque partout mais a la dette la plus basse → qScore 20 ; P/B médian (1,4
+  //     entre TTE 0,8 et RCO 1,6) → val 10 ; upX 15,7 % le meilleur → consensus 100 → aScore 46 (🥉)
+  //   ⇒ TOTALENERGIES (57) DOIT apparaître AVANT Accor (46) dans le classement.
+  var macroDay = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   var FETCH_QUOTES = {
     updated: isoNow, source: "Yahoo Finance (Euronext en différé ~15 min)", ok: true, n: 4, missing: [],
     idx: { px: 6850.42, chg: 0.62, t: 1799900000 },
+    cacIdx: { px: 7754.32, chg: 0.85, name: "CAC 40", t: 1799900000 },
+    macro: { dateData: macroDay, dateMacro: isoNow, source: "Radar Conjoncture", vix: 21.4, vix5: 20.8, oat10: 4.76, bund10: 3.25, bceDepot: 2, bceDir: "hausse", inflZE: 2.2, pmiZE: 47.5, cape: 21.3 },
     list: [
-      { y: "AC.PA", n: "Accor", mn: "AC", g: "cac40", isin: "FR0000120404", px: 39.42, chg: 0.81, per: 14.2, fper: 13.1, dY: 2.1, pb: 1.4, cap: 8.5e9, t: 1799900000 },
-      { y: "TTE.PA", n: "TOTALENERGIES", mn: "TTE", g: "cac40", isin: "FR0000120271", px: 58.1, chg: -0.3, per: 8.1, fper: 7.6, dY: 5.4, pb: 1.5, cap: 1.2e11, t: 1799900000 },
-      { y: "RCO.PA", n: "ROCHE BOBOIS", mn: "RCO", g: "mid60", isin: "FR0000030823", px: 16.4, chg: 1.2, per: 9.5, fper: 8.8, dY: 3.8, pb: 0.9, cap: 6.2e8, t: 1799900000 },
+      { y: "AC.PA", n: "Accor", mn: "AC", g: "cac40", isin: "FR0000120404", px: 39.42, chg: 0.81, per: 14.2, fper: 13.1, dY: 2.1, pb: 1.4, cap: 8.5e9, t: 1799900000, roe: 5, mOp: 3, gRev: -0.02, de: 10, tp: 45.6, tpLo: 40, tpHi: 52, tpN: 12, rec: "buy", nextRes: "2026-12-05", surp: 2.4, w52lo: 31.1, w52hi: 44.3 },
+      { y: "TTE.PA", n: "TOTALENERGIES", mn: "TTE", g: "cac40", isin: "FR0000120271", px: 58.1, chg: -0.3, per: 8.1, fper: 7.6, dY: 5.4, pb: 0.8, cap: 1.2e11, t: 1799900000, roe: 20, mOp: 15, gRev: 0.03, de: 25, tp: 64.9, tpLo: 60, tpHi: 72, tpN: 18, rec: "hold", nextRes: "2026-12-11", surp: -1.1, w52lo: 52.9, w52hi: 66.7 },
+      { y: "RCO.PA", n: "ROCHE BOBOIS", mn: "RCO", g: "mid60", isin: "FR0000030823", px: 16.4, chg: 1.2, per: 9.5, fper: 8.8, dY: 3.8, pb: 1.6, cap: 6.2e8, t: 1799900000 },
       { y: "PL.PA", n: "Société en perte", mn: "PL", g: "mid60", isin: "", px: 3.3, chg: -2.1, per: null, fper: null, dY: null, pb: null, cap: 4.5e7, t: 1799900000 }
     ]
   };
@@ -345,6 +355,59 @@ module.exports = function simDom(cb) {
       h({ target: sqEl });
       A((elements["sbList"].innerHTML || "").indexOf("ROCHE BOBOIS") > -1, "recherche effacée → liste complète");
       A((elements["sbList"].innerHTML || "").indexOf("sbMore") === -1, "4 valeurs → pas de bouton pagination");
+    });
+    T("v4.1.0 clic onglet 🇫🇷 CAC 40 : classement 🎯 rendu, TOTALENERGIES (57) devant Accor (46), macro 🌍 en contexte", function () {
+      var btn = {
+        classList: { add: function () { }, remove: function () { }, toggle: function () { }, contains: function () { return false; } },
+        getAttribute: function (k) { return k === "data-tab" ? "cac" : null; }
+      };
+      btn.closest = function () { return btn; };
+      var h = elements["tabs"] && elements["tabs"].listeners.click && elements["tabs"].listeners.click[0];
+      A(!!h, "handler tabs présent");
+      h({ target: btn, preventDefault: function () { } });
+      A(!elements["viewCac"]._cls.has("hidden"), "vue CAC 40 affichée");
+      A(elements["viewSbf"]._cls.has("hidden"), "vue SBF masquée");
+      A(elements["viewIns"]._cls.has("hidden"), "vue Initiés masquée");
+      var p = store["sentinelle-perso-prefs-v1"] || "";
+      A(p.indexOf("cac") > -1, "onglet cac mémorisé : " + p);
+      var s = elements["cacList"].innerHTML || "";
+      A(s.indexOf("TOTALENERGIES") > -1 && s.indexOf("Accor") > -1, "les 2 cac40 rendues");
+      A(s.indexOf("ROCHE BOBOIS") === -1, "les Mid 60 (ROCHE BOBOIS) sont EXCLUS du classement CAC 40");
+      A(s.indexOf("TOTALENERGIES") < s.indexOf("Accor"), "TOTALENERGIES (aScore 57) AVANT Accor (46)");
+      A(s.indexOf(">57<") > -1 && s.indexOf(">46<") > -1, "scores 🎯 57 et 46 affichés");
+      A(s.indexOf("🥈 opportunité") > -1 && s.indexOf("🥉 neutre") > -1, "verdicts 🥈 (57) et 🥉 (46)");
+      A(s.indexOf("consensus 100/100") > -1 && s.indexOf("consensus 0/100") > -1, "percentiles consensus 100 (Accor) et 0 (TTE)");
+      A(s.indexOf("prochain résultat le") > -1 && s.indexOf("5/12/2026") > -1, "prochaine publication rendue (calendarEvents)");
+      A(s.indexOf("✅") > -1 && s.indexOf("❌") > -1, "surprises EPS ✅ (Accor) et ❌ (TTE) rendues");
+      A(s.indexOf("🎯 objectif") > -1, "objectif consensus affiché");
+      A(s.indexOf("PEA : non éligible") === -1, "pas de badge URW (absent de la fixture)");
+      A(elements["cacN"].textContent === "2/40", "compteur 2/40 (seules les cac40 cotées)");
+      A((elements["caxPx"].textContent || "").length > 2, "indice CAC 40 dédié rendu : " + elements["caxPx"].textContent);
+      A(!elements["macroCard"]._cls.has("hidden"), "bandeau macro 🌍 visible");
+      var mg = elements["macroChips"].innerHTML || "";
+      A(mg.indexOf("VIX 21,4") > -1, "chip VIX format français : " + mg.slice(0, 80));
+      A(mg.indexOf("OAT 10 ans 4,76") > -1, "chip OAT 10 ans");
+      A(mg.indexOf("spread France-Allemagne 151 pb") > -1, "chip spread calculé en pb");
+      A(mg.indexOf("BCE dépôt 2 % (hausse)") > -1, "chip BCE + direction");
+      A(!elements["cacBanner"]._cls.has("hidden"), "bandeau : avertissement 38/40 valeurs sans cote affiché");
+      var mn = elements["macroNote"].innerHTML || "";
+      A(mn.indexOf("jamais") > -1 && mn.indexOf("score") > -1, "macro explicitement hors score 🎯");
+    });
+    T("v4.1.0 recherche CAC : filtre par nom/mnémonique, message si rien trouvé, retour complet", function () {
+      var h = elements["cq"] && elements["cq"].listeners.input && elements["cq"].listeners.input[0];
+      A(!!h, "handler input cq présent");
+      var cqEl = elements["cq"];
+      cqEl.value = "accor";
+      h({ target: cqEl });
+      var s = elements["cacList"].innerHTML || "";
+      A(s.indexOf("Accor") > -1, "Accor trouvé");
+      A(s.indexOf("TOTALENERGIES") === -1, "l'autre valeur masquée");
+      cqEl.value = "zzz";
+      h({ target: cqEl });
+      A((elements["cacList"].innerHTML || "").indexOf("Aucune valeur du CAC 40") > -1, "message explicite");
+      cqEl.value = "";
+      h({ target: cqEl });
+      A((elements["cacList"].innerHTML || "").indexOf("TOTALENERGIES") > -1, "recherche effacée → classement complet");
     });
     T("v4.0 cotes hors ligne : fetch quotes.json en échec → dernier relevé conservé, pas de crash", function () {
       // simuler un échec réseau : on écrase le fetch du contexte par un stub qui rejette

@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "4.0.12");
+  EQ(RI.VERSION, "4.1.0");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -741,9 +741,10 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf("pas un conseil d'achat") > -1, "disclaimer recherche, pas conseil");
     A(html.indexOf("data-sig=") > -1, "lien « voir les déclarations » réutilise le filtre recherche");
   });
-  T("sw.js : cache v4.0 + timeout réseau 3,5 s", function () {
+  T("sw.js : cache v5 + timeout réseau 3,5 s", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf("sentinelle-perso-v4") > -1, "cache v4");
+    A(sw.indexOf("sentinelle-perso-v5") > -1, "cache v5");
+    A(sw.indexOf("sentinelle-perso-v4") === -1, "plus d'ancien nom de cache v4 (sinon les installs v4.0.x gardent le vieux shell)");
     A(sw.indexOf("sentinelle-perso-v3.3") === -1 && sw.indexOf("sentinelle-perso-v3.2") === -1, "plus d'ancien nom de cache");
     A(sw.indexOf("3500") > -1, "timeout réseau 3,5 s (repli cache si connexion morte)");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
@@ -787,6 +788,8 @@ T("fetch-insiders.js compile", function () {
     A(s.indexOf("node tools/build-sbf120.js") > -1, "reconstruction de la composition");
     A(s.indexOf("git add sbf120.json") > -1, "commit de la seule composition");
     A(s.indexOf("37 4 3 * *") > -1, "cron mensuel (prêt avant les révisions trimestrielles Euronext)");
+    // v4.1.0 : les schedules GitHub ne partent pas sur ce compte — le déclencheur réel est le ping
+    A(s.indexOf("ping-compo") > -1 && s.indexOf("paths: [\".github/ping-compo\"]") > -1, "v4.1.0 : trigger push sur .github/ping-compo (tâche Vibe mensuelle)");
     var p = fs.readFileSync(__dirname + "/../.github/workflows/pages.yml", "utf8");
     A(p.indexOf("test -f quotes.json && cp quotes.json dist/") > -1, "quotes.json servi (cp tolérant tant que le premier cron n'a pas tourné)");
     A(p.indexOf("test -f sbf120.json && cp sbf120.json dist/") > -1, "sbf120.json servi");
@@ -827,6 +830,21 @@ T("fetch-insiders.js compile", function () {
     A(h.indexOf("3 métriques sur 4") > -1 || h.indexOf("3 métriques qualité") > -1, "exigence 3/4 expliquée");
     A(h.indexOf("contexte d'entrée") > -1 && h.indexOf("≠ notre score maison") > -1, "consensus 🎯 = contexte d'entrée, ≠ score maison (v4.0.11)");
     A(h.indexOf("pas un conseil") > -1, "disclaimer valorisation");
+  });
+  T("v4.1.0 : structure de l'onglet 🇫🇷 CAC 40 dans index.html", function () {
+    var h = fs.readFileSync(__dirname + "/../index.html", "utf8");
+    A(h.indexOf('data-tab="cac"') > -1, "bouton d'onglet cac");
+    A(h.indexOf('id="viewCac"') > -1, "vue dédiée");
+    A(h.indexOf('id="cacList"') > -1 && h.indexOf('id="cq"') > -1, "classement + recherche");
+    A(h.indexOf('id="macroCard"') > -1 && h.indexOf('id="macroChips"') > -1 && h.indexOf('id="macroNote"') > -1, "bandeau macro 🌍 (contexte, jamais noté)");
+    A(h.indexOf('id="caxPx"') > -1 && h.indexOf('id="cacMg"') > -1, "stats indice CAC 40 + fraîcheur macro");
+    A(h.indexOf("renderCac") > -1, "fonction de rendu branchée");
+    A(h.indexOf("qualité 40 %") > -1 && h.indexOf("valorisation 25 %") > -1 && h.indexOf("consensus 35 %") > -1, "pondérations du score 🎯 affichées dans la méthodo");
+    A(h.indexOf("⚠️ PEA : non éligible en principe") > -1, "badge URW (REIT, PEA) affiché");
+    A(h.indexOf("surprise EPS") > -1 && h.indexOf("prochain résultat") > -1, "résultats financiers (surprise + publication) sur les cartes");
+    A(h.indexOf("n'entre") > -1 && h.indexOf("jamais") > -1 && h.indexOf("score 🎯") > -1, "macro explicitement hors score");
+    A(h.indexOf("heuristique") > -1 && h.indexOf("jamais validée") > -1, "honnêteté : score = heuristique jamais validée");
+    A(h.indexOf("cacQ") > -1, "préférence de recherche cacQ persistée");
   });
   T("rankPct : percentiles, plus bas = 100, exclusion des non positifs", function () {
     var l = [
@@ -1540,6 +1558,80 @@ function TA(name, fn) {
     var all = RI.rankPctAny([{ gRev: 1 }, { gRev: 1 }, { gRev: 1 }], "gRev", false);
     EQ(all[0], 50, "toutes égales → 50 (rang neutre), pas 0");
     EQ(all[2], 50, "rang neutre sur toute la liste");
+  });
+  // ---------- v4.1.0 : onglet 🇫🇷 CAC 40 — score composite d'achat + bandeau macro ----------
+  T("v4.1.0 cacScores : qualité 40 % + valorisation 25 % + consensus 35 %, renormalisé si composante absente, ≥ 2/3 exigées", function () {
+    // 5 lignes : A/B/C/D cac40, E mid60. Percentile consensus sur les 4 lignes avec upX (n-1=3).
+    // pUp attendus : A=100 (3 battus), B=0, C=null (pas d'upX), D=33 (1 battu : B), E=67 (2 battus).
+    var l = [
+      { g: "cac40", n: "A", qScore: 80, score: 60, upX: 20 },
+      { g: "cac40", n: "B", qScore: 40, score: 30, upX: -20 },
+      { g: "cac40", n: "C", qScore: 70, score: 80, upX: null },
+      { g: "cac40", n: "D", qScore: null, score: 50, upX: 0 },
+      { g: "mid60", n: "E", qScore: 60, score: 70, upX: 10 }
+    ];
+    var s = RI.cacScores(l);
+    EQ(s[0].pUp, 100, "A : meilleur potentiel → percentile 100");
+    EQ(s[1].pUp, 0, "B : potentiel le plus bas → 0 (les NÉGATIFS participent)");
+    EQ(s[2].pUp, null, "C : pas d'upX → percentile null, composante écartée");
+    EQ(s[3].pUp, 33, "D : 1 battu sur 3 → (1+0,5)/... → 33");
+    EQ(s[4].pUp, 67, "E : 2 battus sur 3 → 67");
+    // aScore A = 0,4×80 + 0,25×60 + 0,35×100 = 82 → 🥇 strong (base 3/3)
+    EQ(s[0].aScore, 82, "A : composite complet 82");
+    EQ(s[0].aBase, 3, "A : 3 composantes");
+    EQ(s[0].verdict, "strong", "A : ≥ 70 → 🥇 priorité");
+    // aScore B = 0,4×40 + 0,25×30 + 0,35×0 = 23,5 → 24 → ⏸ wait
+    EQ(s[1].aScore, 24, "B : composite 24");
+    EQ(s[1].verdict, "wait", "B : < 40 → ⏸ attendre");
+    // C : consensus absent → (0,4×70 + 0,25×80)/0,65 = 73,85 → 74 → strong, base 2/3
+    EQ(s[2].aScore, 74, "C : renormalisé sur qualité+valorisation");
+    EQ(s[2].aBase, 2, "C : base 2/3");
+    EQ(s[2].verdict, "strong", "C : 74 ≥ 70 → 🥇");
+    // D : qualité absente → (0,25×50 + 0,35×33)/0,6 = 40,08 → 40 → mid, base 2/3
+    EQ(s[3].aScore, 40, "D : renormalisé sur valorisation+consensus");
+    EQ(s[3].aBase, 2, "D : base 2/3");
+    EQ(s[3].verdict, "mid", "D : 40 → 🥉 neutre");
+    // E : 0,4×60 + 0,25×70 + 0,35×67 = 64,95 → 65 → good
+    EQ(s[4].aScore, 65, "E : composite 65");
+    EQ(s[4].verdict, "good", "E : 55-69 → 🥈 opportunité");
+  });
+  T("v4.1.0 cacScores : UNE SEULE composante → pas de score (on n'invente rien)", function () {
+    var solo = RI.cacScores([{ g: "cac40", qScore: 90, score: null, upX: null }]);
+    EQ(solo[0].aScore, null, "qualité seule → null");
+    EQ(solo[0].aBase, 1, "base 1/3");
+    EQ(solo[0].verdict, null, "pas de verdict");
+  });
+  T("v4.1.0 cacFilter/cacSort : périmètre = groupe cac40 ; tri aScore décroissant, null en fin", function () {
+    var l = [
+      { g: "mid60", n: "M", aScore: 90 },
+      { g: "cac40", n: "A", aScore: 40 },
+      { g: "cac40", n: "B", aScore: 82 },
+      { g: "next20", n: "N", aScore: 99 },
+      { g: "cac40", n: "C", aScore: null }
+    ];
+    var f = RI.cacFilter(l);
+    EQ(f.length, 3, "seules les 3 lignes cac40 passent");
+    var s = RI.cacSort(f);
+    EQ(s[0].n, "B", "meilleur score en tête");
+    EQ(s[1].n, "A", "puis le suivant");
+    EQ(s[2].n, "C", "score null (composantes insuffisantes) en fin — jamais caché");
+  });
+  T("v4.1.0 macroState : champs validés, spread en pb, direction BCE en liste blanche, âge + péremption", function () {
+    var now = Date.parse("2026-11-12T12:00:00Z");
+    var m = RI.macroState({ dateData: "2026-11-09", source: "Radar Conjoncture", vix: 21.4, oat10: 4.76, bund10: 3.25, bceDepot: 2, bceDir: "hausse", inflZE: 2.2, pmiZE: "abc" }, now);
+    A(m != null, "objet macro reconnu");
+    EQ(m.spread, 151, "spread OAT-Bund (4,76-3,25)×100 = 151 pb");
+    EQ(m.ageDays, 3, "3 jours d'âge");
+    EQ(m.stale, false, "pas périmé à 3 j (seuil 10 j)");
+    EQ(m.bceDir, "hausse", "direction BCE valide");
+    EQ(m.pmiZE, null, "PMI non numérique → null (jamais affiché comme fait)");
+    EQ(m.src, "Radar Conjoncture", "source propagée");
+    var old = RI.macroState({ dateData: "2026-09-01", oat10: 3, bund10: 2.4 }, now);
+    EQ(old.ageDays, 72, "72 jours d'âge");
+    EQ(old.stale, true, "périmé (> 10 j) → l'UI affichera l'avertissement");
+    EQ(RI.macroState({ dateData: "2026-11-09", bceDir: "cut" }, now).bceDir, null, "direction BCE hors liste blanche → null");
+    EQ(RI.macroState(null, now), null, "macro absente → null (bandeau masqué, pas d'erreur)");
+    EQ(RI.macroState({ dateData: "pas-une-date" }, now).ageDays, null, "date illisible → âge null");
   });
   T("v4.0.8 qMetricOf : capitaux propres négatifs (P/B ≤ 0) → ROE et D/E non mesurables ; marge/croissance négatives = faits", function () {
     var m = RI.qMetricOf({ pb: -0.5, roe: 0.25, mOp: 0.1, gRev: -0.02, de: 20 });
