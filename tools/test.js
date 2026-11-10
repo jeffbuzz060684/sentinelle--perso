@@ -50,7 +50,7 @@ T("daysBetween", function () {
   EQ(RI.daysBetween(null, "2026-11-06"), null);
 });
 T("RI.VERSION : source unique de la version (badge + footer la lisent)", function () {
-  EQ(RI.VERSION, "5.0.0");
+  EQ(RI.VERSION, "5.0.1");
 });
 
 // ---------- parse FR (fixture réelle) ----------
@@ -693,7 +693,8 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf('id="segSide"') === -1 && html.indexOf('id="segSort"') === -1 && html.indexOf('id="segSb"') === -1, "plus de segments achats/ventes ni de vues SBF");
     A(html.indexOf("fetch(\"data.json\")") === -1 && html.indexOf("FETCH_DATA") === -1, "plus de fetch data.json (les badges 🔥 initiés, décoratifs, ont disparu avec les onglets)");
     A(html.indexOf('id="cacList"') > -1 && html.indexOf('id="cq"') > -1, "classement + recherche présents");
-    A(html.indexOf("<b>v5.0.0</b>") > -1, "badge v5.0.0");
+    A(html.indexOf("<b>v5.0.1</b>") > -1, "badge v5.0.1");
+    A(html.indexOf("<b>v5.0.0</b>") === -1, "plus d'ancien badge v5.0.0");
     A(html.indexOf("<b>v4.1.0</b>") === -1, "plus d'ancien badge");
   });
   T("v5.0.0 : même design que le Radar — tableau compact (.crow/.csc) + détail complet au tap (.cdet)", function () {
@@ -724,9 +725,10 @@ T("fetch-insiders.js compile", function () {
     A(html.indexOf("Heuristique de tri jamais validée") > -1, "honnêteté : score = heuristique jamais validée");
     A(html.indexOf("pas un conseil") > -1, "disclaimer");
   });
-  T("sw.js : cache v6 + timeout réseau 3,5 s", function () {
+  T("sw.js : cache v7 + timeout réseau 3,5 s", function () {
     var sw = fs.readFileSync(__dirname + "/../sw.js", "utf8");
-    A(sw.indexOf("sentinelle-perso-v6") > -1, "cache v6");
+    A(sw.indexOf("sentinelle-perso-v7") > -1, "cache v7");
+    A(sw.indexOf("sentinelle-perso-v6") === -1, "plus d'ancien nom de cache v6 (sinon les installs v5.0.0 gardent le vieux shell)");
     A(sw.indexOf("sentinelle-perso-v5") === -1, "plus d'ancien nom de cache v5 (sinon les installs v4.x gardent le vieux shell)");
     A(sw.indexOf("3500") > -1, "timeout réseau 3,5 s (repli cache si connexion morte)");
     A(sw.indexOf("split(\"?\")") > -1, "clé de cache sans query");
@@ -1563,6 +1565,48 @@ function TA(name, fn) {
     EQ(RI.macroState({ dateData: "2026-11-09", bceDir: "cut" }, now).bceDir, null, "direction BCE hors liste blanche → null");
     EQ(RI.macroState(null, now), null, "macro absente → null (bandeau masqué, pas d'erreur)");
     EQ(RI.macroState({ dateData: "pas-une-date" }, now).ageDays, null, "date illisible → âge null");
+  });
+  T("v5.0.1 (revue du 10/11) : validation numérique STRICTE — \"\" et \"3\" ne sont plus des nombres valides (isFinite global convertissait par coercition)", function () {
+    var p = RI.rankPct([{ per: "10" }, { per: 9 }, { per: 5 }], "per", true);
+    A(p[0] === undefined, "valeur texte exclue du rang (plus de comparaison alphabétique \"10\" < \"9\")");
+    EQ(p[1], 0, "9 : moins bon PER → percentile 0");
+    EQ(p[2], 100, "5 : meilleur PER → percentile 100");
+    EQ(RI.macroState({ dateData: "2026-11-09", vix: "" }).vix, null, "vix \"\" → null (jamais affiché comme un fait)");
+  });
+  T("v5.0.1 : upX strictement positif — cible 0 → null (jamais un potentiel -100 %), cible négative ou en chaîne → null", function () {
+    var e = RI.sbfEnrich([
+      { y: "A.PA", n: "A", g: "cac40", px: 50, tp: 0 }, { y: "B.PA", n: "B", g: "cac40", px: 50, tp: -5 },
+      { y: "C.PA", n: "C", g: "cac40", px: 50, tp: "72" }, { y: "D.PA", n: "D", g: "cac40", px: 50, tp: 60 }
+    ], { byName: {}, byIsin: {} });
+    EQ(e[0].upX, null, "tp 0 → pas de potentiel");
+    EQ(e[1].upX, null, "tp négatif → null");
+    EQ(e[2].upX, null, "tp en chaîne → null (nombre strict exigé)");
+    EQ(e[3].upX, 20, "tp 60 vs px 50 → +20 %");
+  });
+  T("v5.0.1 : pos52Of — plus bas 52 s. à 0 → tout null (jamais gapLo = Infinity)", function () {
+    var r = RI.pos52Of({ px: 50, w52lo: 0, w52hi: 100 });
+    EQ(r.pos, null); EQ(r.gapLo, null); EQ(r.dd, null); EQ(r.out, 0);
+  });
+  T("v5.0.1 : valScores — vBase = couverture RÉELLE (2/3 sans PER) ; score null sans PER (une perte n'est pas « pas chère »)", function () {
+    var s = RI.valScores([{ n: "A", per: null, dY: 3, pb: 2 }, { n: "B", per: 10, dY: 1, pb: 4 }, { n: "C", per: 20, dY: 2, pb: 6 }]);
+    EQ(s[0].vBase, 2, "2 métriques disponibles, pas 0 (l'ancien code écrasait vBase sans PER)");
+    EQ(s[0].score, null, "sans PER : toujours pas de score");
+    EQ(s[1].vBase, 3, "couverture complète");
+    A(s[1].score !== null, "score présent quand les 3 métriques existent");
+  });
+  T("v5.0.1 : cacSort — ex æquo départagés DÉTERMINISTEMENT (base complète > qualité > nom), plus d'ordre d'entrée", function () {
+    var l = RI.cacSort([
+      { n: "ZZ", aScore: 60, aBase: 2, qScore: 70 }, { n: "AA", aScore: 60, aBase: 3, qScore: 70 },
+      { n: "MM", aScore: 60, aBase: 3, qScore: 80 }
+    ]);
+    EQ(l[0].n, "MM", "base 3 + qualité 80 devant");
+    EQ(l[1].n, "AA", "à qualité égale, le nom tranche (AA < ZZ)");
+    EQ(l[2].n, "ZZ", "base 2 en dernier des ex æquo");
+  });
+  T("v5.0.1 : macroState — âge en JOURS CALENDAIRES (relevé du jour lu avant midi = 0 j, plus jamais -1 j ; nowMs = 0 est une valeur, pas un « absent »)", function () {
+    EQ(RI.macroState({ dateData: "2026-11-12" }, Date.parse("2026-11-12T06:00:00Z")).ageDays, 0, "matin du jour même : 0 j (ancienne formule : -1 j)");
+    EQ(RI.macroState({ dateData: "2026-11-12" }, Date.parse("2026-11-13T01:00:00Z")).ageDays, 1, "lendemain 1 h UTC : 1 j (ancienne formule : 0 j)");
+    EQ(RI.macroState({ dateData: "2026-11-12" }, 0).ageDays, -20769, "nowMs = 0 respecté : lu comme 1970-01-01, donc -20769 j (l'ancien code le remplaçait par Date.now())");
   });
   T("v4.0.8 qMetricOf : capitaux propres négatifs (P/B ≤ 0) → ROE et D/E non mesurables ; marge/croissance négatives = faits", function () {
     var m = RI.qMetricOf({ pb: -0.5, roe: 0.25, mOp: 0.1, gRev: -0.02, de: 20 });
