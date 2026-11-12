@@ -1,6 +1,91 @@
 {
- "updated": "2026-11-12T02:12:44.672Z",
+ "updated": "2026-11-12T09:43:54.797Z",
  "fr": [
+  {
+   "id": "2026DD1149918",
+   "source": "FR",
+   "side": "buy",
+   "societe": "COMPAGNIE DE L'ODET",
+   "auteur": "SOCIETE INDUSTRIELLE ET FINANCIERE DE L’ARTOIS Société Anonyme à conseil d’administration personne morale liée àVincent Bolloré",
+   "role": "Président-Directeur Général de Compagnie de l’Odet",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "FR0000062234",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-06",
+   "volume": 687,
+   "prix": 999.591,
+   "montant": 686719.017,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149918/90617413DB07432C03CBC7D8CC7F9B3D143946631EA7C9CA59B84349F450F0C2.pdf"
+  },
+  {
+   "id": "2026DD1149970",
+   "source": "FR",
+   "side": "buy",
+   "societe": "HAULOTTE GROUP",
+   "auteur": "SOLEM SAS personne morale liée à ALEXANDRE SAUBOT",
+   "role": "DIRECTEUR GENERAL DELEGUE",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "FR0000066755",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-09",
+   "volume": 30000,
+   "prix": 2.2,
+   "montant": 66000,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149970/3205098A537AD4E9527255BB8E5EF431AB074D61F76D3E03BEBD0B8FD1595307.pdf"
+  },
+  {
+   "id": "2026DD1150096",
+   "source": "FR",
+   "side": "buy",
+   "societe": "GENOWAY",
+   "auteur": "Alexandre Fraichard",
+   "role": "DG",
+   "nature": "Acquisition",
+   "instrument": "Action CODE D’I...",
+   "isin": "",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-10",
+   "volume": 14691,
+   "prix": 2.0266,
+   "montant": 29772.7806,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1150096/34BCAB865C64C2ECA95A0D9DEA29D9AEA9ABE23EAE0F96C04944A98FEA4795AB.pdf"
+  },
+  {
+   "id": "2026DD1149912",
+   "source": "FR",
+   "side": "buy",
+   "societe": "ROCHE BOBOIS SA",
+   "auteur": "SOCIETE PATRIMONIALE ROCHE SPR SOCIETE ANONYME",
+   "role": "Membre du conseil de surveillance",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "FR0013344173",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-05",
+   "volume": 220,
+   "prix": 14.7418,
+   "montant": 3243.196,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149912/253559DE66A3F185AEADBC9E9F9E26912742A800AD2512C26365A89EB16BDCD5.pdf"
+  },
+  {
+   "id": "2026DD1149934",
+   "source": "FR",
+   "side": "buy",
+   "societe": "FONCIERE INEA",
+   "auteur": "GEST INVEST société civile personne morale liée à Philippe ROSIO",
+   "role": "Président Directeur Général de l'Emetteur",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "FR0010341032",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-10",
+   "volume": 50,
+   "prix": 31.37,
+   "montant": 1568.5,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149934/1C89A3C3ED0A9F934D023E4F3285F663B4AA7D697FE7497614793EA001294885.pdf"
+  },
   {
    "id": "2026DD1149721",
    "source": "FR",
@@ -2230,12 +2315,46 @@
  "frOk": true,
  "usOk": false,
  "counts": {
-  "fr": 76,
+  "fr": 81,
   "us": 49,
-  "frS": 73,
+  "frS": 75,
   "usS": 380
  },
  "frS": [
+  {
+   "id": "2026DD1149922",
+   "source": "FR",
+   "side": "sell",
+   "societe": "L'OREAL",
+   "auteur": "GALAXIAN INVEST SAS personne morale liée à Nicolas HIERONIMUS",
+   "role": "Directeur Général",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-09",
+   "volume": 3500,
+   "prix": 446.699,
+   "montant": 1563446.5,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149922/398C25ACA1C4407F935D28EBEFB45B14DAB4A4303D0AB0F32455AFCF853E1182.pdf"
+  },
+  {
+   "id": "2026DD1149921",
+   "source": "FR",
+   "side": "sell",
+   "societe": "L'OREAL",
+   "auteur": "PRINCE INVEST SAS personne morale liée à Nicolas HIERONIMUS",
+   "role": "Directeur Général",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "",
+   "datePub": "2026-11-11",
+   "dateOp": "2026-11-09",
+   "volume": 3500,
+   "prix": 446.699,
+   "montant": 1563446.5,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1149921/0AC550D8F4CDF9BD14DAF9C3F1F76B518A34F1E5FCD88B6F8449355A2293E829.pdf"
+  },
   {
    "id": "2026DD1149775",
    "source": "FR",
@@ -10700,5 +10819,5 @@
    "url": "https://www.sec.gov/Archives/edgar/data/2113214/000119312526450510/ownership.xml"
   }
  ],
- "frUpdated": "2026-11-12T02:12:42.933Z"
+ "frUpdated": "2026-11-12T09:43:52.962Z"
 }
