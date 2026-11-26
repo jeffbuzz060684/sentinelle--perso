@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-26T10:47:00.130Z",
+ "updated": "2026-11-26T14:58:18.946Z",
  "fr": [
   {
    "id": "2026DD1152053",
@@ -36,6 +36,40 @@
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152120/A114FB43978F8E9669C3DD02F69110D5CE426FFDA8C92DE9079AC1CC2D07C6E7.pdf"
   },
   {
+   "id": "2026DD1152349",
+   "source": "FR",
+   "side": "buy",
+   "societe": "LOUIS HACHETTE GROUP S.A.",
+   "auteur": "HAVAS SAS Société par actions simplifiée personne morale liée à Yannick Bolloré",
+   "role": "Administrateur de Louis Hachette Group",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "FR001400TL40",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-19",
+   "volume": 769410,
+   "prix": 1.7453,
+   "montant": 1342851.273,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152349/D05A87ABA44A908871E86E96CA6B51E9E987DAA50D14C6A00025308ABD26B5DB.pdf"
+  },
+  {
+   "id": "2026DD1152438",
+   "source": "FR",
+   "side": "buy",
+   "societe": "ABIVAX",
+   "auteur": "Marc De Garidel",
+   "role": "Directeur Général",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-24",
+   "volume": 15500,
+   "prix": 65.1507,
+   "montant": 1009835.85,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152438/669E4BDDE8BCF12B8D0E1E4EA4CDA64D0DB38B1A4FCC3FE610998198366CE440.pdf"
+  },
+  {
    "id": "2026DD1152054",
    "source": "FR",
    "side": "buy",
@@ -70,6 +104,23 @@
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152111/57504926DC06B58303D90A3BE6F8336EFCF6F0AD8199B5524FA3A7F680847C59.pdf"
   },
   {
+   "id": "2026DD1152351",
+   "source": "FR",
+   "side": "buy",
+   "societe": "COMPAGNIE DE L'ODET",
+   "auteur": "SOCIETE INDUSTRIELLE ET FINANCIERE DE L’ARTOIS Société Anonyme à conseil d’administration personne morale liée àVincent Bolloré",
+   "role": "Président-Directeur Général de Compagnie de l’Odet",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "FR0000062234",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-19",
+   "volume": 477,
+   "prix": 1020,
+   "montant": 486540,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152351/DA441E44AC17E70F50119DDF32405942C36999A97D031B34EF01E1E80029CBF4.pdf"
+  },
+  {
    "id": "2026DD1152175",
    "source": "FR",
    "side": "buy",
@@ -102,6 +153,23 @@
    "prix": 8.9666,
    "montant": 6384.2192,
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152068/2958871DA0644CCFD3D4E840D54ABFE2A93C25480981E27F6E6582901FC1EF6F.pdf"
+  },
+  {
+   "id": "2026DD1152341",
+   "source": "FR",
+   "side": "buy",
+   "societe": "ATLAND",
+   "auteur": "ANTOINE ONFRAY",
+   "role": "DIRECTEUR GENERAL DELEGUE",
+   "nature": "Acquisition",
+   "instrument": "Action",
+   "isin": "",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-09-21",
+   "volume": 82,
+   "prix": 33.5,
+   "montant": 2747,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152341/B8385BB7A55394DFAFECF59C4B3CA54C469BD7C85534D9D82F324D6347339E76.pdf"
   },
   {
    "id": "2026DD1152069",
@@ -3114,12 +3182,29 @@
  "frOk": true,
  "usOk": false,
  "counts": {
-  "fr": 128,
+  "fr": 132,
   "us": 49,
-  "frS": 141,
+  "frS": 148,
   "usS": 380
  },
  "frS": [
+  {
+   "id": "2026DD1152518",
+   "source": "FR",
+   "side": "sell",
+   "societe": "KKO INTERNATIONAL SA",
+   "auteur": "ALICANTE PARTICIPATION S.A. SA",
+   "role": "ADMINISTRATRICE",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "FR0013374667",
+   "datePub": "2026-11-26",
+   "dateOp": "2026-11-19",
+   "volume": 70000,
+   "prix": 0.0436,
+   "montant": 3052,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152518/D0F6A96AB2843BE39874EEF3BDFFEDC428370BE18B14CD9A013B1FC9BF12E49D.pdf"
+  },
   {
    "id": "2026DD1152041",
    "source": "FR",
@@ -3155,6 +3240,23 @@
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152042/4C63428C7CC40E3064A499E95D171D4DE47EE478ACA55336ED718F5319252697.pdf"
   },
   {
+   "id": "2026DD1152447",
+   "source": "FR",
+   "side": "sell",
+   "societe": "ERAMET",
+   "auteur": "CEIR SAS personne morale liée à Jérôme Duval",
+   "role": "Administrateur",
+   "nature": "Cession",
+   "instrument": "Droits préféren...",
+   "isin": "FR001401C5C5",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-20",
+   "volume": 1880260,
+   "prix": 12.4355,
+   "montant": 23381923.488,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152447/EACFE7828D62453B2A77D0D37233961F3ECF966D5A2CC090CB05760369EF2599.pdf"
+  },
+  {
    "id": "2026DD1152049",
    "source": "FR",
    "side": "sell",
@@ -3170,6 +3272,40 @@
    "prix": 436.261,
    "montant": 2181303.5,
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152049/DAD8C032EE7A93E69A3FB478045FEC6459EA7F37B117D8B98D84224787416CFD.pdf"
+  },
+  {
+   "id": "2026DD1152352",
+   "source": "FR",
+   "side": "sell",
+   "societe": "GL EVENTS",
+   "auteur": "MAXIME ROSENWALD",
+   "role": "Directeur Général Délégué",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-23",
+   "volume": 3813,
+   "prix": 29.8,
+   "montant": 113627.4,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152352/BB5B121ED8044A24C05541D622C1318E7D8105EAC1DCEDDC63457E3D9F9CC3F6.pdf"
+  },
+  {
+   "id": "2026DD1152496",
+   "source": "FR",
+   "side": "sell",
+   "societe": "INTERPARFUMS",
+   "auteur": "Philippe Santi",
+   "role": "Directeur Général Délégué",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-20",
+   "volume": 1663,
+   "prix": 36.2313,
+   "montant": 60252.6519,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152496/B43080F08379FA10DBA07EB8AFAD26E98487043DA766352E4CE8F2F271D9A07E.pdf"
   },
   {
    "id": "2026DD1152167",
@@ -3189,6 +3325,23 @@
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152167/E85BD908F8D5B3EBDDCD8EE8982089DEC7D16A6F999603B7E655F80EEAACF648.pdf"
   },
   {
+   "id": "2026DD1152420",
+   "source": "FR",
+   "side": "sell",
+   "societe": "ABC ARBITRAGE",
+   "auteur": "AUBEPAR INDUSTRIES SE SE",
+   "role": "Membre du conseil d'administration",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "FR0004040608",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-24",
+   "volume": 7577,
+   "prix": 5.5796,
+   "montant": 42276.6292,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152420/3FE9EBF40D76206E371053F6A590DD6797C42A85341DB7A85DC67190DF6592B9.pdf"
+  },
+  {
    "id": "2026DD1152168",
    "source": "FR",
    "side": "sell",
@@ -3206,6 +3359,23 @@
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152168/F05113600BB2EA43921FEC54F17164948698091C5D4F326FCB49FC159388EBA7.pdf"
   },
   {
+   "id": "2026DD1152424",
+   "source": "FR",
+   "side": "sell",
+   "societe": "ABC ARBITRAGE",
+   "auteur": "AUBEPAR INDUSTRIES SE SE",
+   "role": "Membre du conseil d'administration",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "FR0004040608",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-24",
+   "volume": 2830,
+   "prix": 5.5773,
+   "montant": 15783.759,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152424/BE7802770476E85E0BC686ABBC0BEC2F620781A38D1AAE95FD7AF789484E841B.pdf"
+  },
+  {
    "id": "2026DD1152171",
    "source": "FR",
    "side": "sell",
@@ -3221,6 +3391,23 @@
    "prix": 5.8133,
    "montant": 6975.96,
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152171/ED25F0CCD59337728D015E23E94F17A2183C8617DB7DA4C3735EFE59F40DBB75.pdf"
+  },
+  {
+   "id": "2026DD1152429",
+   "source": "FR",
+   "side": "sell",
+   "societe": "ABC ARBITRAGE",
+   "auteur": "AUBEPAR INDUSTRIES SE SE",
+   "role": "Membre du conseil d'administration",
+   "nature": "Cession",
+   "instrument": "Action",
+   "isin": "FR0004040608",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-24",
+   "volume": 1000,
+   "prix": 5.567,
+   "montant": 5567,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152429/A07E1834662B94F1B741DB336A420683EE2823634D27D3DCEF7F5B5820C77094.pdf"
   },
   {
    "id": "2026DD1152127",
@@ -12740,5 +12927,5 @@
    "url": "https://www.sec.gov/Archives/edgar/data/2113214/000119312526450510/ownership.xml"
   }
  ],
- "frUpdated": "2026-11-26T10:46:58.483Z"
+ "frUpdated": "2026-11-26T14:58:17.287Z"
 }
