@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-25T15:27:50.176Z",
+ "updated": "2026-11-26T00:55:38.813Z",
  "fr": [
   {
    "id": "2026DD1152053",
@@ -3116,7 +3116,7 @@
  "counts": {
   "fr": 128,
   "us": 49,
-  "frS": 140,
+  "frS": 141,
   "usS": 380
  },
  "frS": [
@@ -3136,6 +3136,23 @@
    "prix": 12.4355,
    "montant": 109703568.513,
    "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152041/1C6C10446E957163E42A70DF360D59A168F79234ED2BC0F75E6C0B801F70158E.pdf"
+  },
+  {
+   "id": "2026DD1152042",
+   "source": "FR",
+   "side": "sell",
+   "societe": "ERAMET",
+   "auteur": "CEIR SAS personne morale liée à Nathalie de la Fournière",
+   "role": "Administrateur",
+   "nature": "Cession",
+   "instrument": "Droits préféren...",
+   "isin": "FR001401C5C5",
+   "datePub": "2026-11-25",
+   "dateOp": "2026-11-20",
+   "volume": 1880260,
+   "prix": 12.4355,
+   "montant": 23381923.488,
+   "url": "https://bdif.amf-france.org/back/api/v1/documents/2026/2026DD1152042/4C63428C7CC40E3064A499E95D171D4DE47EE478ACA55336ED718F5319252697.pdf"
   },
   {
    "id": "2026DD1152049",
@@ -12723,5 +12740,5 @@
    "url": "https://www.sec.gov/Archives/edgar/data/2113214/000119312526450510/ownership.xml"
   }
  ],
- "frUpdated": "2026-11-25T15:27:48.333Z"
+ "frUpdated": "2026-11-26T00:55:36.929Z"
 }
